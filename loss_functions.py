@@ -21,4 +21,26 @@ def adversarial_loss_gen(batch):
     return adversarial_loss(batch, zeros_labels)
 
 
+def network_adversarial_loss(batch_real, batch_gen):
+    real_loss = adversarial_loss_real(batch_real)
+    gen_loss = adversarial_loss_gen(batch_gen)
 
+    return real_loss + gen_loss  # normalization
+
+
+def compute_discriminators_loss(model, first_domain_batch, second_domain_batch):
+    first_real = model.first_discriminator.forward(first_domain_batch)
+    first_gen = model.run_second_adversarial_network(second_domain_batch)
+
+    first_an_loss = network_adversarial_loss(first_real, first_gen)
+
+    second_real = model.second_discriminator.forward(second_domain_batch)
+    second_gen = model.run_second_adversarial_network(first_domain_batch)
+
+    second_an_loss = network_adversarial_loss(second_real, second_gen)
+
+    latent_first = model.map_first_to_first(first_domain_batch)
+    latent_second = model.map_second_to_second(second_domain_batch)
+    latent_an_loss = network_adversarial_loss(latent_first, latent_second)
+
+    return W1 * first_an_loss + W2 * second_an_loss + W_l * latent_an_loss
