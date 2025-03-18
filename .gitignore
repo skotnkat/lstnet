@@ -1,0 +1,8 @@
+# python
+*.pyc
+
+# pycharm
+.idea
+
+# jupyter notebook
+.ipynb_checkpoints/
