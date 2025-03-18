@@ -44,3 +44,19 @@ def compute_discriminators_loss(model, first_domain_batch, second_domain_batch):
     latent_an_loss = network_adversarial_loss(latent_first, latent_second)
 
     return W1 * first_an_loss + W2 * second_an_loss + W_l * latent_an_loss
+
+
+def cycle_consistency_loss(model, first_domain_batch, second_domain_batch):
+    first_to_first = model.map_first_domain_to_first(first_domain_batch)
+    cc_loss_1 = cycle_loss(first_domain_batch, first_to_first)
+
+    first_to_second_to_first = model.map_second_domain_to_first(model.map_first_domain_to_second(first_domain_batch))
+    cc_loss_2 = cycle_loss(first_domain_batch, first_to_second_to_first)
+
+    second_to_second = model.map_second_domain_to_second(second_domain_batch)
+    cc_loss_3 = cycle_loss(second_domain_batch, second_to_second)
+
+    second_to_first_to_second = model.map_first_domain_to_second(model.map_second_domain_to_first(second_domain_batch))
+    cc_loss_4 = cycle_loss(second_domain_batch, second_to_first_to_second)
+
+    return W3*cc_loss_1 + W4*cc_loss_2 + W5*cc_loss_3 + W6*cc_loss_4
