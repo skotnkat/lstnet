@@ -45,3 +45,14 @@ def load_dataset(dataset_name, train_op=True, transform_steps=BASIC_TRANSFORMATI
 
     return data
 
+
+def load_augmented_dataset(dataset_name, train_op=True, download=True):
+    original_data = load_dataset(dataset_name, train_op=train_op, download=download)
+
+    img_size = original_data[0][0].shape[1]  # size to use for resize
+    transform_steps = create_augmentation_steps(img_size)
+
+    augmented_data = load_dataset(dataset_name, train_op=train_op, download=False, transform_steps=transform_steps)
+
+    return ConcatDataset([original_data, augmented_data])
+
