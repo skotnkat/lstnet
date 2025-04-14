@@ -89,3 +89,17 @@ class DualDomainSupervisedDataset(DualDomainDataset): # first dataset should be 
         return first_img, first_label, second_img, second_label
 
 
+def custom_collate_fn(batch):
+    # Unpack the batch into separate components
+    first_imgs, first_labels, second_imgs, second_labels = zip(*batch)
+
+    for idx in range(len(second_imgs)):
+        img = second_imgs[idx]
+
+    # Stack the images and labels
+    first_imgs = torch.stack(first_imgs)
+    first_labels = torch.stack(first_labels)
+    second_imgs = torch.stack(second_imgs)
+    second_labels = torch.stack(second_labels)
+
+    return first_imgs, first_labels, second_imgs, second_labels
