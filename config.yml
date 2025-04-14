@@ -6,3 +6,4 @@ dependencies:
   - python>=3.11
   - torch
   - jupyter
+  - torchvision>=0.15  # needed for transforms.v2
