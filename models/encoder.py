@@ -1,7 +1,4 @@
 import torch.nn as nn
-import torch.nn.functional as F
-import utils
-import math
 
 from models.lstnet_component import LstnetComponent
 from models.extended_layers import Conv2dExtended
@@ -10,7 +7,6 @@ from models.extended_layers import Conv2dExtended
 class Encoder(LstnetComponent):
     def __init__(self, input_size, in_channels_num, params):
         super().__init__(input_size, in_channels_num, params)
-
     
     @staticmethod
     def _create_stand_layer(params, in_channels, input_size):        

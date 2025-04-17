@@ -1,6 +1,5 @@
 import torch.nn as nn
 import torch
-import utils
 
 from models.lstnet_component import LstnetComponent
 from models.extended_layers import Conv2dExtended, MaxPool2dExtended
@@ -16,7 +15,6 @@ class Discriminator(LstnetComponent):
         
         super().__init__(input_size, in_channels_num, params[:-1])  # pass all the params apart for last layer
 
-        
         last_output_size = self.get_last_layer_output_size()  
         last_layer_out_channels = self.get_last_layer_out_channels()
 
@@ -26,7 +24,6 @@ class Discriminator(LstnetComponent):
         last_layer = Discriminator._create_last_layer(self.dense_layer_params)
         
         self.layers.append(last_layer)
-        
 
     def forward(self, x):    
         x = self.layers.forward(x)
@@ -35,11 +32,7 @@ class Discriminator(LstnetComponent):
         x_clamped = torch.clamp(x, min=EPSILON, max=1-EPSILON)
         
         return x_clamped
-        # pred = torch.le(x, CLF_THRESHOLD)
-        
-        # return pred
 
-    
     @staticmethod
     def _create_stand_layer(params, in_channels, input_size):
         conv_params, pool_params = params
@@ -54,7 +47,6 @@ class Discriminator(LstnetComponent):
     
         return layer
 
-
     @staticmethod
     def _create_last_layer(params):
         last_layer = nn.Sequential(
@@ -64,7 +56,6 @@ class Discriminator(LstnetComponent):
         )
     
         return last_layer
-
 
     @staticmethod
     def _compute_layer_output_size(layer, input_size):

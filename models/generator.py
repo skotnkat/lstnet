@@ -1,6 +1,4 @@
 import torch.nn as nn
-import torch.nn.functional as F
-import utils
 
 from models.lstnet_component import LstnetComponent
 from models.extended_layers import ConvTranspose2dExtended
@@ -32,7 +30,6 @@ class Generator(LstnetComponent):
         )
     
         return last_layer
-
 
     @staticmethod
     def _compute_layer_output_size(layer, input_size):
