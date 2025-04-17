@@ -95,8 +95,8 @@ def custom_collate_fn(batch):
     first_imgs, first_labels, second_imgs, second_labels = zip(*batch)
 
     # Stack the images and labels
-    first_imgs = torch.stack(first_imgs)
-    first_labels = torch.stack(first_labels)
+    first_imgs = torch.stack(first_imgs).to(utils.DEVICE)
+    first_labels = torch.stack(first_labels).to(utils.DEVICE)
     second_imgs = torch.stack(second_imgs)
     second_labels = torch.stack(second_labels)
 
