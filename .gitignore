@@ -6,3 +6,4 @@
 
 # jupyter notebook
 .ipynb_checkpoints/
+/experiments
