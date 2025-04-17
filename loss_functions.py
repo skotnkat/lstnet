@@ -28,20 +28,18 @@ def network_adversarial_loss(batch_real, batch_gen):
     return real_loss + gen_loss  # normalization
 
 
-def compute_discriminator_loss(model, first_domain_batch, second_domain_batch):
-    # first domain discriminator
-    first_domain_real = model.first_discriminator.forward(first_domain_batch)
-    first_domain_gen = model.run_second_adversarial_network(second_domain_batch)
-    first_disc_loss = network_adversarial_loss(first_domain_real, first_domain_gen)
+def compute_discriminator_loss(model, first_real, second_real, first_gen, second_gen, first_latent, second_latent):
+    first_real_disc = model.first_discriminator.forward(first_real)
+    first_gen_disc = model.first_discriminator.forward(first_gen)
+    first_disc_loss = network_adversarial_loss(first_real_disc, first_gen_disc)
 
-    # second domain discriminator
-    second_domain_real = model.second_discriminator.forward(second_domain_batch)
-    second_domain_gen = model.run_first_adversarial_network(first_domain_batch)
-    second_disc_loss = network_adversarial_loss(second_domain_real, second_domain_gen)
+    second_real_disc = model.second_discriminator.forward(second_real)
+    second_gen_disc = model.second_discriminator.forward(second_gen)
+    second_disc_loss = network_adversarial_loss(second_real_disc, second_gen_disc)
 
-    # latent discriminator
-    first_latent, second_latent = model.run_latent_adversarial_network(first_domain_batch, second_domain_batch)
-    latent_disc_loss = network_adversarial_loss(first_latent, second_latent)
+    first_latent_disc = model.latent_discriminator.forward(first_latent)
+    second_latent_disc = model.latent_discriminator.forward(second_latent)
+    latent_disc_loss = network_adversarial_loss(first_latent_disc, second_latent_disc)
 
     return W_1*first_disc_loss + W_2*second_disc_loss + W_l*latent_disc_loss
 
