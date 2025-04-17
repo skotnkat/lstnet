@@ -1,5 +1,6 @@
 from torch.utils.data import Dataset
 import torch
+import utils
 
 
 class DualDomainDataset(Dataset):
@@ -45,7 +46,7 @@ class DualDomainDataset(Dataset):
         return labels
 
 
-class DualDomainSupervisedDataset(DualDomainDataset): # first dataset should be always the first one -> raise error
+class DualDomainSupervisedDataset(DualDomainDataset):  # first dataset should be always the first one -> raise error
     def __init__(self, first_data, second_data):
         super().__init__(first_data, second_data)
 
@@ -92,9 +93,6 @@ class DualDomainSupervisedDataset(DualDomainDataset): # first dataset should be 
 def custom_collate_fn(batch):
     # Unpack the batch into separate components
     first_imgs, first_labels, second_imgs, second_labels = zip(*batch)
-
-    for idx in range(len(second_imgs)):
-        img = second_imgs[idx]
 
     # Stack the images and labels
     first_imgs = torch.stack(first_imgs)
