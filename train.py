@@ -39,39 +39,63 @@ def run_training(model, loader):
                           + list(model.second_generator.parameters()) \
                           + list(model.shared_generator.parameters())
 
-    optim_enc_dec = Adam(enc_gen_params, lr=utils.ADAM_LR, betas=utils.ADAM_DECAY)
+    optim_enc_gen = Adam(enc_gen_params, lr=utils.ADAM_LR, betas=utils.ADAM_DECAY)
 
     epoch_num = 0
     converged = False
-    prev_total_loss = np.inf
+    prev_avg_loss = np.inf
     loss_list = []
     while not converged:
-        total_disc_loss, total_enc_gen_loss = None, None
-        for batch_idx, (first_domain_batch, _, second_domain_batch, _) in enumerate(loader):
-            total_disc_loss, total_enc_gen_loss = compute_loss(model, first_domain_batch, second_domain_batch)
+        total_loss = 0
+        batch_idx = 0
+        for batch_idx, (first_real, _, second_real, _) in enumerate(loader):
+            #############################################################
+            # update discriminators
+            optim_disc.zero_grad()
 
-            if batch_idx % 2:  # odd -> update discriminators
-                optim_disc.zero_grad()
-                total_disc_loss.backward()
-                optim_disc.step()
+            second_gen, first_latent = model.map_first_to_second(first_real, return_latent=True)
+            first_gen, second_latent = model.map_second_to_first(second_real, return_latent=True)
 
-            else:  # update encoders and generators
-                optim_enc_dec.zero_grad()
-                total_enc_gen_loss.backward()
-                optim_enc_dec.step()
+            disc_loss = compute_discriminator_loss(model,
+                                                   first_real, second_real,
+                                                   first_gen, second_gen,
+                                                   first_latent, second_latent)
 
-            if (batch_idx % 100 == 0):
-                print(f'batch idx: {batch_idx}, disc loss: {total_disc_loss}, enc gen loss: {total_enc_gen_loss}')
+            disc_loss.backward(retain_graph=True)
+            optim_disc.step()
 
-        cur_total_loss = total_disc_loss + total_enc_gen_loss
+            total_loss += disc_loss
 
-        if torch.abs(cur_total_loss - prev_total_loss) < utils.DELTA_LOSS:
+            #############################################################
+            # update encoders and generators
+            optim_enc_gen.zero_grad()
+
+            enc_gen_loss = compute_enc_gen_loss(model, first_gen, second_gen, first_latent, second_latent)
+
+            # cycle consistency
+            first_cycle, second_cycle, first_full_cycle, second_full_cycle = get_cc_components(model,
+                                                                                           first_gen, second_gen,
+                                                                                           first_latent, second_latent)
+            cc_loss = compute_cc_loss(first_real, second_real,
+                                      first_cycle, second_cycle,
+                                      first_full_cycle, second_full_cycle)
+
+            enc_gen_loss_total = enc_gen_loss + cc_loss
+            enc_gen_loss_total.backward()
+            optim_enc_gen.step()
+
+            total_loss += cc_loss
+            #############################################################
+
+        cur_avg_loss = total_loss / batch_idx
+
+        if torch.abs(cur_avg_loss - prev_avg_loss) < utils.DELTA_LOSS:
             converged = True
 
-        loss_list.append(cur_total_loss)
-        prev_total_loss = cur_total_loss
+        loss_list.append(cur_avg_loss)
+        prev_avg_loss = cur_avg_loss
 
-        print(f'End of epoch {epoch_num}, current total loss: {cur_total_loss}')
+        print(f'End of epoch {epoch_num}, current total loss: {cur_avg_loss}')
         epoch_num += 1
 
     return model, loss_list
