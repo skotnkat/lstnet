@@ -51,7 +51,7 @@ def run_training(model, loader):
                 total_enc_gen_loss.backward()
                 optim_enc_dec.step()
 
-            if (batch_idx % 1000):
+            if (batch_idx % 100 == 0):
                 print(f'batch idx: {batch_idx}, disc loss: {total_disc_loss}, enc gen loss: {total_enc_gen_loss}')
 
         cur_total_loss = total_disc_loss + total_enc_gen_loss
