@@ -44,18 +44,12 @@ def compute_discriminator_loss(model, first_real, second_real, first_gen, second
     return W_1*first_disc_loss + W_2*second_disc_loss + W_l*latent_disc_loss
 
 
-def cycle_consistency_loss(model, first_domain_batch, second_domain_batch):
-    first_to_first = model.map_first_to_first(first_domain_batch)
-    cc_loss_1 = cycle_loss(first_domain_batch, first_to_first)
+def compute_cc_loss(first_real, second_real, first_cycle, second_cycle, first_full_cycle, second_full_cycle):
+    cc_loss_1 = cycle_loss(first_cycle, first_real)  # (predictions, target)
+    cc_loss_2 = cycle_loss(first_full_cycle, first_real)
 
-    first_to_second_to_first = model.map_second_to_first(model.map_first_to_second(first_domain_batch))
-    cc_loss_2 = cycle_loss(first_domain_batch, first_to_second_to_first)
-
-    second_to_second = model.map_second_to_second(second_domain_batch)
-    cc_loss_3 = cycle_loss(second_domain_batch, second_to_second)
-
-    second_to_first_to_second = model.map_first_to_second(model.map_second_to_first(second_domain_batch))
-    cc_loss_4 = cycle_loss(second_domain_batch, second_to_first_to_second)
+    cc_loss_3 = cycle_loss(second_cycle, second_real)
+    cc_loss_4 = cycle_loss(second_full_cycle, second_real)
 
     return W_3*cc_loss_1 + W_4*cc_loss_2 + W_5*cc_loss_3 + W_6*cc_loss_4
 
