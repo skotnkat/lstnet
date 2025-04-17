@@ -67,3 +67,17 @@ def run_training(model, loader):
 
     return model, loss_list
 
+
+def train(first_domain_name, second_domain_name, supervised):
+    data_loader = get_training_loader(first_domain_name, second_domain_name, supervised)
+    model = LSTNET().to(utils.DEVICE)
+    print('LSTNet model initialized')
+
+    model, loss_list = run_training(model, data_loader)
+
+    with open(f'{utils.OUTPUT_FOLDER}/{utils.LOSS_FILE}.json', 'w') as file:
+        json.dump(loss_list, file, indent=2)
+
+    print('Model trained.')
+    print('Loss scores dumped.')
+    return model
