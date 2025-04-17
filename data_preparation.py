@@ -27,11 +27,9 @@ def create_augmentation_steps(img_size):
 def load_dataset(dataset_name, train_op=True, transform_steps=BASIC_TRANSFORMATION, **kwargs):
     if dataset_name == 'MNIST':
         data = datasets.MNIST(root="./data", train=train_op, transform=transform_steps, **kwargs)
-        print('Loaded MNIST')
 
     elif dataset_name == 'USPS':
         data = datasets.USPS(root="./data", train=train_op, transform=transform_steps, **kwargs)
-        print('Loaded USPS')
 
     elif dataset_name == 'SVHN':
         # targets are called labels and are array
@@ -47,6 +45,7 @@ def load_dataset(dataset_name, train_op=True, transform_steps=BASIC_TRANSFORMATI
 
 
 def load_augmented_dataset(dataset_name, train_op=True, download=True):
+    print(f'Loading dataset: {dataset_name}')
     original_data = load_dataset(dataset_name, train_op=train_op, download=download)
 
     img_size = original_data[0][0].shape[1]  # size to use for resize
@@ -80,4 +79,5 @@ def get_training_loader(first_domain_name, second_domain_name, supervised=True):
 
     data_loader = DataLoader(dual_data, batch_size=utils.BATCH_SIZE, shuffle=True)
 
+    print(f'Obtained Data Loader')
     return data_loader
