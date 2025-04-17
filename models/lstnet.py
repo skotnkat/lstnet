@@ -45,7 +45,8 @@ class LSTNET(nn.Module):
                                        FIRST_IN_CHANNELS_NUM, SECOND_IN_CHANNELS_NUM,
                                        params)
 
-    def initialize_encoders(self, first_input_size, second_input_size, first_in_channels_num, second__in_channels_num, params):
+    def initialize_encoders(self, first_input_size, second_input_size,
+                            first_in_channels_num, second__in_channels_num, params):
         self.first_encoder = Encoder(first_input_size, first_in_channels_num, params["first_encoder"])
         self.second_encoder = Encoder(second_input_size, second__in_channels_num, params["second_encoder"])
 
@@ -66,7 +67,8 @@ class LSTNET(nn.Module):
         self.first_generator = Generator(input_size, out_channels, params["first_generator"])
         self.second_generator = Generator(input_size, out_channels, params["second_generator"])
 
-    def initialize_discriminators(self, first_input_size, second_input_size, first_in_channels_num, second_in_channels_num, params):
+    def initialize_discriminators(self, first_input_size, second_input_size,
+                                  first_in_channels_num, second_in_channels_num, params):
         self.first_discriminator = Discriminator(first_input_size, first_in_channels_num, params["first_discriminator"])
         self.second_discriminator = Discriminator(second_input_size, second_in_channels_num, params["second_discriminator"])
 
