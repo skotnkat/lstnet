@@ -2,7 +2,7 @@ import torch.nn as nn
 import torch
 import utils
 
-W1, W2, W3, W4, W5, W6, W_l = utils.initialize_weights()
+W_1, W_2, W_3, W_4, W_5, W_6, W_l = utils.initialize_weights()
 adversarial_loss = nn.BCELoss()
 cycle_loss = nn.L1Loss()
 
@@ -28,22 +28,22 @@ def network_adversarial_loss(batch_real, batch_gen):
     return real_loss + gen_loss  # normalization
 
 
-def compute_discriminators_loss(model, first_domain_batch, second_domain_batch):
-    first_real = model.first_discriminator.forward(first_domain_batch)
-    first_gen = model.run_second_adversarial_network(second_domain_batch)
+def compute_discriminator_loss(model, first_domain_batch, second_domain_batch):
+    # first domain discriminator
+    first_domain_real = model.first_discriminator.forward(first_domain_batch)
+    first_domain_gen = model.run_second_adversarial_network(second_domain_batch)
+    first_disc_loss = network_adversarial_loss(first_domain_real, first_domain_gen)
 
-    first_an_loss = network_adversarial_loss(first_real, first_gen)
+    # second domain discriminator
+    second_domain_real = model.second_discriminator.forward(second_domain_batch)
+    second_domain_gen = model.run_first_adversarial_network(first_domain_batch)
+    second_disc_loss = network_adversarial_loss(second_domain_real, second_domain_gen)
 
-    second_real = model.second_discriminator.forward(second_domain_batch)
-    second_gen = model.run_second_adversarial_network(first_domain_batch)
+    # latent discriminator
+    first_latent, second_latent = model.run_latent_adversarial_network(first_domain_batch, second_domain_batch)
+    latent_disc_loss = network_adversarial_loss(first_latent, second_latent)
 
-    second_an_loss = network_adversarial_loss(second_real, second_gen)
-
-    latent_first = model.map_first_to_first(first_domain_batch)
-    latent_second = model.map_second_to_second(second_domain_batch)
-    latent_an_loss = network_adversarial_loss(latent_first, latent_second)
-
-    return W1 * first_an_loss + W2 * second_an_loss + W_l * latent_an_loss
+    return W_1*first_disc_loss + W_2*second_disc_loss + W_l*latent_disc_loss
 
 
 def cycle_consistency_loss(model, first_domain_batch, second_domain_batch):
@@ -59,7 +59,7 @@ def cycle_consistency_loss(model, first_domain_batch, second_domain_batch):
     second_to_first_to_second = model.map_first_domain_to_second(model.map_second_domain_to_first(second_domain_batch))
     cc_loss_4 = cycle_loss(second_domain_batch, second_to_first_to_second)
 
-    return W3*cc_loss_1 + W4*cc_loss_2 + W5*cc_loss_3 + W6*cc_loss_4
+    return W_3*cc_loss_1 + W_4*cc_loss_2 + W_5*cc_loss_3 + W_6*cc_loss_4
 
 
 def compute_enc_gen_loss(model, first_domain_batch, second_domain_batch):
@@ -71,4 +71,4 @@ def compute_enc_gen_loss(model, first_domain_batch, second_domain_batch):
 
     cc_loss = cycle_consistency_loss(model, first_domain_batch, second_domain_batch)
 
-    return W1 * first_gen_loss + W2 * second_gen_loss + cc_loss
+    return W_1 * first_gen_loss + W_2 * second_gen_loss + cc_loss
