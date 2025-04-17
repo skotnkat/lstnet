@@ -47,16 +47,16 @@ def compute_discriminator_loss(model, first_domain_batch, second_domain_batch):
 
 
 def cycle_consistency_loss(model, first_domain_batch, second_domain_batch):
-    first_to_first = model.map_first_domain_to_first(first_domain_batch)
+    first_to_first = model.map_first_to_first(first_domain_batch)
     cc_loss_1 = cycle_loss(first_domain_batch, first_to_first)
 
-    first_to_second_to_first = model.map_second_domain_to_first(model.map_first_domain_to_second(first_domain_batch))
+    first_to_second_to_first = model.map_second_to_first(model.map_first_to_second(first_domain_batch))
     cc_loss_2 = cycle_loss(first_domain_batch, first_to_second_to_first)
 
-    second_to_second = model.map_second_domain_to_second(second_domain_batch)
+    second_to_second = model.map_second_to_second(second_domain_batch)
     cc_loss_3 = cycle_loss(second_domain_batch, second_to_second)
 
-    second_to_first_to_second = model.map_first_domain_to_second(model.map_second_domain_to_first(second_domain_batch))
+    second_to_first_to_second = model.map_first_to_second(model.map_second_to_first(second_domain_batch))
     cc_loss_4 = cycle_loss(second_domain_batch, second_to_first_to_second)
 
     return W_3*cc_loss_1 + W_4*cc_loss_2 + W_5*cc_loss_3 + W_6*cc_loss_4
