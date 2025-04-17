@@ -60,13 +60,20 @@ def cycle_consistency_loss(model, first_domain_batch, second_domain_batch):
     return W_3*cc_loss_1 + W_4*cc_loss_2 + W_5*cc_loss_3 + W_6*cc_loss_4
 
 
-def compute_enc_gen_loss(model, first_domain_batch, second_domain_batch):
-    first_gen = model.run_second_adversarial_network(second_domain_batch)
-    first_gen_loss = adversarial_loss_real(first_gen)
+def compute_enc_gen_loss(model, first_gen, second_gen, first_latent, second_latent):
+    first_gen_disc = model.first_discriminator.forward(first_gen)
+    first_gen_loss = adversarial_loss_real(first_gen_disc)
 
-    second_gen = model.run_first_adversarial_network(first_domain_batch)
-    second_gen_loss = adversarial_loss_real(second_gen)
+    second_gen_disc = model.second_discriminator.forward(second_gen)
+    second_gen_loss = adversarial_loss_real(second_gen_disc)
 
-    cc_loss = cycle_consistency_loss(model, first_domain_batch, second_domain_batch)
+    first_latent_disc = model.latent_discriminator.forward(first_latent)  # forcing to be second domain
+    first_latent_loss = adversarial_loss_gen(first_latent_disc)  # is this correct? tries to make it look like the second domain
 
-    return W_1 * first_gen_loss + W_2 * second_gen_loss + cc_loss
+    second_latent_disc = model.latent_discriminator.forward(second_latent)
+    second_latent_loss = adversarial_loss_real(second_latent_disc)  # encourage the encoder to fool the discriminator
+
+    latent_loss = (first_latent_loss+second_latent_loss) / 2
+
+    return W_1*first_gen_loss + W_2*second_gen_loss + W_l*latent_loss
+
