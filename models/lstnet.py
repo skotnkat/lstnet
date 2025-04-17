@@ -77,3 +77,35 @@ class LSTNET(nn.Module):
         out_channels_shared = self.shared_encoder.get_last_layer_out_channels()
         self.latent_discriminator = Discriminator(input_size_shared, out_channels_shared, params["latent_discriminator"])
 
+    def map_first_to_latent(self, x):
+        x = self.first_encoder.forward(x)
+        return self.shared_encoder.forward(x)
+
+    def map_second_to_latent(self, x):
+        x = self.second_encoder.forward(x)
+        return self.shared_encoder.forward(x)
+
+    def map_latent_to_first(self, x):
+        x = self.shared_generator.forward(x)
+        return self.first_generator.forward(x)
+    
+    def map_latent_to_second(self, x):
+        x = self.shared_generator.forward(x)
+        return self.second_generator.forward(x)
+
+    def map_first_to_second(self, x):
+        latent = self.map_first_to_latent(x)
+        return self.map_latent_to_second(latent)
+
+    def map_second_to_first(self, x):
+        latent = self.map_second_to_latent(x)
+        return self.map_latent_to_first(latent)
+
+    def map_first_to_first(self, x):
+        latent = self.map_first_to_latent(x)
+        return self.map_latent_to_first(latent)
+
+    def map_second_to_second(self, x):
+        latent = self.map_second_to_latent(x)
+        return self.map_latent_to_second(latent)
+
