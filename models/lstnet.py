@@ -56,13 +56,10 @@ class LSTNET(nn.Module):
     def initialize_generators(self, params):
         input_size_shared = self.shared_encoder.get_last_layer_output_size()
         out_channels_shared = self.shared_encoder.get_last_layer_out_channels()
-
-        print(f'input_size_shared: {input_size_shared}, out_channels_shared {out_channels_shared}')
         
         self.shared_generator = Generator(input_size_shared, out_channels_shared, params["shared_generator"])
 
         input_size = self.shared_generator.get_last_layer_output_size()
-        print(f'input_size: {input_size}')
         
         out_channels = self.shared_generator.get_last_layer_out_channels()
 
