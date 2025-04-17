@@ -7,3 +7,5 @@
 # jupyter notebook
 .ipynb_checkpoints/
 /experiments
+.idea/lstnet.iml
+.idea/modules.xml
