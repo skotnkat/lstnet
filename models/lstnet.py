@@ -92,10 +92,12 @@ class LSTNET(nn.Module):
         x = self.shared_generator.forward(x)
         return self.second_generator.forward(x)
 
-    def map_first_to_second(self, x):
-        latent = self.map_first_to_latent(x)
-        return self.map_latent_to_second(latent)
+    def map_first_to_second(self, x_first):
+        x_latent = self.map_first_to_latent(x_first)
+        x_second = self.map_latent_to_second(x_latent)
+        return x_second, x_latent
 
-    def map_second_to_first(self, x):
-        latent = self.map_second_to_latent(x)
-        return self.map_latent_to_first(latent)
+    def map_second_to_first(self, x_second):
+        x_latent = self.map_second_to_latent(x_second)
+        x_first = self.map_latent_to_first(x_latent)
+        return x_first, x_latent
