@@ -4,16 +4,25 @@ from torch.optim import Adam
 import json
 
 from models.lstnet import LSTNET
-from loss_functions import compute_discriminator_loss, compute_enc_gen_loss
+from loss_functions import compute_discriminator_loss, compute_enc_gen_loss, compute_cc_loss
 from data_preparation import get_training_loader
 import utils
 
 
-def compute_loss(model, first_domain_batch, second_domain_batch):
-    total_disc_loss = compute_discriminator_loss(model, first_domain_batch, second_domain_batch)
-    total_enc_gen_loss = compute_enc_gen_loss(model, first_domain_batch, second_domain_batch)
+def get_cc_components(model, first_gen, second_gen, first_latent, second_latent):
+    # map latent representation of real first images back to first domain
+    first_cycle = model.map_latent_to_first(first_latent)
 
-    return total_disc_loss, total_enc_gen_loss
+    # map latent representation of real second images back to second domain
+    second_cycle = model.map_latent_to_second(second_latent)
+
+    # map generated images in second domain back to first domain
+    first_full_cycle = model.map_second_to_first(second_gen)
+
+    # map generated images in first domain back to second domain
+    second_full_cycle = model.map_first_to_second(first_gen)
+
+    return first_cycle, second_cycle, first_full_cycle, second_full_cycle
 
 
 def run_training(model, loader):
