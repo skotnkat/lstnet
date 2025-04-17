@@ -15,12 +15,15 @@ BASIC_TRANSFORMATION = Compose([
 
 
 def create_augmentation_steps(img_size):
+    dy_translation = dx_translation = 2 / img_size
     return Compose([
-        RandomRotation(10),
-        RandomAffine(0, translate=(0.02, 0.02)),  # 2% of 28x28 ≈ 0.56 pixels
-        RandomResizedCrop(img_size, scale=(0.9, 1.1)),
         ToImage(),
-        ToDtype(torch.float32, scale=True)
+        ToDtype(torch.float32, scale=True),
+        RandomAffine(
+            degrees=(-10, 10),
+            translate=(dx_translation, dy_translation),
+            scale=(0.9, 1.1)
+        )
     ])
 
 
