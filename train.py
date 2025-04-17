@@ -85,6 +85,9 @@ def run_training(model, loader):
             optim_enc_gen.step()
 
             total_loss += cc_loss
+
+            if batch_idx % 10 == 0:
+                print(f'Batch {batch_idx} processed')
             #############################################################
 
         cur_avg_loss = total_loss / batch_idx
