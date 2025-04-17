@@ -99,34 +99,3 @@ class LSTNET(nn.Module):
     def map_second_to_first(self, x):
         latent = self.map_second_to_latent(x)
         return self.map_latent_to_first(latent)
-
-    def map_first_to_first(self, x):
-        latent = self.map_first_to_latent(x)
-        return self.map_latent_to_first(latent)
-
-    def map_second_to_second(self, x):
-        latent = self.map_second_to_latent(x)
-        return self.map_latent_to_second(latent)
-
-    def run_first_adversarial_network(self, x_first):
-        latent = self.map_first_to_latent(x_first)
-        x_second = self.map_latent_to_second(latent)
-        res = self.second_discriminator.forward(x_second)
-
-        return res
-
-    def run_second_adversarial_network(self, x_second):
-        latent = self.map_second_to_latent(x_second)
-        x_first = self.map_latent_to_first(latent)
-        res = self.first_discriminator.forward(x_first)
-
-        return res
-
-    def run_latent_adversarial_network(self, x_first, x_second):
-        latent_first = self.map_first_to_latent(x_first)
-        latent_second = self.map_second_to_latent(x_second)
-
-        res_first = self.latent_discriminator.forward(latent_first)
-        res_second = self.latent_discriminator.forward(latent_second)
-
-        return res_first, res_second
