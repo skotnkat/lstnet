@@ -66,7 +66,7 @@ def compute_enc_gen_loss(model, first_domain_batch, second_domain_batch):
     first_gen = model.run_second_adversarial_network(second_domain_batch)
     first_gen_loss = adversarial_loss_real(first_gen)
 
-    second_gen = model.run_second_adversarial_network(first_domain_batch)
+    second_gen = model.run_first_adversarial_network(first_domain_batch)
     second_gen_loss = adversarial_loss_real(second_gen)
 
     cc_loss = cycle_consistency_loss(model, first_domain_batch, second_domain_batch)
