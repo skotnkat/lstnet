@@ -1,20 +1,18 @@
 import json
-import math
-import numpy as np
 
 
+PARAMS_FILE_PATH = None
+NETWORK_NAMES = {"first_encoder", "second_encoder", "shared_encoder", "first_generator", "second_generator",
+                 "shared_generator", "first_discriminator", "second_discriminator", "latent_discriminator"}
 
-PARAMS_FILE_PATH = "params.json"
-NETWORK_NAMES = {"source_encoder", "target_encoder", "shared_encoder", "source_generator", "target_generator", "shared_generator", \
-                 "source_discriminator", "target_discriminator", "latent_discriminator"}
+OUTPUT_FOLDER = None
+LOSS_FILE = None
+BATCH_SIZE = None
+ADAM_LR = None
+ADAM_DECAY = None
+DELTA_LOSS = None
 
-LAYERS_NUM = "stand_layers_num"
-OUT_CHANNELS_NUM = "out_channels"
-KERNEL_SIZE = "kernel_sizes"
-STRIDE = "strides"
-PADDING = "paddings"
-POOLING_KERNEL_SIZE = "pooling_kernels"
-POOLING_STRIDE = "pooling_strides"
+DEVICE = None
 
 
 def get_networks_params():
@@ -32,32 +30,38 @@ def initialize_weights():
     return 20, 20, 100, 100, 100, 100, 30
 
 
-def check_and_transform_params(params, expected_params):  # params is implicitly being changed
-    for param in expected_params:
-        if param not in params:
-            raise ValueError(f"Parameter {param} is not specified")
+def is_padding_needed(params):
+    padding = params["padding"]
+    del params["padding"]
+
+    to_pad = (padding == "same")
+
+    return to_pad
+
+
+def transform_int_to_tuple(x):
+    if isinstance(x, int):
+        x = (x, x)
+
+    return x
+
+
+def standardize_padding(padding):
+    padding = transform_int_to_tuple(padding)
+    is_padding_same = (padding == "same")
     
-    layers_num = params[LAYERS_NUM]
-    for param in expected_params:
-        if param == LAYERS_NUM:
-            continue
-    
-        values = params[param]
-        if type(values) != list:
-            params[param] = [values] * layers_num
+    if not isinstance(padding, tuple):
+        padding = (0, 0)
 
-        elif len(values) != layers_num:  # is of type list
-            raise ValueError(F"Paramter {param} has not enough values specified ({len(values)} specified but network has {num_layers} layers.")
+    return padding, is_padding_same
 
 
+def split_padding(p_total):
+    p_first = p_total // 2
+    p_second = p_total - p_first
 
-def obtain_last_value(param):
-    if type(param) != list:
-        return param
-
-    return param[-1]
-
+    return p_first, p_second
 
 
-
-
+def compute_effective_kernel_size(kernel_size, dilation):
+    return dilation * (kernel_size - 1) + 1
