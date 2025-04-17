@@ -18,17 +18,17 @@ def compute_loss(model, first_domain_batch, second_domain_batch):
 
 def run_training(model, loader):
     """First phase of training. Without knowledge of the labels (will be ignoring the labels)."""
-    disc_params = list(model.first_discriminator.parameters(),
-                       model.second_discriminator.parameters(),
-                       model.latent_discriminator.parameters())
+    disc_params = list(model.first_discriminator.parameters()) \
+                  + list(model.second_discriminator.parameters()) \
+                  + list(model.latent_discriminator.parameters())
     optim_disc = Adam(disc_params, lr=utils.ADAM_LR, betas=utils.ADAM_DECAY)
 
-    enc_gen_params = list(model.first_encoder.parameters(),
-                          model.second_encoder.parameters(),
-                          model.shared_encoder.parameters(),
-                          model.first_generator.parameters(),
-                          model.second_generator.parameters(),
-                          model.shared_generator.parameters())
+    enc_gen_params = list(model.first_encoder.parameters()) \
+                          + list(model.second_encoder.parameters()) \
+                          + list(model.shared_encoder.parameters()) \
+                          + list(model.first_generator.parameters()) \
+                          + list(model.second_generator.parameters()) \
+                          + list(model.shared_generator.parameters())
 
     optim_enc_dec = Adam(enc_gen_params, lr=utils.ADAM_LR, betas=utils.ADAM_DECAY)
 
