@@ -2,7 +2,7 @@ from torchvision import datasets
 from torchvision.transforms.v2 import Compose, RandomRotation, RandomAffine, RandomResizedCrop, ToImage, ToDtype
 from torch.utils.data import ConcatDataset, DataLoader
 import torch
-from dual_domain_dataset import DualDomainDataset, DualDomainSupervisedDataset
+from dual_domain_dataset import DualDomainDataset, DualDomainSupervisedDataset, custom_collate_fn
 
 from models import lstnet
 import utils
@@ -80,7 +80,9 @@ def get_training_loader(first_domain_name, second_domain_name, supervised=True):
     lstnet.SECOND_INPUT_SHAPE = second_img.shape[1:]
     lstnet.SECOND_IN_CHANNELS_NUM = second_img.shape[0]
 
-    data_loader = DataLoader(dual_data, batch_size=utils.BATCH_SIZE, shuffle=True)
+    pin_memory = utils.DEVICE != "cpu"  # locking in physical RAM, higher data transfer with gpu
+    data_loader = DataLoader(dual_data, batch_size=utils.BATCH_SIZE, shuffle=True, collate_fn=custom_collate_fn,
+                             pin_memory=pin_memory)
 
     print(f'Obtained Data Loader')
     return data_loader
