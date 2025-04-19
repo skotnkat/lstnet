@@ -7,6 +7,7 @@ from models.lstnet import LSTNET
 from loss_functions import compute_discriminator_loss, compute_enc_gen_loss, compute_cc_loss
 from data_preparation import get_training_loader
 import utils
+import time
 
 
 def get_cc_components(model, first_gen, second_gen, first_latent, second_latent):
@@ -27,9 +28,16 @@ def get_cc_components(model, first_gen, second_gen, first_latent, second_latent)
 
 def update_disc(model, first_real, second_real, optim):
     optim.zero_grad()
+
     with torch.no_grad():
         second_gen, first_latent = model.map_first_to_second(first_real, return_latent=True)
         first_gen, second_latent = model.map_second_to_first(second_real, return_latent=True)
+
+        first_gen = first_gen.detach()
+        second_gen = second_gen.detach()
+
+        first_latent = first_latent.detach()
+        second_latent = second_latent.detach()
 
     disc_loss = compute_discriminator_loss(model,
                                            first_real, second_real,
@@ -40,7 +48,16 @@ def update_disc(model, first_real, second_real, optim):
     torch.nn.utils.clip_grad_norm_(model.disc_params, max_norm=1.0)
     optim.step()
 
-    return disc_loss.detach().item()
+    with torch.no_grad():
+        first_cycle, second_cycle, first_full_cycle, second_full_cycle = get_cc_components(model,
+                                                                                           first_gen, second_gen,
+                                                                                           first_latent, second_latent)
+        cc_loss = compute_cc_loss(first_real, second_real,
+                                  first_cycle, second_cycle,
+                                  first_full_cycle, second_full_cycle)
+
+    return disc_loss.item() + cc_loss.item()
+
 
 def update_enc_gen(model, first_real, second_real, optim):
     optim.zero_grad()
@@ -63,7 +80,13 @@ def update_enc_gen(model, first_real, second_real, optim):
     torch.nn.utils.clip_grad_norm_(model.enc_gen_params, max_norm=1.0)
     optim.step()
 
-    return cc_loss.detach().item()
+    with torch.no_grad():
+        disc_loss = compute_discriminator_loss(model,
+                                               first_real, second_real,
+                                               first_gen.detach(), second_gen.detach(),
+                                               first_latent.detach(), second_latent.detach())
+
+    return cc_loss.item() + disc_loss.item()
 
 
 def run_training(model, loader):
@@ -75,6 +98,7 @@ def run_training(model, loader):
     converged = False
     prev_avg_loss = np.inf
     loss_list = []
+    start_time = time.time()
     while not converged:
         total_loss = 0
         batch_idx = 0
@@ -84,19 +108,20 @@ def run_training(model, loader):
 
             #############################################################
             # update discriminators
-
-            disc_loss = update_disc(model, first_real, second_real, optim_disc)
-
-            total_loss += disc_loss
+            if (batch_idx % 2 == 0):
+                total_loss += update_disc(model, first_real, second_real, optim_disc)
 
             #############################################################
             # update encoders and generators
-            cc_loss = update_enc_gen(model, first_real, second_real, optim_enc_gen)
+            else:
+                total_loss += update_enc_gen(model, first_real, second_real, optim_enc_gen)
 
-            total_loss += cc_loss
+            #############################################################
 
-            if batch_idx % 10 == 0:
-                print(f'Batch {batch_idx} processed')
+            if batch_idx % 200 == 0:
+                end_time = time.time()
+                print(f'Batch {batch_idx} processed, took: {(end_time - start_time)/60:.2f} minutes')
+                start_time = time.time()
             #############################################################
 
         cur_avg_loss = total_loss / (batch_idx+1)  # batch_idx starts from 0
