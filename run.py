@@ -22,10 +22,12 @@ def parse_args():
     parser.add_argument("--model_name", type=str, default="lstnet_model", help="Name of the file to store the trained model.")
     parser.add_argument("--loss_file", type=str, default="loss", help="File with recorded losses for each epoch.")
 
+    parser.add_argument("--num_workers", type=int, default=4, help="Size of batches used in training.")
     parser.add_argument("--batch_size", type=int, default=64, help="Size of batches used in training.")
     parser.add_argument("--learning_rate", type=float, default=1e-3, help="Learning rate used in Adam optimizer.")
     parser.add_argument("--decay", type=float, nargs=2, default=(0.9, 0.999), help="Two float values for Adam optimizer decay (beta1, beta2)")
     parser.add_argument("--delta_loss", type=float, default=1e-4, help="Maximum allowed change in loss between iterations to consider convergence")
+
 
     args = parser.parse_args()
 
@@ -40,6 +42,7 @@ def initialize(args):
     if not os.path.exists(args.output_folder):
         os.makedirs(args.output_folder)
 
+    utils.NUM_WORKERS = args.num_workers
     utils.BATCH_SIZE = args.batch_size
     utils.ADAM_LR = args.learning_rate
     utils.ADAM_DECAY = args.decay

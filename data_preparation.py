@@ -82,7 +82,7 @@ def get_training_loader(first_domain_name, second_domain_name, supervised=True):
 
     pin_memory = utils.DEVICE != "cpu"  # locking in physical RAM, higher data transfer with gpu
     data_loader = DataLoader(dual_data, batch_size=utils.BATCH_SIZE, shuffle=True, collate_fn=custom_collate_fn,
-                             pin_memory=pin_memory)
+                             pin_memory=pin_memory, num_workers=utils.NUM_WORKERS)
 
     print(f'Obtained Data Loader')
     return data_loader
