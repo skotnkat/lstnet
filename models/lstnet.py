@@ -89,19 +89,19 @@ class LSTNET(nn.Module):
 
     def map_first_to_latent(self, x_first):
         x_latent = self.first_encoder.forward(x_first)
-        return self.shared_encoder.forward(x_latent)
+        return self.shared_encoder.forward(x_latent).to(utils.DEVICE)
 
     def map_second_to_latent(self, x_second):
         x_latent = self.second_encoder.forward(x_second)
-        return self.shared_encoder.forward(x_latent)
+        return self.shared_encoder.forward(x_latent).to(utils.DEVICE)
 
     def map_latent_to_first(self, x_latent):
         x_first = self.shared_generator.forward(x_latent)
-        return self.first_generator.forward(x_first)
+        return self.first_generator.forward(x_first).to(utils.DEVICE)
     
     def map_latent_to_second(self, x_latent):
         x_second = self.shared_generator.forward(x_latent)
-        return self.second_generator.forward(x_second)
+        return self.second_generator.forward(x_second).to(utils.DEVICE)
 
     def map_first_to_second(self, x_first, return_latent=False):
         x_latent = self.map_first_to_latent(x_first)
