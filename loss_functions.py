@@ -16,7 +16,7 @@ def adversarial_loss_real(batch):
 
 def adversarial_loss_gen(batch):
     batch_size = batch.size(0)
-    zeros_labels = torch.zeros(batch_size, 1, device=batch.device, requires_grad=False)  # expecting to be real
+    zeros_labels = torch.zeros(batch_size, 1, device=batch.device, requires_grad=False)  # expecting to be fake
 
     return adversarial_loss(batch, zeros_labels)
 
