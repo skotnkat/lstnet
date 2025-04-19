@@ -25,21 +25,51 @@ def get_cc_components(model, first_gen, second_gen, first_latent, second_latent)
     return first_cycle, second_cycle, first_full_cycle, second_full_cycle
 
 
+def update_disc(model, first_real, second_real, optim):
+    optim.zero_grad()
+    with torch.no_grad():
+        second_gen, first_latent = model.map_first_to_second(first_real, return_latent=True)
+        first_gen, second_latent = model.map_second_to_first(second_real, return_latent=True)
+
+    disc_loss = compute_discriminator_loss(model,
+                                           first_real, second_real,
+                                           first_gen, second_gen,
+                                           first_latent, second_latent)
+
+    disc_loss.backward()
+    torch.nn.utils.clip_grad_norm_(model.disc_params, max_norm=1.0)
+    optim.step()
+
+    return disc_loss.detach().item()
+
+def update_enc_gen(model, first_real, second_real, optim):
+    optim.zero_grad()
+
+    second_gen, first_latent = model.map_first_to_second(first_real, return_latent=True)
+    first_gen, second_latent = model.map_second_to_first(second_real, return_latent=True)
+
+    enc_gen_loss = compute_enc_gen_loss(model, first_gen, second_gen, first_latent, second_latent)
+
+    # cycle consistency
+    first_cycle, second_cycle, first_full_cycle, second_full_cycle = get_cc_components(model,
+                                                                                       first_gen, second_gen,
+                                                                                       first_latent, second_latent)
+    cc_loss = compute_cc_loss(first_real, second_real,
+                              first_cycle, second_cycle,
+                              first_full_cycle, second_full_cycle)
+
+    enc_gen_loss_total = enc_gen_loss + cc_loss
+    enc_gen_loss_total.backward()
+    torch.nn.utils.clip_grad_norm_(model.enc_gen_params, max_norm=1.0)
+    optim.step()
+
+    return cc_loss.detach().item()
+
+
 def run_training(model, loader):
     """First phase of training. Without knowledge of the labels (will be ignoring the labels)."""
-    disc_params = list(model.first_discriminator.parameters()) \
-                  + list(model.second_discriminator.parameters()) \
-                  + list(model.latent_discriminator.parameters())
-    optim_disc = Adam(disc_params, lr=utils.ADAM_LR, betas=utils.ADAM_DECAY)
-
-    enc_gen_params = list(model.first_encoder.parameters()) \
-                          + list(model.second_encoder.parameters()) \
-                          + list(model.shared_encoder.parameters()) \
-                          + list(model.first_generator.parameters()) \
-                          + list(model.second_generator.parameters()) \
-                          + list(model.shared_generator.parameters())
-
-    optim_enc_gen = Adam(enc_gen_params, lr=utils.ADAM_LR, betas=utils.ADAM_DECAY)
+    optim_disc = Adam(model.disc_params, lr=utils.ADAM_LR, betas=utils.ADAM_DECAY)
+    optim_enc_gen = Adam(model.enc_gen_params, lr=utils.ADAM_LR, betas=utils.ADAM_DECAY)
 
     epoch_num = 0
     converged = False
@@ -49,42 +79,19 @@ def run_training(model, loader):
         total_loss = 0
         batch_idx = 0
         for batch_idx, (first_real, _, second_real, _) in enumerate(loader):
-            #############################################################
-            # update discriminators
-            optim_disc.zero_grad()
-            first_real = first_real.to(utils.DEVICE).detach()  # do not
+            first_real = first_real.to(utils.DEVICE).detach()
             second_real = second_real.to(utils.DEVICE).detach()
 
-            second_gen, first_latent = model.map_first_to_second(first_real, return_latent=True)
-            first_gen, second_latent = model.map_second_to_first(second_real, return_latent=True)
+            #############################################################
+            # update discriminators
 
-            disc_loss = compute_discriminator_loss(model,
-                                                   first_real, second_real,
-                                                   first_gen, second_gen,
-                                                   first_latent, second_latent)
-
-            disc_loss.backward(retain_graph=True)
-            optim_disc.step()
+            disc_loss = update_disc(model, first_real, second_real, optim_disc)
 
             total_loss += disc_loss
 
             #############################################################
             # update encoders and generators
-            optim_enc_gen.zero_grad()
-
-            enc_gen_loss = compute_enc_gen_loss(model, first_gen, second_gen, first_latent, second_latent)
-
-            # cycle consistency
-            first_cycle, second_cycle, first_full_cycle, second_full_cycle = get_cc_components(model,
-                                                                                           first_gen, second_gen,
-                                                                                           first_latent, second_latent)
-            cc_loss = compute_cc_loss(first_real, second_real,
-                                      first_cycle, second_cycle,
-                                      first_full_cycle, second_full_cycle)
-
-            enc_gen_loss_total = enc_gen_loss + cc_loss
-            enc_gen_loss_total.backward()
-            optim_enc_gen.step()
+            cc_loss = update_enc_gen(model, first_real, second_real, optim_enc_gen)
 
             total_loss += cc_loss
 
@@ -92,7 +99,7 @@ def run_training(model, loader):
                 print(f'Batch {batch_idx} processed')
             #############################################################
 
-        cur_avg_loss = total_loss / batch_idx
+        cur_avg_loss = total_loss / (batch_idx+1)  # batch_idx starts from 0
 
         if torch.abs(cur_avg_loss - prev_avg_loss) < utils.DELTA_LOSS:
             converged = True
@@ -108,8 +115,9 @@ def run_training(model, loader):
 
 def train(first_domain_name, second_domain_name, supervised):
     data_loader = get_training_loader(first_domain_name, second_domain_name, supervised)
-    model = LSTNET().to(utils.DEVICE)
-    print('LSTNet model initialized')
+    model = LSTNET()
+    model.to(utils.DEVICE)
+    print('LSTNET model initialized')
 
     model, loss_list = run_training(model, data_loader)
 
@@ -118,4 +126,7 @@ def train(first_domain_name, second_domain_name, supervised):
 
     print('Model trained.')
     print('Loss scores dumped.')
+
+    model.to('cpu')
+
     return model
