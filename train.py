@@ -52,6 +52,8 @@ def run_training(model, loader):
             #############################################################
             # update discriminators
             optim_disc.zero_grad()
+            first_real = first_real.to(utils.DEVICE).detach()  # do not
+            second_real = second_real.to(utils.DEVICE).detach()
 
             second_gen, first_latent = model.map_first_to_second(first_real, return_latent=True)
             first_gen, second_latent = model.map_second_to_first(second_real, return_latent=True)
