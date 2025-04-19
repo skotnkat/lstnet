@@ -13,6 +13,7 @@ ADAM_DECAY = None
 DELTA_LOSS = None
 
 DEVICE = None
+NUM_WORKERS = None
 
 
 def get_networks_params():
