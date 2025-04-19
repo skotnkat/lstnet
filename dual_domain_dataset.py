@@ -26,12 +26,6 @@ class DualDomainDataset(Dataset):
         first_img, first_label = self.first_data[first_idx]
         second_img, second_label = self.second_data[second_idx]
 
-        if not isinstance(first_label, torch.Tensor):
-            first_label = torch.tensor(first_label)
-
-        if not isinstance(second_label, torch.Tensor):
-            second_label = torch.tensor(second_label)
-
         return first_img, first_label, second_img, second_label
 
     @staticmethod
@@ -81,12 +75,6 @@ class DualDomainSupervisedDataset(DualDomainDataset):  # first dataset should be
         if first_label != second_label:
             raise AssertionError(f'Labels should be the same. First label: {first_label}. Second label: {second_label}')
 
-        if not isinstance(first_label, torch.Tensor):
-            first_label = torch.tensor(first_label)
-
-        if not isinstance(second_label, torch.Tensor):
-            second_label = torch.tensor(second_label)
-
         return first_img, first_label, second_img, second_label
 
 
@@ -95,9 +83,10 @@ def custom_collate_fn(batch):
     first_imgs, first_labels, second_imgs, second_labels = zip(*batch)
 
     # Stack the images and labels
-    first_imgs = torch.stack(first_imgs).to(utils.DEVICE)
-    first_labels = torch.stack(first_labels).to(utils.DEVICE)
+    first_imgs = torch.stack(first_imgs)
+    first_labels = torch.tensor(first_labels)
+
     second_imgs = torch.stack(second_imgs)
-    second_labels = torch.stack(second_labels)
+    second_labels = torch.tensor(second_labels)
 
     return first_imgs, first_labels, second_imgs, second_labels
