@@ -62,7 +62,7 @@ def compute_enc_gen_loss(model, first_gen, second_gen, first_latent, second_late
     second_gen_loss = adversarial_loss_real(second_gen_disc)
 
     first_latent_disc = model.latent_discriminator.forward(first_latent)  # forcing to be second domain
-    first_latent_loss = adversarial_loss_gen(first_latent_disc)  # is this correct? tries to make it look like the second domain
+    first_latent_loss = adversarial_loss_real(first_latent_disc)  # encourage the encoders to make the domains look the same
 
     second_latent_disc = model.latent_discriminator.forward(second_latent)
     second_latent_loss = adversarial_loss_real(second_latent_disc)  # encourage the encoder to fool the discriminator
