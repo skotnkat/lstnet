@@ -131,6 +131,7 @@ def run_training(model, loader):
         prev_avg_loss = cur_avg_loss
 
         print(f'End of epoch {epoch_num}, current total loss: {cur_avg_loss}')
+        torch.save(model.state_dict(), f"output/model_{epoch_num}.pth")
         epoch_num += 1
 
     return model, loss_list
