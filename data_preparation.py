@@ -26,7 +26,7 @@ def create_augmentation_steps(img_size):
         )
     ])
 
-
+# option to pass dataset_path instead of name and flag to load from file
 def load_dataset(dataset_name, train_op=True, transform_steps=BASIC_TRANSFORMATION, **kwargs):
     if dataset_name == 'MNIST':
         data = datasets.MNIST(root="./data", train=train_op, transform=transform_steps, **kwargs)
@@ -85,4 +85,11 @@ def get_training_loader(first_domain_name, second_domain_name, supervised=True):
                              pin_memory=pin_memory, num_workers=utils.NUM_WORKERS, persistent_workers=True)
 
     print(f'Obtained Data Loader')
+    return data_loader
+
+
+def get_testing_loader(domain_name):
+    data = load_dataset(domain_name, train_op=False, shuffle=False)
+    data_loader = DataLoader(data, batch_size=utils.BATCH_SIZE, num_workers=utils.NUM_WORKERS)
+
     return data_loader
