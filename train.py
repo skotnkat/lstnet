@@ -138,7 +138,7 @@ def run_training(model, loader):
 
 def train(first_domain_name, second_domain_name, supervised):
     data_loader = get_training_loader(first_domain_name, second_domain_name, supervised)
-    model = LSTNET()
+    model = LSTNET(first_domain_name, second_domain_name)
     model.to(utils.DEVICE)
     print('LSTNET model initialized')
 
