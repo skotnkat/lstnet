@@ -45,7 +45,6 @@ def update_disc(model, first_real, second_real, optim):
                                            first_latent, second_latent)
 
     disc_loss.backward()
-    torch.nn.utils.clip_grad_norm_(model.disc_params, max_norm=1.0)
     optim.step()
 
     with torch.no_grad():
@@ -77,7 +76,6 @@ def update_enc_gen(model, first_real, second_real, optim):
 
     enc_gen_loss_total = enc_gen_loss + cc_loss
     enc_gen_loss_total.backward()
-    torch.nn.utils.clip_grad_norm_(model.enc_gen_params, max_norm=1.0)
     optim.step()
 
     with torch.no_grad():
@@ -126,7 +124,7 @@ def run_training(model, loader):
 
         cur_avg_loss = total_loss / (batch_idx+1)  # batch_idx starts from 0
 
-        if torch.abs(cur_avg_loss - prev_avg_loss) < utils.DELTA_LOSS:
+        if np.abs(cur_avg_loss - prev_avg_loss) < utils.DELTA_LOSS:
             converged = True
 
         loss_list.append(cur_avg_loss)
