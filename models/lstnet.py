@@ -14,7 +14,10 @@ SECOND_IN_CHANNELS_NUM = None
 
 class LSTNET(nn.Module):
     def __init__(self):
-        super().__init__()
+        super().__init__(first_domain_name="", second_domain_name="")
+
+        self.first_domain_name = first_domain_name
+        self.second_domain_name = second_domain_name
 
         self.first_encoder = None
         self.second_encoder = None
@@ -120,3 +123,10 @@ class LSTNET(nn.Module):
             return x_first, x_latent
 
         return x_first
+
+    def set_domain_name(self, name, first=True):
+        if first:
+            self.first_domain_name = name
+
+        else:
+            self.second_domain_name = name
