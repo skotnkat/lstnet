@@ -27,11 +27,13 @@ class Discriminator(LstnetComponent):
 
     def forward(self, x):    
         x = self.layers.forward(x)
+        return x  # returns raw
 
+        # not needed as using BCELogits
         # for numerical stability
-        x_clamped = torch.clamp(x, min=EPSILON, max=1-EPSILON)
+        # x_clamped = torch.clamp(x, min=EPSILON, max=1-EPSILON)
         
-        return x_clamped
+        # return x_clamped
 
     @staticmethod
     def _create_stand_layer(params, in_channels, input_size):
@@ -52,7 +54,7 @@ class Discriminator(LstnetComponent):
         last_layer = nn.Sequential(
             nn.Flatten(),
             nn.Linear(**params),
-            nn.Sigmoid()            
+            # nn.Sigmoid()  # removing sigmoid to use more stable BCEWithLogits
         )
     
         return last_layer
