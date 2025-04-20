@@ -3,7 +3,7 @@ import torch
 import utils
 
 W_1, W_2, W_3, W_4, W_5, W_6, W_l = utils.initialize_weights()
-adversarial_loss = nn.BCELoss()
+adversarial_loss = nn.BCEWithLogitsLoss()
 cycle_loss = nn.L1Loss()
 
 
