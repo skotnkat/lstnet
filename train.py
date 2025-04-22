@@ -96,7 +96,7 @@ def update_enc_gen(model, first_real, second_real, optim):
     return cc_loss.item() + total_disc_loss
 
 
-def run_training(model, loader):
+def train(model, loader):
     """First phase of training. Without knowledge of the labels (will be ignoring the labels)."""
     optim_disc_1 = Adam(model.first_discriminator.parameters(), lr=utils.ADAM_LR, betas=utils.ADAM_DECAY)
     optim_disc_2 = Adam(model.second_discriminator.parameters(), lr=utils.ADAM_LR, betas=utils.ADAM_DECAY)
@@ -146,13 +146,13 @@ def run_training(model, loader):
     return model, loss_list
 
 
-def train(first_domain_name, second_domain_name, supervised):
+def run(first_domain_name, second_domain_name, supervised):
     data_loader = get_training_loader(first_domain_name, second_domain_name, supervised)
     model = LSTNET(first_domain_name, second_domain_name)
     model.to(utils.DEVICE)
     print('LSTNET model initialized')
 
-    model, loss_list = run_training(model, data_loader)
+    model, loss_list = train(model, data_loader)
 
     with open(f'{utils.OUTPUT_FOLDER}/{utils.LOSS_FILE}.json', 'a') as file:
         json.dump(loss_list, file, indent=2)
