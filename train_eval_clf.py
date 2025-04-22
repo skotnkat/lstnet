@@ -76,7 +76,10 @@ if __name__ == "__main__":
     val_loader = DataLoader(val_data, batch_size=64, shuffle=False, num_workers=4)
 
     clf = None
-    with open(f'{EVAL_FOLDER}{args.params_file}.json', 'r') as file:
+    if not args.params_file.endswith('.json'):
+        raise ValueError("The parameter 'params_file' must end with .json")
+    
+    with open(f'{EVAL_FOLDER}{args.params_file}', 'r') as file:
         params = json.load(file)
 
     if args.domain_name.upper() == 'MNIST':
