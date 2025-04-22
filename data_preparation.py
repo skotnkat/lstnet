@@ -43,9 +43,10 @@ def load_dataset(dataset_name, train_op=True, transform_steps=BASIC_TRANSFORMATI
         if train_op:
             split = 'train'
         data = datasets.SVHN(root="./data", split=split, transform=transform_steps, **kwargs)
-        
+
     else:
-        raise ValueError(f"Not able to load dataset {dataset_name}")
+        err_msg = f'Not able to load dataset "{dataset_name}"'
+        raise ValueError(err_msg)
 
     return data
 
