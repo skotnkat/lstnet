@@ -8,6 +8,8 @@ from loss_functions import compute_discriminator_loss, compute_enc_gen_loss, com
 from data_preparation import get_training_loader
 import utils
 import time
+CUR_EPOCH = 0
+
 
 
 def get_cc_components(model, first_gen, second_gen, first_latent, second_latent):
@@ -26,8 +28,10 @@ def get_cc_components(model, first_gen, second_gen, first_latent, second_latent)
     return first_cycle, second_cycle, first_full_cycle, second_full_cycle
 
 
-def update_disc(model, first_real, second_real, optim):
-    optim.zero_grad()
+def update_disc(model, first_real, second_real, optim_disc_1, optim_disc_2, optim_disc_latent):
+    optim_disc_1.zero_grad()
+    optim_disc_2.zero_grad()
+    optim_disc_latent.zero_grad()
 
     with torch.no_grad():
         second_gen, first_latent = model.map_first_to_second(first_real, return_latent=True)
@@ -39,13 +43,19 @@ def update_disc(model, first_real, second_real, optim):
         first_latent = first_latent.detach()
         second_latent = second_latent.detach()
 
-    disc_loss = compute_discriminator_loss(model,
+    disc_loss_1, disc_loss_2, disc_loss_latent = compute_discriminator_loss(model,
                                            first_real, second_real,
                                            first_gen, second_gen,
                                            first_latent, second_latent)
 
-    disc_loss.backward()
-    optim.step()
+    disc_loss_1.backward()
+    disc_loss_2.backward()
+    disc_loss_latent.backward()
+    optim_disc_1.step()
+    optim_disc_2.step()
+    optim_disc_latent.step()
+
+    total_disc_loss = disc_loss_1.item() + disc_loss_2.item() + disc_loss_latent.item()
 
     with torch.no_grad():
         first_cycle, second_cycle, first_full_cycle, second_full_cycle = get_cc_components(model,
@@ -55,7 +65,7 @@ def update_disc(model, first_real, second_real, optim):
                                   first_cycle, second_cycle,
                                   first_full_cycle, second_full_cycle)
 
-    return disc_loss.item() + cc_loss.item()
+    return total_disc_loss + cc_loss.item()
 
 
 def update_enc_gen(model, first_real, second_real, optim):
@@ -79,20 +89,22 @@ def update_enc_gen(model, first_real, second_real, optim):
     optim.step()
 
     with torch.no_grad():
-        disc_loss = compute_discriminator_loss(model,
+        disc_loss_1, disc_loss_2, disc_loss_latent = compute_discriminator_loss(model,
                                                first_real, second_real,
                                                first_gen.detach(), second_gen.detach(),
                                                first_latent.detach(), second_latent.detach())
 
-    return cc_loss.item() + disc_loss.item()
+    total_disc_loss = disc_loss_1.item() + disc_loss_2.item() + disc_loss_latent.item()
+    return cc_loss.item() + total_disc_loss
 
 
 def run_training(model, loader):
     """First phase of training. Without knowledge of the labels (will be ignoring the labels)."""
-    optim_disc = Adam(model.disc_params, lr=utils.ADAM_LR, betas=utils.ADAM_DECAY)
+    optim_disc_1 = Adam(model.first_discriminator.parameters(), lr=utils.ADAM_LR, betas=utils.ADAM_DECAY)
+    optim_disc_2 = Adam(model.second_discriminator.parameters(), lr=utils.ADAM_LR, betas=utils.ADAM_DECAY)
+    optim_disc_latent = Adam(model.latent_discriminator.parameters(), lr=utils.ADAM_LR, betas=utils.ADAM_DECAY)
     optim_enc_gen = Adam(model.enc_gen_params, lr=utils.ADAM_LR, betas=utils.ADAM_DECAY)
 
-    epoch_num = 0
     converged = False
     prev_avg_loss = np.inf
     loss_list = []
@@ -106,9 +118,8 @@ def run_training(model, loader):
 
             #############################################################
             # update discriminators
-            if (batch_idx % 2 == 0):
-                total_loss += update_disc(model, first_real, second_real, optim_disc)
-
+            if batch_idx % 2 == 0:
+                total_loss += update_disc(model, first_real, second_real, optim_disc_1, optim_disc_2, optim_disc_latent)
             #############################################################
             # update encoders and generators
             else:
@@ -130,9 +141,9 @@ def run_training(model, loader):
         loss_list.append(cur_avg_loss)
         prev_avg_loss = cur_avg_loss
 
-        print(f'End of epoch {epoch_num}, current total loss: {cur_avg_loss}')
-        torch.save(model.state_dict(), f"output/model_{epoch_num}.pth")
-        epoch_num += 1
+        print(f'End of epoch {CUR_EPOCH}, current total loss: {cur_avg_loss}')
+        torch.save(model.state_dict(), f"output/model_{CUR_EPOCH}.pth")
+        CUR_EPOCH += 1
 
     return model, loss_list
 
@@ -145,7 +156,7 @@ def train(first_domain_name, second_domain_name, supervised):
 
     model, loss_list = run_training(model, data_loader)
 
-    with open(f'{utils.OUTPUT_FOLDER}/{utils.LOSS_FILE}.json', 'w') as file:
+    with open(f'{utils.OUTPUT_FOLDER}/{utils.LOSS_FILE}.json', 'a') as file:
         json.dump(loss_list, file, indent=2)
 
     print('Model trained.')

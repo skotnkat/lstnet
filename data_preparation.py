@@ -1,5 +1,5 @@
 from torchvision import datasets
-from torchvision.transforms.v2 import Compose, RandomRotation, RandomAffine, RandomResizedCrop, ToImage, ToDtype
+from torchvision.transforms.v2 import Compose, RandomRotation, RandomAffine, RandomResizedCrop, ToImage, ToDtype, Normalize
 from torch.utils.data import ConcatDataset, DataLoader
 import torch
 from dual_domain_dataset import DualDomainDataset, DualDomainSupervisedDataset, custom_collate_fn
@@ -18,12 +18,13 @@ def create_augmentation_steps(img_size):
     dy_translation = dx_translation = 2 / img_size
     return Compose([
         ToImage(),
-        ToDtype(torch.float32, scale=True),
+        ToDtype(torch.float32, scale=True),  # scale from [0, 250] to [0, 1]
+        Normalize(mean=[0.5], std=[0.5]),  # scales from [0, 1] to [-1, 1]
         RandomAffine(
             degrees=(-10, 10),
             translate=(dx_translation, dy_translation),
             scale=(0.9, 1.1)
-        )
+        ),
     ])
 
 # option to pass dataset_path instead of name and flag to load from file
@@ -46,7 +47,7 @@ def load_dataset(dataset_name, train_op=True, transform_steps=BASIC_TRANSFORMATI
 
     return data
 
-
+# change this so we do not load it that many times, somehow get input size
 def load_augmented_dataset(dataset_name, train_op=True, download=True):
     print(f'Loading dataset: {dataset_name}')
     original_data = load_dataset(dataset_name, train_op=train_op, download=download)
@@ -54,6 +55,7 @@ def load_augmented_dataset(dataset_name, train_op=True, download=True):
     img_size = original_data[0][0].shape[1]  # size to use for resize
     transform_steps = create_augmentation_steps(img_size)
 
+    original_data = load_dataset(dataset_name, train_op=train_op, download=False, transform_steps=transform_steps)
     augmented_data = load_dataset(dataset_name, train_op=train_op, download=False, transform_steps=transform_steps)
 
     return ConcatDataset([original_data, augmented_data])
