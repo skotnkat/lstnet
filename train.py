@@ -184,10 +184,11 @@ def train(model, loader):
 
 def run(first_domain_name, second_domain_name, supervised):
     data_loader = get_training_loader(first_domain_name, second_domain_name, supervised)
+    print('Creating an instance of LSTNET model')
     model = LSTNET(first_domain_name, second_domain_name)
-
+    print(f'LSTNET model initialized')
     model.to(utils.DEVICE)
-    print('LSTNET model initialized')
+    print('LSTNET model moved to device')
 
     model, loss_list = train(model, data_loader)
 
