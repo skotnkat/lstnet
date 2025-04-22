@@ -4,6 +4,7 @@ import argparse
 import json
 import os
 from time import time
+import numpy as np
 
 from data_preparation import load_dataset, create_augmentation_steps
 from torch.utils.data import DataLoader, random_split
@@ -35,7 +36,7 @@ def run_loop(clf, loader, train=True):
             loss.backward()
             clf.optimizer.step()
 
-        loss_total += loss.item() * x.size()[0]  # number of elements in batch
+        loss_total += loss.item()  # reduction='sum' -> already returns sum of the losses
 
         preds = outputs.argmax(dim=1)
         acc = (preds == y).sum()
@@ -85,7 +86,7 @@ if __name__ == "__main__":
     clf.to(device)
 
     best_weights = copy.deepcopy(clf.state_dict())
-    best_val_loss = float('inf')
+    best_val_loss = np.inf
 
     train_loss_list = []
     train_acc_list = []

@@ -11,7 +11,7 @@ class MnistClf(Discriminator):
         super().__init__(self.input_size, self.in_channels_num, params)
 
         self.optimizer = optim.Adam(self.layers.parameters(), lr=0.001)
-        self.criterion = nn.CrossEntropyLoss()
+        self.criterion = nn.CrossEntropyLoss(reduction='sum')
         self.epochs = 40
         self.patience = 5
 
@@ -33,7 +33,7 @@ class UspsClf(Discriminator):
         super().__init__(self.input_size, self.in_channels_num, params)
 
         self.optimizer = optim.Adam(self.layers.parameters(), lr=0.001)
-        self.criterion = nn.CrossEntropyLoss()
+        self.criterion = nn.CrossEntropyLoss(reduction='sum')
         self.epochs = 40
         self.patience = 10
 
@@ -55,7 +55,7 @@ class SvhnClf(Discriminator):
         super().__init__(self.input_size, self.in_channels_num, params)
 
         self.optimizer = optim.Adam(self.layers.parameters(), lr=0.001)
-        self.criterion = nn.CrossEntropyLoss()
+        self.criterion = nn.CrossEntropyLoss(reduction='sum')
         self.epochs = 50
         self.patience = 10
 
