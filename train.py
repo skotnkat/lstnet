@@ -104,7 +104,7 @@ def update_enc_gen(model, first_real, second_real, optim):
 
     optim.step()
     CC_LOSSES[CUR_EPOCH].append(cc_loss.item())
-    ENC_GEN_LOSSES[CUR_EPOCH].append({'first_loss' : first_enc_gen_loss, 'second_loss' : second_enc_gen_loss, 'latent_loss' : latent_enc_gen_loss})
+    ENC_GEN_LOSSES[CUR_EPOCH].append({'first_loss': first_enc_gen_loss.item(), 'second_loss': second_enc_gen_loss.item(), 'latent_loss' : latent_enc_gen_loss.item()})
 
 
     with torch.no_grad():
