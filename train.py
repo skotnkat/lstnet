@@ -8,8 +8,8 @@ from loss_functions import compute_discriminator_loss, compute_enc_gen_loss, com
 from data_preparation import get_training_loader
 import utils
 import time
-CUR_EPOCH = 0
 
+CUR_EPOCH = 0
 
 
 def get_cc_components(model, first_gen, second_gen, first_latent, second_latent):
@@ -98,6 +98,7 @@ def update_enc_gen(model, first_real, second_real, optim):
 
 def train(model, loader):
     """First phase of training. Without knowledge of the labels (will be ignoring the labels)."""
+    global CUR_EPOCH
     optim_disc_1 = Adam(model.first_discriminator.parameters(), lr=utils.ADAM_LR, betas=utils.ADAM_DECAY)
     optim_disc_2 = Adam(model.second_discriminator.parameters(), lr=utils.ADAM_LR, betas=utils.ADAM_DECAY)
     optim_disc_latent = Adam(model.latent_discriminator.parameters(), lr=utils.ADAM_LR, betas=utils.ADAM_DECAY)
