@@ -128,18 +128,17 @@ def train(model, loader):
     optim_enc_gen = Adam(model.enc_gen_params, lr=utils.ADAM_LR, betas=utils.ADAM_DECAY)
 
     converged = False
-    prev_avg_loss = np.inf
+    prev_best_batch_loss = np.inf
     loss_list = []
     start_time = time.time()
 
 
     while not converged:
-        total_loss = 0
-        batch_idx = 0
         DISC_LOSSES[CUR_EPOCH] = []
         CC_LOSSES[CUR_EPOCH] = []
         ENC_GEN_LOSSES[CUR_EPOCH] = []
 
+        batch_loss = 0
         for batch_idx, (first_real, _, second_real, _) in enumerate(loader):
             first_real = first_real.to(utils.DEVICE).detach()
             second_real = second_real.to(utils.DEVICE).detach()
@@ -147,11 +146,11 @@ def train(model, loader):
             #############################################################
             # update discriminators
             if batch_idx % 2 == 0:
-                total_loss += update_disc(model, first_real, second_real, optim_disc_1, optim_disc_2, optim_disc_latent)
+                batch_loss += update_disc(model, first_real, second_real, optim_disc_1, optim_disc_2, optim_disc_latent)
             #############################################################
             # update encoders and generators
             else:
-                total_loss += update_enc_gen(model, first_real, second_real, optim_enc_gen)
+                batch_loss += update_enc_gen(model, first_real, second_real, optim_enc_gen)
 
             #############################################################
 
@@ -161,16 +160,17 @@ def train(model, loader):
                 start_time = time.time()
             #############################################################
 
-        cur_avg_loss = total_loss / len(loader.dataset)  # compute evg loss across the dataset
 
-        if np.abs(cur_avg_loss - prev_avg_loss) < utils.DELTA_LOSS:
+        if np.abs(batch_loss - prev_best_batch_loss) < utils.DELTA_LOSS:
             converged = True
 
-        loss_list.append(cur_avg_loss)
-        prev_avg_loss = cur_avg_loss
+        loss_list.append(batch_loss)
+        if batch_loss < prev_best_batch_loss:
+            prev_best_batch_loss = batch_loss
 
         print(f'End of epoch {CUR_EPOCH}, current total loss: {cur_avg_loss}')
         torch.save(model.state_dict(), f"{utils.OUTPUT_FOLDER}/model_{CUR_EPOCH}.pth")
+
         CUR_EPOCH += 1
 
         with open(f'{utils.OUTPUT_FOLDER}/disc_loss_log.json', 'a') as file:
