@@ -8,7 +8,7 @@ import numpy as np
 
 from data_preparation import load_dataset, create_augmentation_steps
 from torch.utils.data import DataLoader, random_split
-from eval_models.clf_models import MnistClf
+from eval_models.clf_models import MnistClf, UspsClf, SvhnClf
 
 EVAL_FOLDER = 'eval_models/'
 MODEL_FOLDER = None
@@ -54,6 +54,7 @@ if __name__ == "__main__":
     print(f'Using device: {device}')
 
     # obtain the dataset size
+    args.domain_name = args.domain_name.upper()
     MODEL_FOLDER = EVAL_FOLDER + args.domain_name
 
     if not os.path.exists(f'{MODEL_FOLDER}'):
@@ -70,7 +71,6 @@ if __name__ == "__main__":
 
     train_data, val_data = random_split(train_data, [train_size, val_size])
 
-    test_data = load_dataset(args.domain_name, train_op=False)
 
     train_loader = DataLoader(train_data, batch_size=64, shuffle=True, num_workers=4)
     val_loader = DataLoader(val_data, batch_size=64, shuffle=False, num_workers=4)
@@ -78,14 +78,24 @@ if __name__ == "__main__":
     clf = None
     if not args.params_file.endswith('.json'):
         raise ValueError("The parameter 'params_file' must end with .json")
-    
+
     with open(f'{EVAL_FOLDER}{args.params_file}', 'r') as file:
         params = json.load(file)
 
-    if args.domain_name.upper() == 'MNIST':
+    if args.domain_name == "MNIST":
         clf = MnistClf(params)
         print(f'MNIST Classifier Initialized')
 
+    elif args.domain_name == "USPS":
+        clf = UspsClf(params)
+        print(f'USPS Classifier Initialized')
+
+    elif args.domain_name == "SVHN":
+        clf = SvhnClf(params)
+        print(f'SVHN Classifier Initialized')
+
+    if clf is None:
+        raise ValueError("No classifier model as loaded.")
     clf.to(device)
 
     best_weights = copy.deepcopy(clf.state_dict())
@@ -129,6 +139,7 @@ if __name__ == "__main__":
             patience_cnt += 1
 
             if patience_cnt > clf.patience:
+                print(f'Patience {patience_cnt} reached its limit {clf.patience}.')
                 break
         ######################################################
 
