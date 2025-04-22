@@ -8,7 +8,7 @@ import numpy as np
 
 from data_preparation import load_dataset, create_augmentation_steps
 from torch.utils.data import DataLoader, random_split
-from eval_models.clf_models import MnistClf
+from eval_models.clf_models import MnistClf, UspsClf, SvhnClf
 
 EVAL_FOLDER = 'eval_models/'
 MODEL_FOLDER = None
@@ -54,6 +54,7 @@ if __name__ == "__main__":
     print(f'Using device: {device}')
 
     # obtain the dataset size
+    args.domain_name = args.domain_name.upper()
     MODEL_FOLDER = EVAL_FOLDER + args.domain_name
 
     if not os.path.exists(f'{MODEL_FOLDER}'):
@@ -82,10 +83,19 @@ if __name__ == "__main__":
     with open(f'{EVAL_FOLDER}{args.params_file}', 'r') as file:
         params = json.load(file)
 
-    if args.domain_name.upper() == 'MNIST':
+    if args.domain_name == "MNIST":
         clf = MnistClf(params)
         print(f'MNIST Classifier Initialized')
 
+    elif args.domain_name == "USPS":
+        clf = UspsClf(params)
+        print(f'USPS Classifier Initialized')
+
+    elif args.domain_name == "SVHN":
+        clf = SvhnClf(params)
+        print(f'SVHN Classifier Initialized')
+
+    if clf is None:
     clf.to(device)
 
     best_weights = copy.deepcopy(clf.state_dict())
