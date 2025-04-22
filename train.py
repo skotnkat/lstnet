@@ -9,6 +9,12 @@ from data_preparation import get_training_loader
 import utils
 import time
 
+from utils import OUTPUT_FOLDER
+
+DISC_LOSSES = dict()
+CC_LOSSES = dict()
+ENC_GEN_LOSSES = dict()
+
 CUR_EPOCH = 0
 
 
@@ -48,13 +54,20 @@ def update_disc(model, first_real, second_real, optim_disc_1, optim_disc_2, opti
                                                                             first_latent, second_latent)
 
     disc_loss_1.backward()
-    disc_loss_2.backward()
-    disc_loss_latent.backward()
     optim_disc_1.step()
+
+    disc_loss_2.backward()
     optim_disc_2.step()
+
+    disc_loss_latent.backward()
     optim_disc_latent.step()
 
     total_disc_loss = disc_loss_1.item() + disc_loss_2.item() + disc_loss_latent.item()
+
+
+    DISC_LOSSES[CUR_EPOCH].append({'first_loss' : disc_loss_1.item(),
+                                   'second_loss' : disc_loss_2.item(),
+                                   'latent_loss': disc_loss_latent.item()})
 
     with torch.no_grad():
         first_cycle, second_cycle, first_full_cycle, second_full_cycle = get_cc_components(model,
@@ -63,6 +76,9 @@ def update_disc(model, first_real, second_real, optim_disc_1, optim_disc_2, opti
         cc_loss = compute_cc_loss(first_real, second_real,
                                   first_cycle, second_cycle,
                                   first_full_cycle, second_full_cycle)
+
+
+    CC_LOSSES[CUR_EPOCH].append(cc_loss.item())
 
     return total_disc_loss + cc_loss.item()
 
@@ -73,7 +89,7 @@ def update_enc_gen(model, first_real, second_real, optim):
     second_gen, first_latent = model.map_first_to_second(first_real, return_latent=True)
     first_gen, second_latent = model.map_second_to_first(second_real, return_latent=True)
 
-    enc_gen_loss = compute_enc_gen_loss(model, first_gen, second_gen, first_latent, second_latent)
+    first_enc_gen_loss, second_enc_gen_loss, latent_enc_gen_loss = compute_enc_gen_loss(model, first_gen, second_gen, first_latent, second_latent)
 
     # cycle consistency
     first_cycle, second_cycle, first_full_cycle, second_full_cycle = get_cc_components(model,
@@ -83,17 +99,24 @@ def update_enc_gen(model, first_real, second_real, optim):
                               first_cycle, second_cycle,
                               first_full_cycle, second_full_cycle)
 
-    enc_gen_loss_total = enc_gen_loss + cc_loss
+    enc_gen_loss_total = first_enc_gen_loss, second_enc_gen_loss, latent_enc_gen_loss + cc_loss
     enc_gen_loss_total.backward()
+
     optim.step()
+    CC_LOSSES[CUR_EPOCH].append(cc_loss.item())
+    ENC_GEN_LOSSES[CUR_EPOCH].append({'first_loss' : first_enc_gen_loss, 'second_loss' : second_enc_gen_loss, 'latent_loss' : latent_enc_gen_loss})
+
 
     with torch.no_grad():
         disc_loss_1, disc_loss_2, disc_loss_latent = compute_discriminator_loss(model, first_real, second_real,
                                                                                 first_gen.detach(), second_gen.detach(),
                                                                                 first_latent.detach(), second_latent.detach())
 
+    DISC_LOSSES[CUR_EPOCH].append({'first_loss': disc_loss_1.item(), 'second_loss': disc_loss_2.item(), 'latent_loss': disc_loss_latent.item()})
+
     total_disc_loss = disc_loss_1.item() + disc_loss_2.item() + disc_loss_latent.item()
     return cc_loss.item() + total_disc_loss
+
 
 
 def train(model, loader):
@@ -108,9 +131,15 @@ def train(model, loader):
     prev_avg_loss = np.inf
     loss_list = []
     start_time = time.time()
+
+
     while not converged:
         total_loss = 0
         batch_idx = 0
+        DISC_LOSSES[CUR_EPOCH] = []
+        CC_LOSSES[CUR_EPOCH] = []
+        ENC_GEN_LOSSES[CUR_EPOCH] = []
+
         for batch_idx, (first_real, _, second_real, _) in enumerate(loader):
             first_real = first_real.to(utils.DEVICE).detach()
             second_real = second_real.to(utils.DEVICE).detach()
@@ -132,7 +161,7 @@ def train(model, loader):
                 start_time = time.time()
             #############################################################
 
-        cur_avg_loss = total_loss / (batch_idx+1)  # batch_idx starts from 0
+        cur_avg_loss = total_loss / len(loader.dataset)  # compute evg loss across the dataset
 
         if np.abs(cur_avg_loss - prev_avg_loss) < utils.DELTA_LOSS:
             converged = True
@@ -141,15 +170,25 @@ def train(model, loader):
         prev_avg_loss = cur_avg_loss
 
         print(f'End of epoch {CUR_EPOCH}, current total loss: {cur_avg_loss}')
-        torch.save(model.state_dict(), f"output/model_{CUR_EPOCH}.pth")
+        torch.save(model.state_dict(), f"{utils.OUTPUT_FOLDER}/model_{CUR_EPOCH}.pth")
         CUR_EPOCH += 1
 
+        with open(f'{utils.OUTPUT_FOLDER}/disc_loss_log.json', 'a') as file:
+            json.dump(DISC_LOSSES, file)
+
+        with open(f'{utils.OUTPUT_FOLDER}/cc_loss_log.json', 'a') as file:
+            json.dump(CC_LOSSES, file)
+
+        with open(f'{utils.OUTPUT_FOLDER}/.enc_gen_loss_log.json', 'a') as file:
+            json.dump(ENC_GEN_LOSSES, file)
+    
     return model, loss_list
 
 
 def run(first_domain_name, second_domain_name, supervised):
     data_loader = get_training_loader(first_domain_name, second_domain_name, supervised)
     model = LSTNET(first_domain_name, second_domain_name)
+
     model.to(utils.DEVICE)
     print('LSTNET model initialized')
 
