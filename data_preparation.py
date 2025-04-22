@@ -64,7 +64,10 @@ def load_augmented_dataset(dataset_name, train_op=True, download=True):
 
 def get_training_loader(first_domain_name, second_domain_name, supervised=True):
     first_data = load_augmented_dataset(first_domain_name, train_op=True)
+    print(f'Obtained augmented data for {first_domain_name}')
+
     second_data = load_augmented_dataset(second_domain_name, train_op=True)
+    print(f'Obtained augmented data for {second_domain_name}')
 
     if len(first_data) < len(second_data):
         raise ValueError("First dataset should be larger.")
@@ -74,7 +77,7 @@ def get_training_loader(first_domain_name, second_domain_name, supervised=True):
 
     else:
         dual_data = DualDomainDataset(first_data, second_data)
-
+    print('Obtained Dual Domain Dataset')
     first_img, _, second_img, _ = dual_data.__getitem__(0)
 
     lstnet.FIRST_INPUT_SHAPE = first_img.shape[1:]
