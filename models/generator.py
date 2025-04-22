@@ -6,11 +6,14 @@ from models.extended_layers import ConvTranspose2dExtended
 
 class Generator(LstnetComponent):
     def __init__(self, input_size, in_channels_num, params):
-        super().__init__(input_size, in_channels_num, params, skip_last_layer=True)  # pass all the params apart for last layer
+        # pass all the params apart the ones for the last layer
+        super().__init__(input_size, in_channels_num, params, skip_last_layer=True)
 
         last_output_size = self.get_last_layer_output_size()
-        last_out_channels_num = self.get_last_layer_out_channels()    
-        self._add_layer(last_output_size, last_out_channels_num, len(params)-1, create_func=Generator._create_last_layer)  # len(params)-1 = idx of layer
+        last_out_channels_num = self.get_last_layer_out_channels()
+        last_layer_idx = len(params)-1
+
+        self._add_layer(last_output_size, last_out_channels_num, last_layer_idx, create_func=Generator._create_last_layer)
     
     @staticmethod
     def _create_stand_layer(params, in_channels, input_size=None):      

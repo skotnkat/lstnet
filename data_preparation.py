@@ -27,7 +27,6 @@ def create_augmentation_steps(img_size):
         ),
     ])
 
-# option to pass dataset_path instead of name and flag to load from file
 
 def load_dataset(dataset_name, train_op=True, transform_steps=BASIC_TRANSFORMATION, **kwargs):
     # load data from torchvision datasets

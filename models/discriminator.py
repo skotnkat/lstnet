@@ -1,5 +1,4 @@
 import torch.nn as nn
-import torch
 
 from models.lstnet_component import LstnetComponent
 from models.extended_layers import Conv2dExtended, MaxPool2dExtended
@@ -22,7 +21,7 @@ class Discriminator(LstnetComponent):
 
         self.dense_layer_params["in_features"] = in_features
         last_layer = Discriminator._create_last_layer(self.dense_layer_params)
-        
+
         self.layers.append(last_layer)
 
     def forward(self, x):    
@@ -54,7 +53,6 @@ class Discriminator(LstnetComponent):
         last_layer = nn.Sequential(
             nn.Flatten(),
             nn.Linear(**params),
-            # nn.Sigmoid()  # removing sigmoid to use more stable BCEWithLogits
         )
     
         return last_layer
