@@ -41,7 +41,7 @@ def compute_discriminator_loss(model, first_real, second_real, first_gen, second
     second_latent_disc = model.latent_discriminator.forward(second_latent)
     latent_disc_loss = network_adversarial_loss(first_latent_disc, second_latent_disc)
 
-    return W_1*first_disc_loss + W_2*second_disc_loss + W_l*latent_disc_loss
+    return W_1*first_disc_loss, W_2*second_disc_loss, W_l*latent_disc_loss
 
 
 def compute_cc_loss(first_real, second_real, first_cycle, second_cycle, first_full_cycle, second_full_cycle):
