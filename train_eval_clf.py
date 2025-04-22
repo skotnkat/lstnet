@@ -79,7 +79,7 @@ if __name__ == "__main__":
     clf = None
     if not args.params_file.endswith('.json'):
         raise ValueError("The parameter 'params_file' must end with .json")
-    
+
     with open(f'{EVAL_FOLDER}{args.params_file}', 'r') as file:
         params = json.load(file)
 
@@ -96,6 +96,7 @@ if __name__ == "__main__":
         print(f'SVHN Classifier Initialized')
 
     if clf is None:
+        raise ValueError("No classifier model as loaded.")
     clf.to(device)
 
     best_weights = copy.deepcopy(clf.state_dict())
@@ -139,6 +140,7 @@ if __name__ == "__main__":
             patience_cnt += 1
 
             if patience_cnt > clf.patience:
+                print(f'Patience {patience_cnt} reached its limit {clf.patience}.')
                 break
         ######################################################
 
