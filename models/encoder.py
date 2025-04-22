@@ -12,8 +12,8 @@ class Encoder(LstnetComponent):
     def _create_stand_layer(params, in_channels, input_size):        
         layer = nn.Sequential(
             Conv2dExtended(in_channels, input_size=input_size, **params),
-            nn.BatchNorm2d(params["out_channels"]),
-            nn.LeakyReLU()
+            nn.BatchNorm2d(params["out_channels"], momentum=0.01, eps=0.001),
+            nn.LeakyReLU(negative_slope=0.3)
         )
     
         return layer
