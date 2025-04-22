@@ -31,17 +31,17 @@ def create_augmentation_steps(img_size):
 def load_dataset(dataset_name, train_op=True, transform_steps=BASIC_TRANSFORMATION, download=True, **kwargs):
     # load data from torchvision datasets
     if dataset_name == 'MNIST':
-        data = datasets.MNIST(root="./data", train=train_op, transform=transform_steps, **kwargs)
+        data = datasets.MNIST(root="./data", train=train_op, transform=transform_steps, download=download, **kwargs)
 
     elif dataset_name == 'USPS':
-        data = datasets.USPS(root="./data", train=train_op, transform=transform_steps, **kwargs)
+        data = datasets.USPS(root="./data", train=train_op, transform=transform_steps, download=download, **kwargs)
 
     elif dataset_name == 'SVHN':
         # targets are called labels and are array
         split = 'test'
         if train_op:
             split = 'train'
-        data = datasets.SVHN(root="./data", split=split, transform=transform_steps, **kwargs)
+        data = datasets.SVHN(root="./data", split=split, transform=transform_steps, download=download, **kwargs)
 
     else:
         err_msg = f'Not able to load dataset "{dataset_name}"'
