@@ -3,8 +3,8 @@ import torch
 import utils
 
 W_1, W_2, W_3, W_4, W_5, W_6, W_l = utils.initialize_weights()
-adversarial_loss = nn.BCEWithLogitsLoss()
-cycle_loss = nn.L1Loss()
+adversarial_loss = nn.BCEWithLogitsLoss(reduction='sum')
+cycle_loss = nn.L1Loss(reduction='sum')
 
 
 def adversarial_loss_real(batch):
@@ -69,5 +69,5 @@ def compute_enc_gen_loss(model, first_gen, second_gen, first_latent, second_late
 
     latent_loss = (first_latent_loss+second_latent_loss) / 2
 
-    return W_1*first_gen_loss + W_2*second_gen_loss + W_l*latent_loss
+    return W_1*first_gen_loss, W_2*second_gen_loss, W_l*latent_loss
 
