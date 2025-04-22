@@ -73,9 +73,10 @@ class Conv2dExtended(nn.Conv2d):
             
             p_total_width = padding[0] + padding[1]
             p_total_height = padding[2] + padding[3]
-        
-        output_width = (input_size[0]+p_total_width-self.dilation[0]*(self.kernel_size[0]-1) - 1) // self.stride[0] + 1  # math.floor
-        output_height = (input_size[1]+p_total_height-self.dilation[1]*(self.kernel_size[1] - 1) - 1) // self.stride[1] + 1  # math.floor
+
+        # math.floor
+        output_width = (input_size[0]+p_total_width-self.dilation[0]*(self.kernel_size[0]-1)-1) // self.stride[0] + 1
+        output_height = (input_size[1]+p_total_height-self.dilation[1]*(self.kernel_size[1]-1)-1) // self.stride[1] + 1
         
         return output_width, output_height
 
