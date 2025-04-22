@@ -43,10 +43,9 @@ def update_disc(model, first_real, second_real, optim_disc_1, optim_disc_2, opti
         first_latent = first_latent.detach()
         second_latent = second_latent.detach()
 
-    disc_loss_1, disc_loss_2, disc_loss_latent = compute_discriminator_loss(model,
-                                           first_real, second_real,
-                                           first_gen, second_gen,
-                                           first_latent, second_latent)
+    disc_loss_1, disc_loss_2, disc_loss_latent = compute_discriminator_loss(model, first_real, second_real,
+                                                                            first_gen, second_gen,
+                                                                            first_latent, second_latent)
 
     disc_loss_1.backward()
     disc_loss_2.backward()
@@ -89,10 +88,9 @@ def update_enc_gen(model, first_real, second_real, optim):
     optim.step()
 
     with torch.no_grad():
-        disc_loss_1, disc_loss_2, disc_loss_latent = compute_discriminator_loss(model,
-                                               first_real, second_real,
-                                               first_gen.detach(), second_gen.detach(),
-                                               first_latent.detach(), second_latent.detach())
+        disc_loss_1, disc_loss_2, disc_loss_latent = compute_discriminator_loss(model, first_real, second_real,
+                                                                                first_gen.detach(), second_gen.detach(),
+                                                                                first_latent.detach(), second_latent.detach())
 
     total_disc_loss = disc_loss_1.item() + disc_loss_2.item() + disc_loss_latent.item()
     return cc_loss.item() + total_disc_loss

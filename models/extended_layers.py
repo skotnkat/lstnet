@@ -12,11 +12,13 @@ import utils
 
 
 class Conv2dExtended(nn.Conv2d):
-    def __init__(self, in_channels, out_channels, kernel_size, stride=1, padding=1, dilation=(1, 1), input_size=None, **kwargs):  
+    def __init__(self, in_channels, out_channels, kernel_size,
+                 stride=1, padding=1, dilation=(1, 1), input_size=None, **kwargs):
         tmp_padding, is_padding_same = utils.standardize_padding(padding)
         self.is_padding_same = is_padding_same
         
-        super().__init__(in_channels, out_channels, kernel_size, stride, padding=tmp_padding, dilation=dilation, **kwargs)  
+        super().__init__(in_channels, out_channels, kernel_size, stride,
+                         padding=tmp_padding, dilation=dilation, **kwargs)
 
         self.padding_precomputed = True  # false only for padding="same" when no input size is passed
         self.internal_padding = tmp_padding
@@ -79,10 +81,12 @@ class Conv2dExtended(nn.Conv2d):
 
 
 class ConvTranspose2dExtended(nn.ConvTranspose2d):
-    def __init__(self, in_channels, out_channels, kernel_size, stride, padding, dilation=(1, 1), output_padding=0, **kwargs):
+    def __init__(self, in_channels, out_channels, kernel_size, stride, padding,
+                 dilation=(1, 1), output_padding=0, **kwargs):
         tmp_padding, is_padding_same = utils.standardize_padding(padding)
         
-        super().__init__(in_channels, out_channels, kernel_size, stride, padding=tmp_padding, dilation=dilation, output_padding=output_padding, **kwargs)
+        super().__init__(in_channels, out_channels, kernel_size, stride,
+                         padding=tmp_padding, dilation=dilation, output_padding=output_padding, **kwargs)
 
         if is_padding_same:
             self.padding, self.output_padding = self._compute_padding()
@@ -174,8 +178,9 @@ class MaxPool2dExtended(nn.MaxPool2d):
             p_total_width = padding[0] + padding[1]  # 2*padding
             p_total_height = padding[2] + padding[3]  # 2*padding
 
-        output_width = (input_size[0]+p_total_width-self.dilation[0]*(self.kernel_size[0]-1) - 1) // self.stride[0] + 1  # math.floor
-        output_height = (input_size[1]+p_total_height-self.dilation[1]*(self.kernel_size[1]-1) - 1) // self.stride[1] + 1  # math.floor
+        # math.floor
+        output_width = (input_size[0]+p_total_width-self.dilation[0]*(self.kernel_size[0]-1)-1) // self.stride[0] + 1
+        output_height = (input_size[1]+p_total_height-self.dilation[1]*(self.kernel_size[1]-1)-1) // self.stride[1] + 1
         
         return output_width, output_height
 
