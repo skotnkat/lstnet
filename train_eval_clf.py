@@ -35,7 +35,7 @@ def run_loop(clf, loader, train=True):
             loss.backward()
             clf.optimizer.step()
 
-        loss_total += loss.item() * x.size()[0]  # number of elements in batch
+        loss_total += loss.item()  # reduction='sum' -> already returns sum of the losses
 
         preds = outputs.argmax(dim=1)
         acc = (preds == y).sum()
