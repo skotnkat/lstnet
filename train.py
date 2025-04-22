@@ -62,8 +62,6 @@ def update_disc(model, first_real, second_real, optim_disc_1, optim_disc_2, opti
     disc_loss_latent.backward()
     optim_disc_latent.step()
 
-    total_disc_loss = disc_loss_1.item() + disc_loss_2.item() + disc_loss_latent.item()
-
 
     DISC_LOSSES[CUR_EPOCH].append({'first_loss' : disc_loss_1.item(),
                                    'second_loss' : disc_loss_2.item(),
@@ -80,7 +78,7 @@ def update_disc(model, first_real, second_real, optim_disc_1, optim_disc_2, opti
 
     CC_LOSSES[CUR_EPOCH].append(cc_loss.item())
 
-    return total_disc_loss + cc_loss.item()
+    return disc_loss_1.item() + disc_loss_2.item() + disc_loss_latent.item() + cc_loss.item()
 
 
 def update_enc_gen(model, first_real, second_real, optim):
@@ -114,8 +112,7 @@ def update_enc_gen(model, first_real, second_real, optim):
 
     DISC_LOSSES[CUR_EPOCH].append({'first_loss': disc_loss_1.item(), 'second_loss': disc_loss_2.item(), 'latent_loss': disc_loss_latent.item()})
 
-    total_disc_loss = disc_loss_1.item() + disc_loss_2.item() + disc_loss_latent.item()
-    return cc_loss.item() + total_disc_loss
+    return cc_loss.item() + disc_loss_1.item() + disc_loss_2.item() + disc_loss_latent.item()
 
 
 
