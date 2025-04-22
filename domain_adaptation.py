@@ -5,6 +5,7 @@ from tqdm import tqdm
 from data_preparation import get_testing_loader
 import utils
 
+
 def translate_to_diff_domain(loader, map_fn):
     all_trans_imgs = []
     all_labels = []
@@ -15,7 +16,6 @@ def translate_to_diff_domain(loader, map_fn):
             imgs = imgs.to(utils.DEVICE)
             trans_imgs = map_fn(imgs)
             all_trans_imgs.append(trans_imgs.cpu())
-
 
     trans_igms_tensor = torch.cat(all_trans_imgs)
     labels_tensor = torch.cat(all_labels)
@@ -35,3 +35,7 @@ def adapt_domain(model, orig_domain_name):
     trans_dataset = translate_to_diff_domain(loader, map_fn)
 
     return trans_dataset
+
+
+def evaluate(model, domain_name):
+    pass
