@@ -1,43 +1,46 @@
 import argparse
 import os
+import json
 
 import utils
-from train import train
-from predict import predict
+import train
+import domain_adaptation
 import torch
 
 
 def get_common_parser():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--operation", type=str, choices=["train", "predict", "all"], default="all",
-                               help="Operation to perform: train, predict, or all (first training, then prediction).")
-    parser.add_argument("--output_folder", type=str, default="output", help="Path to the output folder")
+    parser.add_argument("--operation", type=str, choices=["train", "trans", "eval", "all"], default="all",
+                               help="Operation to perform: trainining, translation, evaluation or end-to-end \
+                               (first training, followed by translation of data to other domain and lastly evaluaiton).")
+    parser.add_argument("--output_folder", type=str, default="output/", help="Path to the output folder")
     parser.add_argument("--batch_size", type=int, default=64, help="Size of batches used in training.")
     parser.add_argument("--num_workers", type=int, default=4, help="Size of batches used in training.")
-
-    # change the name to lstnet_path?
-    parser.add_argument("--model_name", type=str, default="lstnet_model",
-                        help="Name of the file to store the trained model.")
 
     return parser
 
 
-def get_train_parser():
-    parser = argparse.ArgumentParser()
-    parser.add_argument("first_domain", type=str, help="Name of the first dataset.")
-    parser.add_argument("second_domain", type=str, help="Name of the second dataset.")
+def get_train_parser(parser=None):
+    if parser is None:
+        parser = argparse.ArgumentParser()
+
+    parser.add_argument("first_domain", type=str.upper, help="Name of the first dataset.")
+    parser.add_argument("second_domain", type=str.upper, help="Name of the second dataset.")
     parser.add_argument("params_file", type=str, help="Path to the file with stored parameters of model.")
 
     parser.add_argument("--supervised", action="store_true",
-                              help="Run supervised domain adaptation. If not set, unsupervised domain adaptation is run.")
+                        help="Run supervised domain adaptation. If not set, unsupervised domain adaptation is run.")
 
     parser.add_argument("--loss_file", type=str, default="loss", help="File with recorded losses for each epoch.")
+    parser.add_argument("--output_model_file", type=str, default="lstnet_model",
+                        help="Name of the file to store the trained model.")
 
-    parser.add_argument("--learning_rate", type=float, default=1e-3, help="Learning rate used in Adam optimizer.")
-    parser.add_argument("--decay", type=float, nargs=2, default=(0.9, 0.999),
-                              help="Two float values for Adam optimizer decay (beta1, beta2)")
+    parser.add_argument("--learning_rate", type=float, default=1e-4, help="Learning rate used in Adam optimizer.")
+    parser.add_argument("--decay", type=float, nargs=2, default=(0.8, 0.999),
+                        help="Two float values for Adam optimizer decay (beta1, beta2)")
+
     parser.add_argument("--delta_loss", type=float, default=1e-4,
-                              help="Maximum allowed change in loss between iterations to consider convergence")
+                        help="Maximum allowed change in loss between iterations to consider convergence")
 
     return parser
 
@@ -45,10 +48,32 @@ def get_train_parser():
 def get_translate_parser():
     parser = argparse.ArgumentParser()
 
+    parser.add_argument("domain", type=str.upper, help="Name of the domain to be translated to the other domain.")
+    parser.add_argument("--load_model", type="store_true", help="If a model with name 'model_name' should be loaded for data translation.")
+    parser.add_argument("--model_name", type=str, default="lstnet_model", help="Name of the model to be loaded for translation")
+    parser.add_argument("--output_data_file", type=str, default="Name of the file to store the translated data.")
+
     return parser
+
 
 def get_eval_parser():
     parser = argparse.ArgumentParser()
+    parser.add_argument("domain", type=str.upper, help="Name of the domain to be evaluated.")
+    parser.add_argument("clf_model", type=str, help="Name of the model to classify the data.")
+    parser.add_argument("--output_results_file", type=str, help="Name of file to store test results")
+
+    return parser
+
+
+def get_end_to_end_parser():
+    parser = argparse.ArgumentParser()
+    parser = get_train_parser(parser)
+
+    parser.add_argument("clf_first_domain", type=str, help="Path to the trained classifier of the first domain")
+    parser.add_argument("clf_second_domain", type=str, help="Path to the trained classifier of the second domain")
+    parser.add_argument("--output_results_file", type=str, help="Name of file to store test results")
+    parser.add_argument("--save_trans_data", type="store_true", help="Bool if the translated data that are result of the translation phase should be saved in files")
+    parser.add_argument("--output_data_file", type=str, default="Name of the file to store the translated data. Only when '--save_trans_data' is set to true.")
 
     return parser
 
@@ -62,6 +87,7 @@ def parse_args():
     train_parser = get_train_parser()
     trans_parser = get_translate_parser()
     eval_parser = get_eval_parser()
+    all_parser = get_end_to_end_parser()
 
     subparsers = parser.add_subparsers(
         dest="operation",
@@ -69,8 +95,8 @@ def parse_args():
         help="Operation to perform"
     )
 
-    # Train
-    p_train = subparsers.add_parser(
+    # Train subparser
+    subparsers.add_parser(
         "train",
         parents=[common_parser, train_parser],
         help="Train the LSTNET model for domain adaptation task."
@@ -93,12 +119,13 @@ def parse_args():
     # All: train->translate->evaluate
     subparsers.add_parser(
         "all",
-        parents=[common_parser, train_parser, trans_parser, eval_parser],
+        parents=[common_parser, all_parser],
         help="Perform the end-to-end workflow. Train the model. Load the test datasets and translate it \
         to their respective target domains. Load a classifier and predict labels for the translated images."
     )
 
     args = parser.parse_args()
+
     return args
 
 
@@ -112,34 +139,84 @@ def initialize(args):
 
     utils.NUM_WORKERS = args.num_workers
     utils.BATCH_SIZE = args.batch_size
-    utils.ADAM_LR = args.learning_rate
-    utils.ADAM_DECAY = args.decay
-    utils.DELTA_LOSS = args.delta_loss
+
+    if args.operation in ['train', 'all']:
+        utils.ADAM_LR = args.learning_rate
+        utils.ADAM_DECAY = args.decay
+        utils.DELTA_LOSS = args.delta_loss
 
     utils.DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f'Device being used: {utils.DEVICE}')
 
 
+def run_training(first_domain, second_domain, supervised, output_file, return_model=False):
+    model = train.run(args.first_domain, args.second_domain, args.supervised)
+
+    model_path = f'{utils.OUTPUT_FOLDER}/{args.output_model_file}.pth'
+    torch.save(model, model_path)
+
+    if return_model:
+        return model
+
+
+def run_translation(args, domain_name, model=None, return_data=False):
+    if model is None and args.load_model is False:
+        raise ValueError("Model for translation is not specified.")
+
+    if args.load_model:
+        model = torch.load(args.model_name)
+
+    translated_data = domain_adaptation.adapt_domain(model, domain_name)
+
+    torch.save(translated_data, f'{utils.OUTPUT_FOLDER}/{args.output_data_file}.pt')
+
+    if return_data:
+        return translated_data
+
+
+def run_evaluation(domain_name, clf_name, results_file):
+    model = torch.load(clf_name)
+    results = domain_adaptation.evaluate(model, domain_name)
+
+    with open(f'{utils.OUTPUT_FOLDER}/{results_file}.json', 'a') as file:
+        json.dump(results, file, indent=2)
+
+
+def run_end_to_end(args):
+    model = run_training(args.first_domain, args.second_domain, args.supervised, args.output_model_file, return_model=True)
+
+    first_data_trans = run_translation(args, args.first_domain, model, return_data=True)
+    second_data_trans = run_translation(args, args.second_domain, model, return_data=True)
+
+    if args.save_trans_data:
+        torch.save(first_data_trans, f'{utils.OUTPUT_FOLDER}/{args.first_domain}_{args.output_data_file}.pt')
+        torch.save(first_data_trans, f'{utils.OUTPUT_FOLDER}/{args.second_domain}_{args.output_data_file}.pt')
+
+    first_clf = torch.load(args.clf_first_domain)
+    run_evaluation(args, first_clf, args.first_domain)
+
+    second_clf = torch.load(args.clf_second_domain)
+    run_evaluation(args, second_clf, args.second_domain)
+
+
+
 def main():
-    args = parse_args()
     initialize(args)
 
-    model = None
-    model_path = f'{utils.OUTPUT_FOLDER}/{args.model_name}.pth'
+    if args.operation == 'train':
+        run_training(args.first_domain, args.second_domain, args.supervised, args.output_model_file)
+        print(f'LSTNET model for {args.first_domain}-{args.second_domain} Domain Adaptation is trained.')
 
-    first_domain = args.first_domain.upper()
-    second_domain = args.second_domain.upper()
+    elif args.operation == 'trans':
+        run_translation(args, args.domain)
 
-    if (args.operation == "train") or (args.operation == "all"):
-        model = train(first_domain, second_domain, args.supervised)
-        torch.save(model, model_path)
+    elif args.operation == 'eval':
+        run_evaluation(args.domain, args.clf_model, args.output_results_file)
 
-    if (args.operation == "predict") or (args.operation == "all"):
-        if model is None:
-            model = torch.load(model_path)
+    else:
+        run_end_to_end(args)
 
-        scores = predict(model)
 
 
 if __name__ == "__main__":
-    main()
+    args = parse_args()
