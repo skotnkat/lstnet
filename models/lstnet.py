@@ -13,8 +13,8 @@ SECOND_IN_CHANNELS_NUM = None
 
 
 class LSTNET(nn.Module):
-    def __init__(self):
-        super().__init__(first_domain_name="", second_domain_name="")
+    def __init__(self, first_domain_name="", second_domain_name=""):
+        super().__init__()
 
         self.first_domain_name = first_domain_name
         self.second_domain_name = second_domain_name
