@@ -24,8 +24,8 @@ def parse_args():
 
     parser.add_argument("--num_workers", type=int, default=4, help="Size of batches used in training.")
     parser.add_argument("--batch_size", type=int, default=64, help="Size of batches used in training.")
-    parser.add_argument("--learning_rate", type=float, default=1e-3, help="Learning rate used in Adam optimizer.")
-    parser.add_argument("--decay", type=float, nargs=2, default=(0.9, 0.999), help="Two float values for Adam optimizer decay (beta1, beta2)")
+    parser.add_argument("--learning_rate", type=float, default=1e-4, help="Learning rate used in Adam optimizer.")
+    parser.add_argument("--decay", type=float, nargs=2, default=(0.8, 0.999), help="Two float values for Adam optimizer decay (beta1, beta2)")
     parser.add_argument("--delta_loss", type=float, default=1e-4, help="Maximum allowed change in loss between iterations to consider convergence")
 
 
