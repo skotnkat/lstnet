@@ -160,6 +160,7 @@ def train(model, loader):
                 start_time = time.time()
             #############################################################
 
+        batch_loss /= len(loader.dataset)  # compute mean of the losses
 
         if np.abs(batch_loss - prev_best_batch_loss) < utils.DELTA_LOSS:
             converged = True
@@ -168,19 +169,15 @@ def train(model, loader):
         if batch_loss < prev_best_batch_loss:
             prev_best_batch_loss = batch_loss
 
-        print(f'End of epoch {CUR_EPOCH}, current total loss: {cur_avg_loss}')
+        print(f'End of epoch {CUR_EPOCH}, current total loss: {batch_loss}')
         torch.save(model.state_dict(), f"{utils.OUTPUT_FOLDER}/model_{CUR_EPOCH}.pth")
 
         CUR_EPOCH += 1
 
-        with open(f'{utils.OUTPUT_FOLDER}/disc_loss_log.json', 'a') as file:
-            json.dump(DISC_LOSSES, file)
+        loss_logs = {'disc_loss' : DISC_LOSSES, 'enc_gen_loss' : ENC_GEN_LOSSES, 'cc_loss' : CC_LOSSES}
 
-        with open(f'{utils.OUTPUT_FOLDER}/cc_loss_log.json', 'a') as file:
-            json.dump(CC_LOSSES, file)
-
-        with open(f'{utils.OUTPUT_FOLDER}/.enc_gen_loss_log.json', 'a') as file:
-            json.dump(ENC_GEN_LOSSES, file)
+        with open(f'{utils.OUTPUT_FOLDER}/loss_logs.json', 'a') as file:
+            json.dump(loss_logs, file)
     
     return model, loss_list
 
