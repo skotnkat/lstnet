@@ -8,11 +8,7 @@ import domain_adaptation
 import torch
 
 
-def get_common_parser():
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--operation", type=str, choices=["train", "trans", "eval", "all"], default="all",
-                               help="Operation to perform: trainining, translation, evaluation or end-to-end \
-                               (first training, followed by translation of data to other domain and lastly evaluaiton).")
+def add_common_args(parser):
     parser.add_argument("--output_folder", type=str, default="output/", help="Path to the output folder")
     parser.add_argument("--batch_size", type=int, default=64, help="Size of batches used in training.")
     parser.add_argument("--num_workers", type=int, default=4, help="Size of batches used in training.")
@@ -20,10 +16,7 @@ def get_common_parser():
     return parser
 
 
-def get_train_parser(parser=None):
-    if parser is None:
-        parser = argparse.ArgumentParser()
-
+def add_train_args(parser):
     parser.add_argument("first_domain", type=str.upper, help="Name of the first dataset.")
     parser.add_argument("second_domain", type=str.upper, help="Name of the second dataset.")
     parser.add_argument("params_file", type=str, help="Path to the file with stored parameters of model.")
@@ -42,40 +35,28 @@ def get_train_parser(parser=None):
     parser.add_argument("--delta_loss", type=float, default=1e-4,
                         help="Maximum allowed change in loss between iterations to consider convergence")
 
-    return parser
 
-
-def get_translate_parser():
-    parser = argparse.ArgumentParser()
-
+def add_translate_args(parser):
     parser.add_argument("domain", type=str.upper, help="Name of the domain to be translated to the other domain.")
-    parser.add_argument("--load_model", type="store_true", help="If a model with name 'model_name' should be loaded for data translation.")
+    parser.add_argument("--load_model", action="store_true", help="If a model with name 'model_name' should be loaded for data translation.")
     parser.add_argument("--model_name", type=str, default="lstnet_model", help="Name of the model to be loaded for translation")
     parser.add_argument("--output_data_file", type=str, default="Name of the file to store the translated data.")
 
-    return parser
 
-
-def get_eval_parser():
-    parser = argparse.ArgumentParser()
+def add_eval_args(parser):
     parser.add_argument("domain", type=str.upper, help="Name of the domain to be evaluated.")
     parser.add_argument("clf_model", type=str, help="Name of the model to classify the data.")
     parser.add_argument("--output_results_file", type=str, help="Name of file to store test results")
 
-    return parser
 
-
-def get_end_to_end_parser():
-    parser = argparse.ArgumentParser()
-    parser = get_train_parser(parser)
+def add_end_to_end_parser(parser):
+    add_train_args(parser)
 
     parser.add_argument("clf_first_domain", type=str, help="Path to the trained classifier of the first domain")
     parser.add_argument("clf_second_domain", type=str, help="Path to the trained classifier of the second domain")
     parser.add_argument("--output_results_file", type=str, help="Name of file to store test results")
-    parser.add_argument("--save_trans_data", type="store_true", help="Bool if the translated data that are result of the translation phase should be saved in files")
+    parser.add_argument("--save_trans_data", action="store_true", help="Bool if the translated data that are result of the translation phase should be saved in files")
     parser.add_argument("--output_data_file", type=str, default="Name of the file to store the translated data. Only when '--save_trans_data' is set to true.")
-
-    return parser
 
 
 def parse_args():
@@ -83,50 +64,30 @@ def parse_args():
         description="Domain adaptation: train, translate, evalute or all"
     )
 
-    common_parser = get_common_parser()
-    train_parser = get_train_parser()
-    trans_parser = get_translate_parser()
-    eval_parser = get_eval_parser()
-    all_parser = get_end_to_end_parser()
-
-    subparsers = parser.add_subparsers(
-        dest="operation",
-        required=True,
-        help="Operation to perform"
-    )
+    subparsers = parser.add_subparsers(dest="operation", required=True)
+    
 
     # Train subparser
-    subparsers.add_parser(
-        "train",
-        parents=[common_parser, train_parser],
-        help="Train the LSTNET model for domain adaptation task."
-    )
+    train_parser = subparsers.add_parser("train", help="Train the LSTNET model for domain adaptation task.")
+    add_common_args(train_parser)
+    add_train_args(train_parser)
 
     # Translation
-    subparsers.add_parser(
-        "translate",
-        parents=[common_parser, trans_parser],
-        help="Load a trained model and dataset and map the images from the original domain to the second one."
-    )
+    trans_parser = subparsers.add_parser("translate", help="Load a trained model and dataset and map the images from the original domain to the second one.")
+    add_common_args(trans_parser)
+    add_translate_args(trans_parser)
 
     # Eval
-    subparsers.add_parser(
-        "eval",
-        parents=[common_parser, eval_parser],
-        help="Load a dataset and predict their labels using a given classifier"
-    )
+    eval_parser = subparsers.add_parser("eval", help="Load a dataset and predict their labels using a given classifier")
+    add_common_args(eval_parser)
+    add_eval_args(eval_parser)
 
     # All: train->translate->evaluate
-    subparsers.add_parser(
-        "all",
-        parents=[common_parser, all_parser],
-        help="Perform the end-to-end workflow. Train the model. Load the test datasets and translate it \
-        to their respective target domains. Load a classifier and predict labels for the translated images."
-    )
+    all_parser = subparsers.add_parser("all", help="Perform the end-to-end workflow. Train the model. Load the test datasets and translate it to their respective target domains. Load a classifier and predict labels for the translated images.")
+    add_common_args(all_parser)
+    add_end_to_end_parser(all_parser)
 
-    args = parser.parse_args()
-
-    return args
+    return parser.parse_args()
 
 
 def initialize(args):
@@ -199,8 +160,8 @@ def run_end_to_end(args):
     run_evaluation(args, second_clf, args.second_domain)
 
 
-
-def main():
+if __name__ == "__main__":
+    args = parse_args()
     initialize(args)
 
     if args.operation == 'train':
@@ -216,7 +177,3 @@ def main():
     else:
         run_end_to_end(args)
 
-
-
-if __name__ == "__main__":
-    args = parse_args()
