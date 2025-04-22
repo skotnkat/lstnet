@@ -4,6 +4,7 @@ import argparse
 import json
 import os
 from time import time
+import numpy as np
 
 from data_preparation import load_dataset, create_augmentation_steps
 from torch.utils.data import DataLoader, random_split
@@ -85,7 +86,7 @@ if __name__ == "__main__":
     clf.to(device)
 
     best_weights = copy.deepcopy(clf.state_dict())
-    best_val_loss = float('inf')
+    best_val_loss = np.inf
 
     train_loss_list = []
     train_acc_list = []
