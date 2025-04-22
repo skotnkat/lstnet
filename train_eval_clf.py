@@ -76,7 +76,7 @@ if __name__ == "__main__":
     val_loader = DataLoader(val_data, batch_size=64, shuffle=False, num_workers=4)
 
     clf = None
-    with open(f'{EVAL_FOLDER}/{args.params_file}.json', 'r') as file:
+    with open(f'{EVAL_FOLDER}{args.params_file}.json', 'r') as file:
         params = json.load(file)
 
     if args.domain_name.upper() == 'MNIST':
@@ -113,9 +113,9 @@ if __name__ == "__main__":
         ######################################################
         end_time = time()
         print(f'Epoch {epoch} finished.')
-        print(f'\tTrain loss: {train_loss}, Train acc: {train_acc}')
-        print(f'\tVal loss: {val_loss}, Val acc: {val_acc}')
-        print(f'\tTook: {(start_time-end_time)/60:.2f} min')
+        print(f'\tTrain loss: {train_loss:.6f}, Train acc: {train_acc:.6f}')
+        print(f'\tVal loss: {val_loss:.6f}, Val acc: {val_acc:.6f}')
+        print(f'\tTook: {(end_time-start_time)/60:.2f} min')
 
         if val_loss < best_val_loss:
             best_val_loss = val_loss
