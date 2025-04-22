@@ -100,7 +100,6 @@ def update_enc_gen(model, first_real, second_real, optim):
                               first_full_cycle, second_full_cycle)
 
     enc_gen_loss_total = first_enc_gen_loss + second_enc_gen_loss + latent_enc_gen_loss + cc_loss
-    print(f'enc_gen_loss_total: {enc_gen_loss_total}')
     enc_gen_loss_total.backward()
 
     optim.step()
