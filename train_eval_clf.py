@@ -71,7 +71,6 @@ if __name__ == "__main__":
 
     train_data, val_data = random_split(train_data, [train_size, val_size])
 
-    test_data = load_dataset(args.domain_name, train_op=False)
 
     train_loader = DataLoader(train_data, batch_size=64, shuffle=True, num_workers=4)
     val_loader = DataLoader(val_data, batch_size=64, shuffle=False, num_workers=4)
