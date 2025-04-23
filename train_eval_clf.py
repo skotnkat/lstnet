@@ -27,10 +27,6 @@ def run_loop(clf, loader, train=True):
     loss_total = 0
     acc_total = 0
     for x, y in loader:
-        has_value_gt_1 = (x > 1).any().item()
-        has_values_lt_minus_1 = (x < -1).any().item()
-        print(f'>1: {has_value_gt_1}, <: {has_values_lt_minus_1}')
-        break
         x = x.to(device)
         y = y.to(device)
         clf.optimizer.zero_grad()
