@@ -2,6 +2,7 @@ import numpy as np
 import torch
 from torch.optim import Adam
 import json
+import copy
 
 from models.lstnet import LSTNET
 from loss_functions import compute_discriminator_loss, compute_enc_gen_loss, compute_cc_loss
@@ -62,8 +63,6 @@ def update_disc(model, first_real, second_real, optim_disc_1, optim_disc_2, opti
     disc_loss_latent.backward()
     optim_disc_latent.step()
 
-    total_disc_loss = disc_loss_1.item() + disc_loss_2.item() + disc_loss_latent.item()
-
 
     DISC_LOSSES[CUR_EPOCH].append({'first_loss' : disc_loss_1.item(),
                                    'second_loss' : disc_loss_2.item(),
@@ -80,7 +79,7 @@ def update_disc(model, first_real, second_real, optim_disc_1, optim_disc_2, opti
 
     CC_LOSSES[CUR_EPOCH].append(cc_loss.item())
 
-    return total_disc_loss + cc_loss.item()
+    return disc_loss_1.item() + disc_loss_2.item() + disc_loss_latent.item() + cc_loss.item()
 
 
 def update_enc_gen(model, first_real, second_real, optim):
@@ -99,12 +98,12 @@ def update_enc_gen(model, first_real, second_real, optim):
                               first_cycle, second_cycle,
                               first_full_cycle, second_full_cycle)
 
-    enc_gen_loss_total = first_enc_gen_loss + second_enc_gen_loss, + latent_enc_gen_loss + cc_loss
+    enc_gen_loss_total = first_enc_gen_loss + second_enc_gen_loss + latent_enc_gen_loss + cc_loss
     enc_gen_loss_total.backward()
 
     optim.step()
     CC_LOSSES[CUR_EPOCH].append(cc_loss.item())
-    ENC_GEN_LOSSES[CUR_EPOCH].append({'first_loss' : first_enc_gen_loss, 'second_loss' : second_enc_gen_loss, 'latent_loss' : latent_enc_gen_loss})
+    ENC_GEN_LOSSES[CUR_EPOCH].append({'first_loss': first_enc_gen_loss.item(), 'second_loss': second_enc_gen_loss.item(), 'latent_loss' : latent_enc_gen_loss.item()})
 
 
     with torch.no_grad():
@@ -114,8 +113,7 @@ def update_enc_gen(model, first_real, second_real, optim):
 
     DISC_LOSSES[CUR_EPOCH].append({'first_loss': disc_loss_1.item(), 'second_loss': disc_loss_2.item(), 'latent_loss': disc_loss_latent.item()})
 
-    total_disc_loss = disc_loss_1.item() + disc_loss_2.item() + disc_loss_latent.item()
-    return cc_loss.item() + total_disc_loss
+    return cc_loss.item() + disc_loss_1.item() + disc_loss_2.item() + disc_loss_latent.item()
 
 
 
@@ -128,7 +126,11 @@ def train(model, loader):
     optim_enc_gen = Adam(model.enc_gen_params, lr=utils.ADAM_LR, betas=utils.ADAM_DECAY)
 
     converged = False
-    prev_best_batch_loss = np.inf
+    prev_epoch_loss = np.inf
+    best_epoch_loss = np.inf
+    best_weights = None
+    best_epoch_idx = np.inf
+
     loss_list = []
     start_time = time.time()
 
@@ -138,7 +140,7 @@ def train(model, loader):
         CC_LOSSES[CUR_EPOCH] = []
         ENC_GEN_LOSSES[CUR_EPOCH] = []
 
-        batch_loss = 0
+        epoch_loss = 0
         for batch_idx, (first_real, _, second_real, _) in enumerate(loader):
             first_real = first_real.to(utils.DEVICE).detach()
             second_real = second_real.to(utils.DEVICE).detach()
@@ -146,52 +148,60 @@ def train(model, loader):
             #############################################################
             # update discriminators
             if batch_idx % 2 == 0:
-                batch_loss += update_disc(model, first_real, second_real, optim_disc_1, optim_disc_2, optim_disc_latent)
+                epoch_loss += update_disc(model, first_real, second_real, optim_disc_1, optim_disc_2, optim_disc_latent)
             #############################################################
             # update encoders and generators
             else:
-                batch_loss += update_enc_gen(model, first_real, second_real, optim_enc_gen)
+                epoch_loss += update_enc_gen(model, first_real, second_real, optim_enc_gen)
 
             #############################################################
 
-            if batch_idx % 200 == 0:
-                end_time = time.time()
-                print(f'Batch {batch_idx} processed, took: {(end_time - start_time)/60:.2f} minutes')
-                start_time = time.time()
-            #############################################################
+        epoch_loss /= len(loader)  # compute mean of the losses
 
-        batch_loss /= len(loader.dataset)  # compute mean of the losses
-
-        if np.abs(batch_loss - prev_best_batch_loss) < utils.DELTA_LOSS:
+        if np.abs(epoch_loss - prev_epoch_loss) < utils.DELTA_LOSS:
             converged = True
 
-        loss_list.append(batch_loss)
-        if batch_loss < prev_best_batch_loss:
-            prev_best_batch_loss = batch_loss
+        loss_list.append(epoch_loss)
 
-        print(f'End of epoch {CUR_EPOCH}, current total loss: {batch_loss}')
-        torch.save(model.state_dict(), f"{utils.OUTPUT_FOLDER}/model_{CUR_EPOCH}.pth")
+        # should be last but also best?
+        if epoch_loss < best_epoch_loss:
+            best_epoch_loss = epoch_loss
+            best_weights = copy.deepcopy(model.state_dict())
+            best_epoch_idx = CUR_EPOCH
+
+        end_time = time.time()
+        print(f'End of epoch {CUR_EPOCH}')
+        print(f'\tCurrent total loss: {epoch_loss}')
+        print(f'\tTook: {end_time-start_time} s')
 
         CUR_EPOCH += 1
+        start_time = time.time()
 
-        loss_logs = {'disc_loss' : DISC_LOSSES, 'enc_gen_loss' : ENC_GEN_LOSSES, 'cc_loss' : CC_LOSSES}
+        if CUR_EPOCH % 10 == 0:
+            torch.save(best_weights, f"model_weights_{CUR_EPOCH}.pth")
+            loss_logs = {'disc_loss': DISC_LOSSES, 'enc_gen_loss': ENC_GEN_LOSSES, 'cc_loss': CC_LOSSES,
+                         'epoch_loss': epoch_loss}
 
-        with open(f'{utils.OUTPUT_FOLDER}/loss_logs.json', 'a') as file:
-            json.dump(loss_logs, file)
+            with open(f'{utils.OUTPUT_FOLDER}/loss_logs.json', 'w') as file:
+                json.dump(loss_logs, file)
+
+    print(f'Best epoch: {best_epoch_idx}')
+    torch.save(best_weights, "best_model_weights.pth")
     
     return model, loss_list
 
 
 def run(first_domain_name, second_domain_name, supervised):
     data_loader = get_training_loader(first_domain_name, second_domain_name, supervised)
+    print('Creating an instance of LSTNET model')
     model = LSTNET(first_domain_name, second_domain_name)
-
+    print(f'LSTNET model initialized')
     model.to(utils.DEVICE)
-    print('LSTNET model initialized')
+    print('LSTNET model moved to device')
 
     model, loss_list = train(model, data_loader)
 
-    with open(f'{utils.OUTPUT_FOLDER}/{utils.LOSS_FILE}.json', 'a') as file:
+    with open(f'{utils.OUTPUT_FOLDER}/{utils.LOSS_FILE}.json', 'w') as file:
         json.dump(loss_list, file, indent=2)
 
     print('Model trained.')

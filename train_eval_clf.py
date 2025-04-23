@@ -27,7 +27,8 @@ def run_loop(clf, loader, train=True):
     loss_total = 0
     acc_total = 0
     for x, y in loader:
-        x, y = x.to(device), y.to(device)
+        x = x.to(device)
+        y = y.to(device)
         clf.optimizer.zero_grad()
         outputs = clf.forward(x)
 
@@ -42,8 +43,11 @@ def run_loop(clf, loader, train=True):
         acc = (preds == y).sum()
         acc_total += acc.item()
 
-    loss_total /= len(loader.dataset)
-    acc_total /= len(loader.dataset)
+        x = x.to('cpu')
+        y = y.to('cpu')
+
+    loss_total /= len(loader)
+    acc_total /= len(loader)
 
     return loss_total, acc_total
 
