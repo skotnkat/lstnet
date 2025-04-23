@@ -15,6 +15,11 @@ DELTA_LOSS = None
 DEVICE = None
 NUM_WORKERS = None
 
+PARAMS_FILE_PATH = "mnist_usps_params.json"  # tmp
+
+FIRST_INPUT_SHAPE, SECOND_INPUT_SHAPE = None, None
+FIRST_IN_CHANNELS_NUM, SECOND_IN_CHANNELS_NUM = None, None
+
 
 def get_networks_params():
     with open(PARAMS_FILE_PATH, "r") as file:
