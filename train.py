@@ -125,7 +125,10 @@ def train(model, loader):
     optim_enc_gen = Adam(model.enc_gen_params, lr=utils.ADAM_LR, betas=utils.ADAM_DECAY)
 
     converged = False
-    prev_best_batch_loss = np.inf
+    prev_epoch_loss = np.inf
+    best_epoch_loss = np.inf
+    best_epoch_weights = None
+
     loss_list = []
     start_time = time.time()
 
@@ -135,7 +138,7 @@ def train(model, loader):
         CC_LOSSES[CUR_EPOCH] = []
         ENC_GEN_LOSSES[CUR_EPOCH] = []
 
-        batch_loss = 0
+        epoch_loss = 0
         for batch_idx, (first_real, _, second_real, _) in enumerate(loader):
             first_real = first_real.to(utils.DEVICE).detach()
             second_real = second_real.to(utils.DEVICE).detach()
@@ -143,18 +146,12 @@ def train(model, loader):
             #############################################################
             # update discriminators
             if batch_idx % 2 == 0:
-                batch_loss += update_disc(model, first_real, second_real, optim_disc_1, optim_disc_2, optim_disc_latent)
+                epoch_loss += update_disc(model, first_real, second_real, optim_disc_1, optim_disc_2, optim_disc_latent)
             #############################################################
             # update encoders and generators
             else:
-                batch_loss += update_enc_gen(model, first_real, second_real, optim_enc_gen)
+                epoch_loss += update_enc_gen(model, first_real, second_real, optim_enc_gen)
 
-            #############################################################
-
-            if batch_idx % 200 == 0:
-                end_time = time.time()
-                print(f'Batch {batch_idx} processed, took: {(end_time - start_time)/60:.2f} minutes')
-                start_time = time.time()
             #############################################################
 
         epoch_loss /= len(loader)  # compute mean of the losses
@@ -162,20 +159,30 @@ def train(model, loader):
         if np.abs(epoch_loss - prev_epoch_loss) < utils.DELTA_LOSS:
             converged = True
 
-        loss_list.append(batch_loss)
-        if batch_loss < prev_best_batch_loss:
-            prev_best_batch_loss = batch_loss
+        loss_list.append(epoch_loss)
 
-        print(f'End of epoch {CUR_EPOCH}, current total loss: {batch_loss}')
-        torch.save(model.state_dict(), f"{utils.OUTPUT_FOLDER}/model_{CUR_EPOCH}.pth")
+        # should be last but also best?
+        if epoch_loss < best_epoch_loss:
+            best_epoch_loss = epoch_loss
+            best_weights = model.state_dict()
+
+        end_time = time.time()
+        print(f'End of epoch {CUR_EPOCH}')
+        print(f'\tCurrent total loss: {epoch_loss}')
+        print(f'\tTook: {end_time-start_time} s')
 
         CUR_EPOCH += 1
 
-        loss_logs = {'disc_loss' : DISC_LOSSES, 'enc_gen_loss' : ENC_GEN_LOSSES, 'cc_loss' : CC_LOSSES}
+        loss_logs = {'disc_loss': DISC_LOSSES, 'enc_gen_loss': ENC_GEN_LOSSES, 'cc_loss': CC_LOSSES, 'epoch_loss':  epoch_loss}
 
         with open(f'{utils.OUTPUT_FOLDER}/loss_logs.json', 'a') as file:
             json.dump(loss_logs, file)
-    
+
+        start_time = time.time()
+
+        if CUR_EPOCH % 10 == 0:
+            torch.save(best_weights.cpu(), "model_weights_cpu.pth")
+
     return model, loss_list
 
 
