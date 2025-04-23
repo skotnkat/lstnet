@@ -76,8 +76,8 @@ if __name__ == "__main__":
     train_data, val_data = random_split(train_data, [train_size, val_size])
 
 
-    train_loader = DataLoader(train_data, batch_size=64, shuffle=True, num_workers=4)
-    val_loader = DataLoader(val_data, batch_size=64, shuffle=False, num_workers=4)
+    train_loader = DataLoader(train_data, batch_size=64, shuffle=True, num_workers=8)
+    val_loader = DataLoader(val_data, batch_size=64, shuffle=False, num_workers=8)
 
     clf = None
     if not args.params_file.endswith('.json'):
@@ -145,14 +145,15 @@ if __name__ == "__main__":
             if patience_cnt > clf.patience:
                 print(f'Patience {patience_cnt} reached its limit {clf.patience}.')
                 break
+
+        print(f'patience: {patience_cnt}')
         ######################################################
 
     results = {'train_loss': train_loss_list, 'train_acc': train_acc_list,
                'val_loss': val_loss_list, 'val_acc': val_acc_list}
 
-    torch.save(best_weights, f"{MODEL_FOLDER}/best_weights.pth")
-
     with open(f'{MODEL_FOLDER}/results.json', 'w') as file:
         json.dump(results, file, indent=2)
 
-    torch.save(clf.state_dict(), f"{MODEL_FOLDER}/{args.domain_name}_model.pth")
+    clf = clf.to('cpu')
+    torch.save(clf, f"{MODEL_FOLDER}/{args.domain_name}_model.pth")
