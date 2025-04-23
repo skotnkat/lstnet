@@ -180,7 +180,7 @@ def train(model, loader):
         if CUR_EPOCH % 10 == 0:
             torch.save(best_weights, f"model_weights_{CUR_EPOCH}.pth")
             loss_logs = {'disc_loss': DISC_LOSSES, 'enc_gen_loss': ENC_GEN_LOSSES, 'cc_loss': CC_LOSSES,
-                         'epoch_loss': epoch_loss}
+                         'epoch_loss': loss_list}
 
             with open(f'{utils.OUTPUT_FOLDER}/loss_logs.json', 'w') as file:
                 json.dump(loss_logs, file)
