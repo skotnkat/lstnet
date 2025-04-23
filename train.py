@@ -172,7 +172,7 @@ def train(model, loader):
         end_time = time.time()
         print(f'End of epoch {CUR_EPOCH}')
         print(f'\tCurrent total loss: {epoch_loss}')
-        print(f'\tTook: {end_time-start_time} s')
+        print(f'\tTook: {(end_time-start_time)/60:.2f} min')
 
         CUR_EPOCH += 1
         start_time = time.time()
@@ -187,7 +187,7 @@ def train(model, loader):
 
     print(f'Best epoch: {best_epoch_idx}')
     torch.save(best_weights, "best_model_weights.pth")
-    
+
     return model, loss_list
 
 
