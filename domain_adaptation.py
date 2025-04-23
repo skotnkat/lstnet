@@ -37,5 +37,20 @@ def adapt_domain(model, orig_domain_name):
     return trans_dataset
 
 
-def evaluate(model, domain_name):
-    pass
+def evaluate(clf, orig_domain_name):
+    loader = get_testing_loader(orig_domain_name)
+    clf.to(utils.DEVICE)
+
+    clf.eval()
+
+    test_acc = 0
+    with torch.no_grad():
+        for x, y in loader:
+            outputs = clf.forward(x)
+            preds = outputs.argmax(dim=1)
+            acc = (preds == y).sum()
+            test_acc += acc.item()
+
+        test_acc /= len(loader.dataset)
+
+    print(f'Testing accuracy: {test_acc}')
