@@ -28,7 +28,7 @@ def create_augmentation_steps(img_size):
     ])
 
 
-def load_dataset(dataset_name, train_op=True, transform_steps=BASIC_TRANSFORMATION, download=True, **kwargs):
+def load_dataset(dataset_name, train_op=True, transform_steps=BASIC_TRANSFORMATION, **kwargs):
     # load data from torchvision datasets
     if dataset_name == 'MNIST':
         data = datasets.MNIST(root="./data", train=train_op, transform=transform_steps, **kwargs)
@@ -92,7 +92,7 @@ def get_training_loader(first_domain_name, second_domain_name, supervised=True):
 
 
 def get_testing_loader(domain_name):
-    data = load_dataset(domain_name, train_op=False, shuffle=False)
-    data_loader = DataLoader(data, batch_size=utils.BATCH_SIZE, num_workers=utils.NUM_WORKERS)
+    data = load_dataset(domain_name, train_op=False)
+    data_loader = DataLoader(data, batch_size=utils.BATCH_SIZE, shuffle=False, num_workers=utils.NUM_WORKERS)
 
     return data_loader
