@@ -43,6 +43,7 @@ def add_translate_args(parser):
     parser.add_argument("--load_model", action="store_true", help="If a model with name 'model_name' should be loaded for data translation.")
     parser.add_argument("--model_name", type=str, default="lstnet_model", help="Name of the model to be loaded for translation")
     parser.add_argument("--output_data_file", type=str, default="Name of the file to store the translated data.")
+    parser.add_argument("--second_domain", action="store_true")
 
 
 def add_eval_args(parser):
@@ -122,14 +123,14 @@ def run_training(first_domain, second_domain, supervised, output_file, return_mo
         return model
 
 
-def run_translation(args, domain_name, model=None, return_data=False):
+def run_translation(args, domain, model=None, return_data=False):
     if model is None and args.load_model is False:
         raise ValueError("Model for translation is not specified.")
 
     if args.load_model:
         model = torch.load(args.model_name)
 
-    translated_data = domain_adaptation.adapt_domain(model, domain_name)
+    translated_data = domain_adaptation.adapt_domain(model, domain, args.second_domain)
 
     torch.save(translated_data, f'{utils.OUTPUT_FOLDER}/{args.output_data_file}.pt')
 
@@ -174,7 +175,7 @@ if __name__ == "__main__":
         print(f'LSTNET model for {args.first_domain}-{args.second_domain} Domain Adaptation is trained.')
 
     elif args.operation == 'trans':
-        run_translation(args, args.domain)
+        run_translation(args, args.domain, args.second_domain)
 
     elif args.operation == 'eval':
         run_evaluation(args.clf_model, args.domain, args.output_results_file)
