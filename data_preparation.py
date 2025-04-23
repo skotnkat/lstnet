@@ -95,7 +95,7 @@ def get_training_loader(first_domain_name, second_domain_name, supervised=True):
 
 
 def get_testing_loader(domain_name):
-    data = load_dataset(domain_name, train_op=False, shuffle=False)
-    data_loader = DataLoader(data, batch_size=utils.BATCH_SIZE, num_workers=utils.NUM_WORKERS)
+    data = load_dataset(domain_name, train_op=False)
+    data_loader = DataLoader(data, batch_size=utils.BATCH_SIZE, shuffle=False, num_workers=utils.NUM_WORKERS)
 
     return data_loader
