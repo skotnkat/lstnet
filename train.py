@@ -25,7 +25,7 @@ def init_epoch_loss():
     CC_LOSSES['first_cycle'].append(0)
     CC_LOSSES['second_cycle'].append(0)
     CC_LOSSES['first_full_cycle'].append(0)
-    CC_LOSSES['second_cycle'].append(0)
+    CC_LOSSES['second_full_cycle'].append(0)
 
     ENC_GEN_LOSSES['first_loss'].append(0)
     ENC_GEN_LOSSES['second_loss'].append(0)
