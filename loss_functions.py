@@ -51,7 +51,7 @@ def compute_cc_loss(first_real, second_real, first_cycle, second_cycle, first_fu
     cc_loss_3 = cycle_loss(first_full_cycle, first_real)
     cc_loss_4 = cycle_loss(second_full_cycle, second_real)
 
-    return W_3*cc_loss_1 + W_4*cc_loss_2 + W_5*cc_loss_3 + W_6*cc_loss_4
+    return W_3*cc_loss_1, W_4*cc_loss_2, W_5*cc_loss_3, W_6*cc_loss_4
 
 
 def compute_enc_gen_loss(model, first_gen, second_gen, first_latent, second_latent):
@@ -61,9 +61,8 @@ def compute_enc_gen_loss(model, first_gen, second_gen, first_latent, second_late
     second_gen_disc = model.second_discriminator.forward(second_gen)
     second_gen_loss = adversarial_loss_real(second_gen_disc)
 
-    first_latent_disc = model.latent_discriminator.forward(first_latent)
     second_latent_disc = model.latent_discriminator.forward(second_latent)
-    latent_loss = network_adversarial_loss(second_latent_disc, first_latent_disc) / 2
+    latent_loss = adversarial_loss_real(second_latent_disc)
 
     return W_1*first_gen_loss, W_2*second_gen_loss, W_l*latent_loss
 
