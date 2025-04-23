@@ -46,6 +46,9 @@ def evaluate(clf, orig_domain_name):
     test_acc = 0
     with torch.no_grad():
         for x, y in loader:
+            x = x.to(utils.DEVICE)
+            y = y.to(utils.DEVICE)
+
             outputs = clf.forward(x)
             preds = outputs.argmax(dim=1)
             acc = (preds == y).sum()
