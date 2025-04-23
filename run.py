@@ -91,8 +91,6 @@ def parse_args():
 
 
 def initialize(args):
-    utils.PARAMS_FILE_PATH = args.params_file
-    utils.LOSS_FILE = args.loss_file
     utils.OUTPUT_FOLDER = args.output_folder
 
     if not os.path.exists(args.output_folder):
@@ -102,6 +100,8 @@ def initialize(args):
     utils.BATCH_SIZE = args.batch_size
 
     if args.operation in ['train', 'all']:
+        utils.PARAMS_FILE_PATH = args.params_file
+        utils.LOSS_FILE = args.loss_file
         utils.ADAM_LR = args.learning_rate
         utils.ADAM_DECAY = args.decay
         utils.DELTA_LOSS = args.delta_loss
@@ -135,12 +135,12 @@ def run_translation(args, domain_name, model=None, return_data=False):
         return translated_data
 
 
-def run_evaluation(domain_name, clf_name, results_file):
-    model = torch.load(clf_name)
-    results = domain_adaptation.evaluate(model, domain_name)
+def run_evaluation(clf_name, domain_name, results_file):
+    model = torch.load(clf_name, weights_only=False)
+    test_acc = domain_adaptation.evaluate(model, domain_name)
 
     with open(f'{utils.OUTPUT_FOLDER}/{results_file}.json', 'a') as file:
-        json.dump(results, file, indent=2)
+        json.dump({f'{domain_name}_test_acc' : test_acc}, file, indent=2)
 
 
 def run_end_to_end(args):
@@ -154,10 +154,10 @@ def run_end_to_end(args):
         torch.save(first_data_trans, f'{utils.OUTPUT_FOLDER}/{args.second_domain}_{args.output_data_file}.pt')
 
     first_clf = torch.load(args.clf_first_domain)
-    run_evaluation(args, first_clf, args.first_domain)
+    run_evaluation(args, args.first_domain, first_clf)
 
     second_clf = torch.load(args.clf_second_domain)
-    run_evaluation(args, second_clf, args.second_domain)
+    run_evaluation(args, args.second_domain, second_clf)
 
 
 if __name__ == "__main__":
@@ -172,7 +172,7 @@ if __name__ == "__main__":
         run_translation(args, args.domain)
 
     elif args.operation == 'eval':
-        run_evaluation(args.domain, args.clf_model, args.output_results_file)
+        run_evaluation(args.clf_model, args.domain, args.output_results_file)
 
     else:
         run_end_to_end(args)
