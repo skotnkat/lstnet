@@ -8,7 +8,7 @@ import domain_adaptation
 import torch
 
 from eval_models.clf_models import MnistClf, UspsClf, SvhnClf
-
+from models.lstnet import  LSTNET
 
 def add_common_args(parser):
     parser.add_argument("--output_folder", type=str, default="output/", help="Path to the output folder")
@@ -34,7 +34,7 @@ def add_train_args(parser):
     parser.add_argument("--decay", type=float, nargs=2, default=(0.8, 0.999),
                         help="Two float values for Adam optimizer decay (beta1, beta2)")
 
-    parser.add_argument("--delta_loss", type=float, default=1e-4,
+    parser.add_argument("--delta_loss", type=float, default=0.05,
                         help="Maximum allowed change in loss between iterations to consider convergence")
 
 
@@ -42,14 +42,15 @@ def add_translate_args(parser):
     parser.add_argument("domain", type=str.upper, help="Name of the domain to be translated to the other domain.")
     parser.add_argument("--load_model", action="store_true", help="If a model with name 'model_name' should be loaded for data translation.")
     parser.add_argument("--model_name", type=str, default="lstnet_model", help="Name of the model to be loaded for translation")
-    parser.add_argument("--output_data_file", type=str, default="Name of the file to store the translated data.")
+    parser.add_argument("--output_data_file", type=str, default="translated_data", help="Name of the file to store the translated data.")
     parser.add_argument("--second_domain", action="store_true")
 
 
 def add_eval_args(parser):
     parser.add_argument("domain", type=str.upper, help="Name of the domain to be evaluated.")
     parser.add_argument("clf_model", type=str, help="Name of the model to classify the data.")
-    parser.add_argument("--output_results_file", default="results_file.json", type=str, help="Name of file to store test results")
+    parser.add_argument("--output_results_file", default="eval_results_file.json", type=str, help="Name of file to store test results")
+    parser.add_argument("--dataset_path", default="", type=str, help="Name of file to load the dataset from")
 
 
 def add_end_to_end_parser(parser):
@@ -117,7 +118,8 @@ def run_training(first_domain, second_domain, supervised, output_file, return_mo
     model = train.run(args.first_domain, args.second_domain, args.supervised)
 
     model_path = f'{utils.OUTPUT_FOLDER}/{args.output_model_file}.pth'
-    torch.save(model, model_path)
+    # torch.save(model, model_path)
+    model.save(model_path)
 
     if return_model:
         return model
@@ -128,7 +130,8 @@ def run_translation(args, domain, model=None, return_data=False):
         raise ValueError("Model for translation is not specified.")
 
     if args.load_model:
-        model = torch.load(args.model_name)
+        model = LSTNET()
+        model.load_state_dict(torch.load(args.model_name, map_location=utils.DEVICE))
 
     translated_data = domain_adaptation.adapt_domain(model, domain, args.second_domain)
 
@@ -138,12 +141,12 @@ def run_translation(args, domain, model=None, return_data=False):
         return translated_data
 
 
-def run_evaluation(clf_name, domain_name, results_file):
+def run_evaluation(clf_name, domain_name, results_file, data_path=""):
     # with torch.serialization.safe_globals([MnistClf, UspsClf, SvhnClf]):
     #     model = torch.load(clf_name)
 
-    model = torch.load(clf_name, weights_only=False)
-    test_acc = domain_adaptation.evaluate(model, domain_name)
+    model = torch.load(clf_name, weights_only=False, map_location=utils.DEVICE)
+    test_acc = domain_adaptation.evaluate(model, domain_name, data_path)
 
     with open(f'{utils.OUTPUT_FOLDER}/{results_file}.json', 'a') as file:
         json.dump({f'{domain_name}_test_acc' : test_acc}, file, indent=2)
@@ -157,7 +160,7 @@ def run_end_to_end(args):
 
     if args.save_trans_data:
         torch.save(first_data_trans, f'{utils.OUTPUT_FOLDER}/{args.first_domain}_{args.output_data_file}.pt')
-        torch.save(first_data_trans, f'{utils.OUTPUT_FOLDER}/{args.second_domain}_{args.output_data_file}.pt')
+        torch.save(second_data_trans, f'{utils.OUTPUT_FOLDER}/{args.second_domain}_{args.output_data_file}.pt')
 
     first_clf = torch.load(args.clf_first_domain)
     run_evaluation(args, args.first_domain, first_clf)
@@ -174,11 +177,11 @@ if __name__ == "__main__":
         run_training(args.first_domain, args.second_domain, args.supervised, args.output_model_file)
         print(f'LSTNET model for {args.first_domain}-{args.second_domain} Domain Adaptation is trained.')
 
-    elif args.operation == 'trans':
+    elif args.operation == 'translate':
         run_translation(args, args.domain, args.second_domain)
 
     elif args.operation == 'eval':
-        run_evaluation(args.clf_model, args.domain, args.output_results_file)
+        run_evaluation(args.clf_model, args.domain, args.output_results_file, args.dataset_path)
 
     else:
         run_end_to_end(args)
