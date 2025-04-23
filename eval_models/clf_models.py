@@ -61,7 +61,7 @@ class SvhnClf(Discriminator):
 
     @staticmethod
     def _create_stand_layer(params, in_channels, input_size):
-        conv_params, activation_params, pool_params = params
+        conv_params, pool_params = params
         conv = Conv2dExtended(in_channels, input_size=input_size, **conv_params)
         batch_norm = nn.BatchNorm2d(params["out_channels"], momentum=0.01, eps=0.001)
         relu = nn.ReLU()
