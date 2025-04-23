@@ -7,6 +7,8 @@ import train
 import domain_adaptation
 import torch
 
+from eval_models.clf_models import MnistClf, UspsClf, SvhnClf
+
 
 def add_common_args(parser):
     parser.add_argument("--output_folder", type=str, default="output/", help="Path to the output folder")
@@ -136,6 +138,9 @@ def run_translation(args, domain_name, model=None, return_data=False):
 
 
 def run_evaluation(clf_name, domain_name, results_file):
+    # with torch.serialization.safe_globals([MnistClf, UspsClf, SvhnClf]):
+    #     model = torch.load(clf_name)
+
     model = torch.load(clf_name, weights_only=False)
     test_acc = domain_adaptation.evaluate(model, domain_name)
 
