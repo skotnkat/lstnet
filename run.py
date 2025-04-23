@@ -24,7 +24,7 @@ def add_train_args(parser):
     parser.add_argument("--supervised", action="store_true",
                         help="Run supervised domain adaptation. If not set, unsupervised domain adaptation is run.")
 
-    parser.add_argument("--loss_file", type=str, default="loss", help="File with recorded losses for each epoch.")
+    parser.add_argument("--loss_file", type=str, default="training_loss", help="File with recorded losses for each epoch.")
     parser.add_argument("--output_model_file", type=str, default="lstnet_model",
                         help="Name of the file to store the trained model.")
 
@@ -46,7 +46,7 @@ def add_translate_args(parser):
 def add_eval_args(parser):
     parser.add_argument("domain", type=str.upper, help="Name of the domain to be evaluated.")
     parser.add_argument("clf_model", type=str, help="Name of the model to classify the data.")
-    parser.add_argument("--output_results_file", type=str, help="Name of file to store test results")
+    parser.add_argument("--output_results_file", default="results_file.json", type=str, help="Name of file to store test results")
 
 
 def add_end_to_end_parser(parser):
