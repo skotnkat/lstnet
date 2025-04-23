@@ -33,13 +33,16 @@ def adapt_domain(model, orig_domain_name, is_second_domain):
     if is_second_domain:
         map_fn = model.map_second_to_first  # original domain is second -> mapping to frist
 
+    print(f'function used for mapping: {map_fn}')
     trans_dataset = translate_to_diff_domain(loader, map_fn)
 
+    print(f'Mapped to domain with shape: {trans_dataset[0][0].shape}')
     return trans_dataset
 
 
-def evaluate(clf, orig_domain_name):
-    loader = get_testing_loader(orig_domain_name)
+def evaluate(clf, orig_domain_name, data_path):
+    loader = get_testing_loader(orig_domain_name, data_path)
+
     clf.to(utils.DEVICE)
 
     clf.eval()

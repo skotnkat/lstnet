@@ -44,8 +44,8 @@ def load_dataset(dataset_name, train_op=True, transform_steps=BASIC_TRANSFORMATI
         data = datasets.SVHN(root="./data", split=split, transform=transform_steps, download=download, **kwargs)
 
     else:
-        err_msg = f'Not able to load dataset "{dataset_name}"'
-        raise ValueError(err_msg)
+        data = torch.load(dataset_name, weights_only=False)  # dataset_name is path
+        print(f'Loaded custom dataset, number of records: {len(data)}, shape: {data[0][0].shape}')
 
     return data
 
