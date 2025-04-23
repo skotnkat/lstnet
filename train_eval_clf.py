@@ -27,6 +27,10 @@ def run_loop(clf, loader, train=True):
     loss_total = 0
     acc_total = 0
     for x, y in loader:
+        has_value_gt_1 = (x > 1).any().item()
+        has_values_lt_minus_1 = (x < -1).any().item()
+        print(f'>1: {has_value_gt_1}, <: {has_values_lt_minus_1}')
+        break
         x = x.to(device)
         y = y.to(device)
         clf.optimizer.zero_grad()
@@ -74,7 +78,6 @@ if __name__ == "__main__":
     val_size = len(train_data) - train_size
 
     train_data, val_data = random_split(train_data, [train_size, val_size])
-
 
     train_loader = DataLoader(train_data, batch_size=64, shuffle=True, num_workers=8)
     val_loader = DataLoader(val_data, batch_size=64, shuffle=False, num_workers=8)
@@ -155,5 +158,5 @@ if __name__ == "__main__":
     with open(f'{MODEL_FOLDER}/results.json', 'w') as file:
         json.dump(results, file, indent=2)
 
-    clf = clf.to('cpu')
     torch.save(clf, f"{MODEL_FOLDER}/{args.domain_name}_model.pth")
+
