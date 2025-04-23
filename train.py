@@ -2,6 +2,7 @@ import numpy as np
 import torch
 from torch.optim import Adam
 import json
+import copy
 
 from models.lstnet import LSTNET
 from loss_functions import compute_discriminator_loss, compute_enc_gen_loss, compute_cc_loss
@@ -127,7 +128,8 @@ def train(model, loader):
     converged = False
     prev_epoch_loss = np.inf
     best_epoch_loss = np.inf
-    best_epoch_weights = None
+    best_weights = None
+    best_epoch_idx = np.inf
 
     loss_list = []
     start_time = time.time()
@@ -164,7 +166,8 @@ def train(model, loader):
         # should be last but also best?
         if epoch_loss < best_epoch_loss:
             best_epoch_loss = epoch_loss
-            best_weights = model.state_dict()
+            best_weights = copy.deepcopy(model.state_dict())
+            best_epoch_idx = CUR_EPOCH
 
         end_time = time.time()
         print(f'End of epoch {CUR_EPOCH}')
@@ -172,17 +175,19 @@ def train(model, loader):
         print(f'\tTook: {end_time-start_time} s')
 
         CUR_EPOCH += 1
-
-        loss_logs = {'disc_loss': DISC_LOSSES, 'enc_gen_loss': ENC_GEN_LOSSES, 'cc_loss': CC_LOSSES, 'epoch_loss':  epoch_loss}
-
-        with open(f'{utils.OUTPUT_FOLDER}/loss_logs.json', 'a') as file:
-            json.dump(loss_logs, file)
-
         start_time = time.time()
 
         if CUR_EPOCH % 10 == 0:
-            torch.save(best_weights.cpu(), "model_weights_cpu.pth")
+            torch.save(best_weights, f"model_weights_{CUR_EPOCH}.pth")
+            loss_logs = {'disc_loss': DISC_LOSSES, 'enc_gen_loss': ENC_GEN_LOSSES, 'cc_loss': CC_LOSSES,
+                         'epoch_loss': epoch_loss}
 
+            with open(f'{utils.OUTPUT_FOLDER}/loss_logs.json', 'w') as file:
+                json.dump(loss_logs, file)
+
+    print(f'Best epoch: {best_epoch_idx}')
+    torch.save(best_weights, "best_model_weights.pth")
+    
     return model, loss_list
 
 
@@ -196,7 +201,7 @@ def run(first_domain_name, second_domain_name, supervised):
 
     model, loss_list = train(model, data_loader)
 
-    with open(f'{utils.OUTPUT_FOLDER}/{utils.LOSS_FILE}.json', 'a') as file:
+    with open(f'{utils.OUTPUT_FOLDER}/{utils.LOSS_FILE}.json', 'w') as file:
         json.dump(loss_list, file, indent=2)
 
     print('Model trained.')
