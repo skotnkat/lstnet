@@ -38,9 +38,9 @@ def log_epoch_loss(disc_loss, enc_gen_loss, cc_loss):
     DISC_LOSSES['latent_loss'][CUR_EPOCH] += disc_loss[2].item()
 
     CC_LOSSES['first_cycle'][CUR_EPOCH] += cc_loss[0].item()
-    CC_LOSSES['first_full_cycle'][CUR_EPOCH] += cc_loss[0].item()
-    CC_LOSSES['second_cycle'][CUR_EPOCH] += cc_loss[0].item()
-    CC_LOSSES['second_full_cycle'][CUR_EPOCH] += cc_loss[0].item()
+    CC_LOSSES['first_full_cycle'][CUR_EPOCH] += cc_loss[1].item()
+    CC_LOSSES['second_cycle'][CUR_EPOCH] += cc_loss[2].item()
+    CC_LOSSES['second_full_cycle'][CUR_EPOCH] += cc_loss[3].item()
 
     ENC_GEN_LOSSES['first_loss'][CUR_EPOCH] += enc_gen_loss[0].item()
     ENC_GEN_LOSSES['second_loss'][CUR_EPOCH] += enc_gen_loss[1].item()
@@ -149,6 +149,8 @@ def update_enc_gen(model, first_real, second_real, optim):
     enc_gen_loss_total = first_enc_gen_loss + second_enc_gen_loss + latent_enc_gen_loss + cc_loss
     enc_gen_loss_total.backward()
 
+    torch.nn.nn_utils.clip_grad_norm_(model.enc_gen_params, max_norm=5.0)
+
     optim.step()
 
     with torch.no_grad():
@@ -205,6 +207,7 @@ def train(model, loader):
             converged = True
 
         loss_list.append(epoch_loss)
+        prev_epoch_loss = epoch_loss
 
         end_time = time.time()
         print(f'End of epoch {CUR_EPOCH}')
