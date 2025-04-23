@@ -139,7 +139,7 @@ def run_evaluation(domain_name, clf_name, results_file):
     model = torch.load(clf_name)
     results = domain_adaptation.evaluate(model, domain_name)
 
-    with open(f'{utils.OUTPUT_FOLDER}/{results_file}.json', 'a') as file:
+    with open(f'{utils.OUTPUT_FOLDER}/{results_file}.json', 'w') as file:
         json.dump(results, file, indent=2)
 
 
