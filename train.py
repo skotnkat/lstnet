@@ -10,13 +10,56 @@ from data_preparation import get_training_loader
 import utils
 import time
 
-from utils import OUTPUT_FOLDER
-
-DISC_LOSSES = dict()
-CC_LOSSES = dict()
-ENC_GEN_LOSSES = dict()
+DISC_LOSSES = {'first_loss': [], 'second_loss': [], 'latent_loss': []}
+CC_LOSSES = {'first_cycle': [], 'second_cycle': [], 'first_full_cycle': [], 'second_full_cycle': []}
+ENC_GEN_LOSSES = {'first_loss': [], 'second_loss': [], 'latent_loss': []}
 
 CUR_EPOCH = 0
+
+
+def init_epoch_loss():
+    DISC_LOSSES['first_loss'].append(0)
+    DISC_LOSSES['second_loss'].append(0)
+    DISC_LOSSES['latent_loss'].append(0)
+
+    CC_LOSSES['first_cycle'].append(0)
+    CC_LOSSES['second_cycle'].append(0)
+    CC_LOSSES['first_full_cycle'].append(0)
+    CC_LOSSES['second_cycle'].append(0)
+
+    ENC_GEN_LOSSES['first_loss'].append(0)
+    ENC_GEN_LOSSES['second_loss'].append(0)
+    ENC_GEN_LOSSES['latent_loss'].append(0)
+
+
+def log_epoch_loss(disc_loss, enc_gen_loss, cc_loss):
+    DISC_LOSSES['first_loss'][CUR_EPOCH] += disc_loss[0].item()
+    DISC_LOSSES['second_loss'][CUR_EPOCH] += disc_loss[1].item()
+    DISC_LOSSES['latent_loss'][CUR_EPOCH] += disc_loss[2].item()
+
+    CC_LOSSES['first_cycle'][CUR_EPOCH] += cc_loss[0].item()
+    CC_LOSSES['first_full_cycle'][CUR_EPOCH] += cc_loss[0].item()
+    CC_LOSSES['second_cycle'][CUR_EPOCH] += cc_loss[0].item()
+    CC_LOSSES['second_full_cycle'][CUR_EPOCH] += cc_loss[0].item()
+
+    ENC_GEN_LOSSES['first_loss'][CUR_EPOCH] += enc_gen_loss[0].item()
+    ENC_GEN_LOSSES['second_loss'][CUR_EPOCH] += enc_gen_loss[1].item()
+    ENC_GEN_LOSSES['latent_loss'][CUR_EPOCH] += enc_gen_loss[2].item()
+
+
+def normalize_epoch_loss(scale):
+    DISC_LOSSES['first_loss'][CUR_EPOCH] /= scale
+    DISC_LOSSES['second_loss'][CUR_EPOCH] /= scale
+    DISC_LOSSES['latent_loss'][CUR_EPOCH] /= scale
+
+    CC_LOSSES['first_cycle'][CUR_EPOCH] /= scale
+    CC_LOSSES['first_full_cycle'][CUR_EPOCH] /= scale
+    CC_LOSSES['second_cycle'][CUR_EPOCH] /= scale
+    CC_LOSSES['second_full_cycle'][CUR_EPOCH] /= scale
+
+    ENC_GEN_LOSSES['first_loss'][CUR_EPOCH] /= scale
+    ENC_GEN_LOSSES['second_loss'][CUR_EPOCH] /= scale
+    ENC_GEN_LOSSES['latent_loss'][CUR_EPOCH] /= scale
 
 
 def get_cc_components(model, first_gen, second_gen, first_latent, second_latent):
@@ -53,7 +96,6 @@ def update_disc(model, first_real, second_real, optim_disc_1, optim_disc_2, opti
     disc_loss_1, disc_loss_2, disc_loss_latent = compute_discriminator_loss(model, first_real, second_real,
                                                                             first_gen, second_gen,
                                                                             first_latent, second_latent)
-
     disc_loss_1.backward()
     optim_disc_1.step()
 
@@ -64,22 +106,27 @@ def update_disc(model, first_real, second_real, optim_disc_1, optim_disc_2, opti
     optim_disc_latent.step()
 
 
-    DISC_LOSSES[CUR_EPOCH].append({'first_loss' : disc_loss_1.item(),
-                                   'second_loss' : disc_loss_2.item(),
-                                   'latent_loss': disc_loss_latent.item()})
-
     with torch.no_grad():
         first_cycle, second_cycle, first_full_cycle, second_full_cycle = get_cc_components(model,
                                                                                            first_gen, second_gen,
                                                                                            first_latent, second_latent)
-        cc_loss = compute_cc_loss(first_real, second_real,
+        cc_loss_1, cc_loss_2, cc_loss_3, cc_loss_4 = compute_cc_loss(first_real, second_real,
                                   first_cycle, second_cycle,
                                   first_full_cycle, second_full_cycle)
 
+        first_enc_gen_loss, second_enc_gen_loss, latent_enc_gen_loss = compute_enc_gen_loss(model, first_gen,
+                                                                                            second_gen, first_latent,
+                                                                                            second_latent)
 
-    CC_LOSSES[CUR_EPOCH].append(cc_loss.item())
+    log_epoch_loss(
+        (disc_loss_1, disc_loss_2, disc_loss_latent),
+        (first_enc_gen_loss, second_enc_gen_loss, latent_enc_gen_loss),
+        (cc_loss_1, cc_loss_2, cc_loss_3, cc_loss_4)
+    )
 
-    return disc_loss_1.item() + disc_loss_2.item() + disc_loss_latent.item() + cc_loss.item()
+    cc_loss = cc_loss_1.item() + cc_loss_2.item() + cc_loss_3.item() + cc_loss_4.item()
+
+    return disc_loss_1.item() + disc_loss_2.item() + disc_loss_latent.item() + cc_loss
 
 
 def update_enc_gen(model, first_real, second_real, optim):
@@ -94,24 +141,26 @@ def update_enc_gen(model, first_real, second_real, optim):
     first_cycle, second_cycle, first_full_cycle, second_full_cycle = get_cc_components(model,
                                                                                        first_gen, second_gen,
                                                                                        first_latent, second_latent)
-    cc_loss = compute_cc_loss(first_real, second_real,
+    cc_loss_1, cc_loss_2, cc_loss_3, cc_loss_4 = compute_cc_loss(first_real, second_real,
                               first_cycle, second_cycle,
                               first_full_cycle, second_full_cycle)
 
+    cc_loss = cc_loss_1 + cc_loss_2 + cc_loss_3 + cc_loss_4
     enc_gen_loss_total = first_enc_gen_loss + second_enc_gen_loss + latent_enc_gen_loss + cc_loss
     enc_gen_loss_total.backward()
 
     optim.step()
-    CC_LOSSES[CUR_EPOCH].append(cc_loss.item())
-    ENC_GEN_LOSSES[CUR_EPOCH].append({'first_loss': first_enc_gen_loss.item(), 'second_loss': second_enc_gen_loss.item(), 'latent_loss' : latent_enc_gen_loss.item()})
-
 
     with torch.no_grad():
         disc_loss_1, disc_loss_2, disc_loss_latent = compute_discriminator_loss(model, first_real, second_real,
                                                                                 first_gen.detach(), second_gen.detach(),
                                                                                 first_latent.detach(), second_latent.detach())
 
-    DISC_LOSSES[CUR_EPOCH].append({'first_loss': disc_loss_1.item(), 'second_loss': disc_loss_2.item(), 'latent_loss': disc_loss_latent.item()})
+    log_epoch_loss(
+        (disc_loss_1, disc_loss_2, disc_loss_latent),
+        (first_enc_gen_loss, second_enc_gen_loss, latent_enc_gen_loss),
+        (cc_loss_1, cc_loss_2, cc_loss_3, cc_loss_4)
+    )
 
     return cc_loss.item() + disc_loss_1.item() + disc_loss_2.item() + disc_loss_latent.item()
 
@@ -127,20 +176,13 @@ def train(model, loader):
 
     converged = False
     prev_epoch_loss = np.inf
-    best_epoch_loss = np.inf
-    best_weights = None
-    best_epoch_idx = np.inf
 
     loss_list = []
     start_time = time.time()
 
-
     while not converged:
-        DISC_LOSSES[CUR_EPOCH] = []
-        CC_LOSSES[CUR_EPOCH] = []
-        ENC_GEN_LOSSES[CUR_EPOCH] = []
-
         epoch_loss = 0
+        init_epoch_loss()
         for batch_idx, (first_real, _, second_real, _) in enumerate(loader):
             first_real = first_real.to(utils.DEVICE).detach()
             second_real = second_real.to(utils.DEVICE).detach()
@@ -157,17 +199,12 @@ def train(model, loader):
             #############################################################
 
         epoch_loss /= len(loader)  # compute mean of the losses
+        normalize_epoch_loss(len(loader))
 
         if np.abs(epoch_loss - prev_epoch_loss) < utils.DELTA_LOSS:
             converged = True
 
         loss_list.append(epoch_loss)
-
-        # should be last but also best?
-        if epoch_loss < best_epoch_loss:
-            best_epoch_loss = epoch_loss
-            best_weights = copy.deepcopy(model.state_dict())
-            best_epoch_idx = CUR_EPOCH
 
         end_time = time.time()
         print(f'End of epoch {CUR_EPOCH}')
@@ -178,15 +215,12 @@ def train(model, loader):
         start_time = time.time()
 
         if CUR_EPOCH % 10 == 0:
-            torch.save(best_weights, f"model_weights_{CUR_EPOCH}.pth")
+            torch.save(model, f"model_weights_{CUR_EPOCH}.pth")
             loss_logs = {'disc_loss': DISC_LOSSES, 'enc_gen_loss': ENC_GEN_LOSSES, 'cc_loss': CC_LOSSES,
                          'epoch_loss': loss_list}
 
             with open(f'{utils.OUTPUT_FOLDER}/loss_logs.json', 'w') as file:
                 json.dump(loss_logs, file)
-
-    print(f'Best epoch: {best_epoch_idx}')
-    torch.save(best_weights, "best_model_weights.pth")
 
     return model, loss_list
 
