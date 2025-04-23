@@ -157,9 +157,9 @@ def train(model, loader):
                 start_time = time.time()
             #############################################################
 
-        batch_loss /= len(loader.dataset)  # compute mean of the losses
+        epoch_loss /= len(loader)  # compute mean of the losses
 
-        if np.abs(batch_loss - prev_best_batch_loss) < utils.DELTA_LOSS:
+        if np.abs(epoch_loss - prev_epoch_loss) < utils.DELTA_LOSS:
             converged = True
 
         loss_list.append(batch_loss)

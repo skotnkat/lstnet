@@ -42,8 +42,8 @@ def run_loop(clf, loader, train=True):
         acc = (preds == y).sum()
         acc_total += acc.item()
 
-    loss_total /= len(loader.dataset)
-    acc_total /= len(loader.dataset)
+    loss_total /= len(loader)
+    acc_total /= len(loader)
 
     return loss_total, acc_total
 
