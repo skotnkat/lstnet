@@ -73,7 +73,8 @@ if __name__ == "__main__":
     train_size = int(len(train_data) * 0.75)
     val_size = len(train_data) - train_size
 
-    train_data, val_data = random_split(train_data, [train_size, val_size])
+    gen = torch.Generator().manual_seed(42)
+    train_data, val_data = random_split(train_data, [train_size, val_size], generator=gen)
 
     train_loader = DataLoader(train_data, batch_size=64, shuffle=True, num_workers=8)
     val_loader = DataLoader(val_data, batch_size=64, shuffle=False, num_workers=8)
