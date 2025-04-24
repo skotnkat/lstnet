@@ -2,7 +2,7 @@ import torch
 from torch.utils.data import TensorDataset
 from tqdm import tqdm
 
-from data_preparation import get_testing_loader
+from data_preparation import get_testing_loader, get_val_loader
 from torch.utils.data import DataLoader
 import utils
 
@@ -24,8 +24,14 @@ def translate_to_diff_domain(loader, map_fn):
     return TensorDataset(trans_igms_tensor, labels_tensor)
 
 
-def adapt_domain(model, orig_domain_name, is_second_domain):
-    loader = get_testing_loader(orig_domain_name)
+def adapt_domain(model, orig_domain_name, test=True):
+
+    if test:
+        loader = get_testing_loader(orig_domain_name)
+
+    else:
+        loader = get_val_loader(orig_domain_name)
+
     model.to(utils.DEVICE)
     model.eval()
 

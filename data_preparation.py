@@ -7,6 +7,7 @@ from dual_domain_dataset import DualDomainDataset, DualDomainSupervisedDataset, 
 import utils
 
 MANUAL_SEED = None
+VAL_SIZE = None
 
 BASIC_TRANSFORMATION = Compose([
     ToImage(),
@@ -15,6 +16,16 @@ BASIC_TRANSFORMATION = Compose([
 ])
 
 
+def split_data(data):
+    val_size = int(len(data) * VAL_SIZE)
+    train_size = len(data) - val_size
+
+
+    g = torch.Generator()
+    g.manual_seed(MANUAL_SEED)  # add manual seed to args
+    train_data, val_data = random_split(data, [train_size, val_size], generator=g)
+
+    return train_data, val_data
 def create_augmentation_steps(img_size):
     dy_translation = dx_translation = 2 / img_size
     return Compose([
@@ -61,13 +72,7 @@ def load_augmented_dataset(dataset_name, train_op=True, download=True):
     augmented_data = load_dataset(dataset_name, train_op=train_op, download=False, transform_steps=transform_steps)
 
     data_all = ConcatDataset([original_data, augmented_data])
-
-    train_size = int(len(data_all) * 0.75)  # make it a variable/argument
-    val_size = len(data_all) - train_size
-
-    g = torch.Generator()
-    g.manual_seed(MANUAL_SEED)  # add manual seed to args
-    train_data, val_data = random_split(data_all, [train_size, val_size], generator=g)
+    train_data, val_data = split_data(data_all)
 
     return train_data, val_data
 
@@ -113,5 +118,14 @@ def get_training_loader(first_domain_name, second_domain_name, supervised=True):
 def get_testing_loader(domain_name):
     data = load_dataset(domain_name, train_op=False)
     data_loader = DataLoader(data, batch_size=utils.BATCH_SIZE, shuffle=False, num_workers=utils.NUM_WORKERS)
+
+    return data_loader
+
+
+def get_val_loader(domain_name):
+    data = load_dataset(domain_name, train_op=True)
+    _, val_data = split_data(data)
+
+    data_loader = DataLoader(val_data, batch_size=utils.BATCH_SIZE, shuffle=False, num_workers=utils.NUM_WORKERS)
 
     return data_loader
