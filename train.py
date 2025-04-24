@@ -31,7 +31,8 @@ def run_loop(model, loader, op='train'):
             disc_loss, enc_gen_loss, cc_loss = model.update_enc_gen(first_real, second_real)
         #############################################################
 
-    epoch_loss += sum(disc_loss) + sum(cc_loss)
+        epoch_loss += sum(disc_loss) + sum(cc_loss)
+
     epoch_loss /= len(loader)  # compute mean of the losses
     utils.normalize_epoch_loss(len(loader), CUR_EPOCH, op)
 
