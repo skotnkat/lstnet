@@ -91,15 +91,22 @@ def parse_args():
     add_common_args(all_parser)
     add_end_to_end_parser(all_parser)
 
-    return parser.parse_args()
+    args = parser.parse_args()
 
+    args.output_model_file = utils.check_file_ending(args.output_model_file, 'pth')
+    args.model_name = utils.check_file_ending(args.model_name, 'pth')
+    args.output_data_file = utils.check_file_ending(args.output_data_file, 'pt')
+    args.clf_model = utils.check_file_ending(args.clf_model, 'pth')
+    args.output_results_file = utils.check_file_ending(args.output_results_file, 'json')
 
-def initialize(args):
+    utils.LOSS_FILE = utils.check_file_ending(args.loss_file, 'json')
     utils.OUTPUT_FOLDER = utils.check_file_ending(args.output_folder, '/')
 
     if not os.path.exists(args.output_folder):
         os.makedirs(args.output_folder)
 
+
+def initialize(args):
     utils.NUM_WORKERS = args.num_workers
     utils.BATCH_SIZE = args.batch_size
 
@@ -109,15 +116,10 @@ def initialize(args):
 
     if args.operation in ['train', 'all']:
         utils.PARAMS_FILE_PATH = args.params_file
-        utils.LOSS_FILE = utils.check_file_ending(args.loss_file, 'json')
         utils.ADAM_LR = args.learning_rate
         utils.ADAM_DECAY = args.decay
 
-    args.output_model_file = utils.check_file_ending(args.output_model_file, 'pth')
-    args.model_name = utils.check_file_ending(args.model_name, 'pth')
-    args.output_data_file = utils.check_file_ending(args.output_data_file, 'pt')
-    args.clf_model = utils.check_file_ending(args.clf_model, 'pth')
-    args.output_results_file = utils.check_file_ending(args.output_results_file, 'json')
+
 
     utils.DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
