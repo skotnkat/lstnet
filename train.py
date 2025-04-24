@@ -23,7 +23,7 @@ def run_loop(model, loader, op='train'):
             disc_loss, enc_gen_loss, cc_loss = model.run_eval_loop(first_real, second_real)
 
         # update discriminators - try to update encoders&generators more
-        elif (batch_idx % 2 == 0) and (CUR_EPOCH >= WARM_UP):  # op == train
+        elif (batch_idx % 3 == 0) and (CUR_EPOCH >= WARM_UP):  # op == train
             disc_loss, enc_gen_loss, cc_loss = model.update_disc(first_real, second_real)
 
         #############################################################
