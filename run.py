@@ -14,6 +14,7 @@ def add_common_args(parser):
     parser.add_argument("--batch_size", type=int, default=64, help="Size of batches used in training.")
     parser.add_argument("--num_workers", type=int, default=4, help="Size of batches used in training.")
     parser.add_argument("--seed", type=int, default=42, help="Size of batches used in training.")
+    parser.add_argument("--val_size", type=int, default=0.25, help="Size of batches used in training.")
 
     return parser
 
@@ -95,7 +96,7 @@ def parse_args():
 
 
 def initialize(args):
-    utils.OUTPUT_FOLDER = args.output_folder
+    utils.OUTPUT_FOLDER = utils.check_file_ending(args.output_folder, '/')
 
     if not os.path.exists(args.output_folder):
         os.makedirs(args.output_folder)
@@ -104,23 +105,30 @@ def initialize(args):
     utils.BATCH_SIZE = args.batch_size
 
     data_preparation.MANUAL_SEED = args.seed
+    data_preparation.VAL_SIZE = args.val_size
+    train.MAX_PATIENCE = args.patience
 
     if args.operation in ['train', 'all']:
         utils.PARAMS_FILE_PATH = args.params_file
-        utils.LOSS_FILE = args.loss_file
+        utils.LOSS_FILE = utils.check_file_ending(args.loss_file, 'json')
         utils.ADAM_LR = args.learning_rate
         utils.ADAM_DECAY = args.decay
-        train.MAX_PATIENCE = args.patience
 
+    args.output_model_file = utils.check_file_ending(args.output_model_file, 'pth')
+    args.model_name = utils.check_file_ending(args.model_name, 'pth')
+    args.output_data_file = utils.check_file_ending(args.output_data_file, 'pt')
+    args.clf_model = utils.check_file_ending(args.clf_model, 'pth')
+    args.output_results_file = utils.check_file_ending(args.output_results_file, 'json')
 
     utils.DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
     print(f'Device being used: {utils.DEVICE}')
 
 
 def run_training(first_domain, second_domain, supervised, output_file, return_model=False):
     model = train.run(args.first_domain, args.second_domain, args.supervised)
 
-    model_path = f'{utils.OUTPUT_FOLDER}/{args.output_model_file}.pth'
+    model_path = f'{utils.OUTPUT_FOLDER}/{args.output_model_file}'
     # torch.save(model, model_path)
     model.save_model(model_path)
 
@@ -128,14 +136,13 @@ def run_training(first_domain, second_domain, supervised, output_file, return_mo
         return model
 
 
-def run_translation(args, domain, model=None, return_data=False):
+def run_translation(args, domain, model=None, op='test', return_data=False):
     if model is None and args.load_model is False:
         raise ValueError("Model for translation is not specified.")
 
     if args.load_model:
         model = LSTNET.load_lstnet_model(args.model_name)
     
-    translated_data = domain_adaptation.adapt_domain(model, domain, args.second_domain)
 
     torch.save(translated_data, f'{utils.OUTPUT_FOLDER}/{args.output_data_file}.pt')
 

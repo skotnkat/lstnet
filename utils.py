@@ -119,3 +119,7 @@ def normalize_epoch_loss(scale, cur_epoch, op='train'):
     ENC_GEN_LOSSES['second_loss'][cur_epoch][op] /= scale
     ENC_GEN_LOSSES['latent_loss'][cur_epoch][op] /= scale
 
+
+def check_file_ending(file, ending):
+    if not file.endswith(ending):
+        return file + ending
