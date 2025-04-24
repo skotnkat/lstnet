@@ -122,4 +122,6 @@ def normalize_epoch_loss(scale, cur_epoch, op='train'):
 
 def check_file_ending(file, ending):
     if not file.endswith(ending):
-        return file + ending
+        file = file + ending
+
+    return file
