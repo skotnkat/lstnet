@@ -9,10 +9,10 @@ import time
 
 CUR_EPOCH = 0
 MAX_PATIENCE = 0
+DELTA_LOSS_FRAC = 1e-3
 
 
 def run_loop(model, loader, op='train'):
-    utils.init_epoch_loss()
     epoch_loss = 0
     for batch_idx, (first_real, _, second_real, _) in enumerate(loader):
         first_real = first_real.to(utils.DEVICE).detach()
@@ -47,11 +47,15 @@ def train(model, train_loader, val_loader):
 
     best_model = None
     best_loss = np.inf
+    best_epoch_idx = None
+    prev_loss = None
 
     train_loss_list = []
     val_loss_list = []
     cur_patience = 0
     while True:
+        utils.init_epoch_loss()
+
         start_time = time.time()
         train_loss = run_loop(model, train_loader)
         end_time = time.time()
@@ -66,9 +70,17 @@ def train(model, train_loader, val_loader):
         val_loss_list.append(val_loss)
         val_time = end_time - start_time
 
+        if prev_loss is not None:
+            rel_change = np.abs(val_loss - prev_loss) / prev_loss
+            if rel_change < DELTA_LOSS_FRAC:
+                print(f'Relative loss change is {rel_change:.5f} < {DELTA_LOSS_FRAC} -> stopping')
+                break
+
+        prev_loss = val_loss
         if val_loss < best_loss:
             best_model = copy.deepcopy(model)
             best_loss = val_loss
+            best_epoch_idx = CUR_EPOCH
             cur_patience = 0
 
         else:
@@ -79,9 +91,9 @@ def train(model, train_loader, val_loader):
         print(f'\tTrain took: {(train_time) / 60:.2f} min, Val took: {(val_time) / 60:.2f} min')
         print(f'\tPatience: {cur_patience}')
 
-        if cur_patience > MAX_PATIENCE:
-            print(f'\tMax Patience Reached')
-            break
+        # if cur_patience > MAX_PATIENCE:
+        #     print(f'\tMax Patience Reached')
+        #     break
 
         CUR_EPOCH += 1
 
@@ -92,12 +104,15 @@ def train(model, train_loader, val_loader):
             with open(f'{utils.OUTPUT_FOLDER}/{utils.LOSS_FILE}.json', 'w') as file:
                 json.dump(loss_logs, file)
 
-    print(f'Saving model in epoch {CUR_EPOCH} with best val loss: {best_loss}')
+    print(f'Saving model in epoch {best_epoch_idx} with best val loss: {best_loss}')
     best_model.save_model('best_model.pth')
+
     loss_logs = {'disc_loss': utils.DISC_LOSSES, 'enc_gen_loss': utils.ENC_GEN_LOSSES, 'cc_loss': utils.CC_LOSSES,
                  'train_loss': train_loss_list, 'val_loss': val_loss_list}
-    with open(f'{utils.OUTPUT_FOLDER}/{utils.LOSS_FILE}.json', 'w') as file:
+    with open(f'{utils.OUTPUT_FOLDER}{utils.LOSS_FILE}.json', 'w') as file:
         json.dump(loss_logs, file)
+
+    best_model.save_model('last_model.pth')
 
     return model
 
