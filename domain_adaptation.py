@@ -35,10 +35,10 @@ def adapt_domain(model, orig_domain_name, test=True):
     model.to(utils.DEVICE)
     model.eval()
 
-    map_fn = model.map_first_to_second   # original domain is first, mapping to second
-    # if model.second_domain_name == orig_domain_name:
-    if is_second_domain:
-        map_fn = model.map_second_to_first  # original domain is second -> mapping to frist
+    map_fn = model.map_first_to_second   # original domain is first -> mapping to second
+
+    if orig_domain_name == model.second_domain_name:
+        map_fn = model.map_second_to_first  # original domain is second -> mapping to first
 
     print(f'function used for mapping: {map_fn}')
     trans_dataset = translate_to_diff_domain(loader, map_fn)

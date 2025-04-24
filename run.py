@@ -43,8 +43,7 @@ def add_translate_args(parser):
     parser.add_argument("domain", type=str.upper, help="Name of the domain to be translated to the other domain.")
     parser.add_argument("--load_model", action="store_true", help="If a model with name 'model_name' should be loaded for data translation.")
     parser.add_argument("--model_name", type=str, default="lstnet_model", help="Name of the model to be loaded for translation")
-    parser.add_argument("--output_data_file", type=str, default="translated_data", help="Name of the file to store the translated data.")
-    parser.add_argument("--second_domain", action="store_true")
+    parser.add_argument("--output_data_file", type=str, default="translated_data.pt", help="Name of the file to store the translated data.")
 
 
 def add_eval_args(parser):
@@ -143,6 +142,7 @@ def run_translation(args, domain, model=None, op='test', return_data=False):
     if args.load_model:
         model = LSTNET.load_lstnet_model(args.model_name)
     
+    translated_data = domain_adaptation.adapt_domain(model, domain)
 
     torch.save(translated_data, f'{utils.OUTPUT_FOLDER}/{args.output_data_file}.pt')
 
