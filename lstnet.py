@@ -1,0 +1,161 @@
+from models.encoder import Encoder
+from models.generator import Generator
+from models.discriminator import Discriminator
+import utils
+
+import torch.nn as nn
+import torch
+
+
+class LSTNET(nn.Module):
+    def __init__(self, first_domain_name="", second_domain_name=""):
+        super().__init__()
+
+        self.first_domain_name = first_domain_name
+        self.second_domain_name = second_domain_name
+
+        self.first_encoder = None
+        self.second_encoder = None
+        self.shared_encoder = None
+        
+        self.first_generator = None
+        self.second_generator = None
+        self.shared_generator = None
+        
+        self.first_discriminator = None
+        self.second_discriminator = None
+        self.latent_discriminator = None
+
+        # store the whole model
+        if (utils.FIRST_INPUT_SHAPE is None) or (utils.FIRST_IN_CHANNELS_NUM is None) \
+                or (utils.SECOND_INPUT_SHAPE is None) or (utils.SECOND_IN_CHANNELS_NUM is None):
+            raise ValueError("Missing one of the required global variables: FIRST_INPUT_SHAPE, FIRST_IN_CHANNELS_NUM, SECOND_INPUT_SHAPE, SECOND_IN_CHANNELS_NUM")
+
+        self.first_input_shape = utils.FIRST_INPUT_SHAPE
+        self.second_input_shape = utils.SECOND_INPUT_SHAPE
+        self.first_in_channels_num = utils.FIRST_IN_CHANNELS_NUM
+        self.second_in_channels_num = utils.SECOND_IN_CHANNELS_NUM
+
+        params = utils.get_networks_params()
+
+        self.initialize_encoders(self.first_input_shape, self.second_input_shape,
+                                 self.first_in_channels_num, self.second_in_channels_num,
+                                 params)
+
+        self.initialize_generators(params)
+
+        self.initialize_discriminators(self.first_input_shape, self.second_input_shape,
+                                       self.first_in_channels_num, self.second_in_channels_num,
+                                       params)
+
+        self.disc_params = list(self.first_discriminator.parameters()) \
+                           + list(self.second_discriminator.parameters()) \
+                           + list(self.latent_discriminator.parameters())
+
+        self.enc_gen_params = list(self.first_encoder.parameters()) \
+                              + list(self.second_encoder.parameters()) \
+                              + list(self.shared_encoder.parameters()) \
+                              + list(self.first_generator.parameters()) \
+                              + list(self.second_generator.parameters()) \
+                              + list(self.shared_generator.parameters())
+
+    def initialize_encoders(self, first_input_size, second_input_size,
+                            first_in_channels_num, second__in_channels_num, params):
+        self.first_encoder = Encoder(first_input_size, first_in_channels_num, params["first_encoder"])
+        self.second_encoder = Encoder(second_input_size, second__in_channels_num, params["second_encoder"])
+
+        input_size_shared = self.first_encoder.get_last_layer_output_size()
+        in_channels_num_shared = self.first_encoder.get_last_layer_out_channels()
+        self.shared_encoder = Encoder(input_size_shared, in_channels_num_shared, params=params["shared_encoder"])
+
+    def initialize_generators(self, params):
+        input_size_shared = self.shared_encoder.get_last_layer_output_size()
+        out_channels_shared = self.shared_encoder.get_last_layer_out_channels()
+        
+        self.shared_generator = Generator(input_size_shared, out_channels_shared, params["shared_generator"])
+
+        input_size = self.shared_generator.get_last_layer_output_size()
+        
+        out_channels = self.shared_generator.get_last_layer_out_channels()
+
+        self.first_generator = Generator(input_size, out_channels, params["first_generator"])
+        self.second_generator = Generator(input_size, out_channels, params["second_generator"])
+
+    def initialize_discriminators(self, first_input_size, second_input_size,
+                                  first_in_channels_num, second_in_channels_num, params):
+        self.first_discriminator = Discriminator(first_input_size, first_in_channels_num, params["first_discriminator"])
+        self.second_discriminator = Discriminator(second_input_size, second_in_channels_num, params["second_discriminator"])
+
+        input_size_shared = self.shared_encoder.get_last_layer_output_size()
+        out_channels_shared = self.shared_encoder.get_last_layer_out_channels()
+        self.latent_discriminator = Discriminator(input_size_shared, out_channels_shared, params["latent_discriminator"])
+
+    def map_first_to_latent(self, x_first):
+        x_latent = self.first_encoder.forward(x_first)
+        return self.shared_encoder.forward(x_latent).to(utils.DEVICE)
+
+    def map_second_to_latent(self, x_second):
+        x_latent = self.second_encoder.forward(x_second)
+        return self.shared_encoder.forward(x_latent).to(utils.DEVICE)
+
+    def map_latent_to_first(self, x_latent):
+        x_first = self.shared_generator.forward(x_latent)
+        return self.first_generator.forward(x_first).to(utils.DEVICE)
+    
+    def map_latent_to_second(self, x_latent):
+        x_second = self.shared_generator.forward(x_latent)
+        return self.second_generator.forward(x_second).to(utils.DEVICE)
+
+    def map_first_to_second(self, x_first, return_latent=False):
+        x_latent = self.map_first_to_latent(x_first)
+        x_second = self.map_latent_to_second(x_latent)
+
+        if return_latent:
+            return x_second, x_latent
+
+        return x_second
+
+    def map_second_to_first(self, x_second, return_latent=False):
+        x_latent = self.map_second_to_latent(x_second)
+        x_first = self.map_latent_to_first(x_latent)
+
+        if return_latent:
+            return x_first, x_latent
+
+        return x_first
+
+    def set_domain_name(self, name, first=True):
+        if first:
+            self.first_domain_name = name
+
+        else:
+            self.second_domain_name = name
+
+    def save_model(self, output_path):
+        attr_dict = {
+            'domain_name': [self.first_domain_name, self.second_domain_name,],
+            'input_shape': [self.first_input_shape, self.second_input_shape],
+            'in_channels_num': [self.first_in_channels_num, self.second_in_channels_num]
+        }
+
+        dict_to_save = {
+            'attr_dict': attr_dict,
+            'state_dict': self.state_dict()
+        }
+
+        torch.save(dict_to_save, output_path)
+
+    @staticmethod
+    def load_lstnet_model(input_path):
+        dict_to_load = torch.load(input_path, map_location=utils.DEVICE)
+        attr_dict = dict_to_load['attr_dict']
+        state_dict = dict_to_load['state_dict']
+
+        first_domain_name, second_domain_name = attr_dict['domain_name']
+        utils.FIRST_INPUT_SHAPE, utils.SECOND_INPUT_SHAPE = attr_dict['input_shape']
+        utils.FIRST_IN_CHANNELS_NUM, utils.SECOND_IN_CHANNELS_NUM = attr_dict['in_channels_num']
+
+        model = LSTNET(first_domain_name, second_domain_name)
+        model.load_state_dict(state_dict)
+
+        return model

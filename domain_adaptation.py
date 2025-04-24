@@ -3,6 +3,7 @@ from torch.utils.data import TensorDataset
 from tqdm import tqdm
 
 from data_preparation import get_testing_loader
+from torch.utils.data import DataLoader
 import utils
 
 
@@ -41,7 +42,8 @@ def adapt_domain(model, orig_domain_name, is_second_domain):
 
 
 def evaluate(clf, orig_domain_name, data_path):
-    loader = get_testing_loader(orig_domain_name, data_path)
+    data = torch.load(data_path, weights_only=False)
+    loader = DataLoader(data, batch_size=utils.BATCH_SIZE, shuffle=False, num_workers=utils.NUM_WORKERS)
 
     clf.to(utils.DEVICE)
 

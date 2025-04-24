@@ -130,9 +130,8 @@ def run_translation(args, domain, model=None, return_data=False):
         raise ValueError("Model for translation is not specified.")
 
     if args.load_model:
-        model = LSTNET()
-        model.load_state_dict(torch.load(args.model_name, map_location=utils.DEVICE))
-
+        model = LSTNET.load_lstnet_model(args.model_name)
+    
     translated_data = domain_adaptation.adapt_domain(model, domain, args.second_domain)
 
     torch.save(translated_data, f'{utils.OUTPUT_FOLDER}/{args.output_data_file}.pt')
