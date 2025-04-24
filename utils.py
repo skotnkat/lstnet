@@ -15,10 +15,12 @@ DELTA_LOSS = None
 DEVICE = None
 NUM_WORKERS = None
 
-PARAMS_FILE_PATH = "mnist_usps_params.json"  # tmp
-
 FIRST_INPUT_SHAPE, SECOND_INPUT_SHAPE = None, None
 FIRST_IN_CHANNELS_NUM, SECOND_IN_CHANNELS_NUM = None, None
+
+DISC_LOSSES = {'first_loss': [], 'second_loss': [], 'latent_loss': []}
+CC_LOSSES = {'first_cycle': [], 'second_cycle': [], 'first_full_cycle': [], 'second_full_cycle': []}
+ENC_GEN_LOSSES = {'first_loss': [], 'second_loss': [], 'latent_loss': []}
 
 
 def get_networks_params():
@@ -71,3 +73,48 @@ def split_padding(p_total):
 
 def compute_effective_kernel_size(kernel_size, dilation):
     return dilation * (kernel_size - 1) + 1
+
+
+def init_epoch_loss():
+    DISC_LOSSES['first_loss'].append({'train': 0, 'val': 0})
+    DISC_LOSSES['second_loss'].append({'train': 0, 'val': 0})
+    DISC_LOSSES['latent_loss'].append({'train': 0, 'val': 0})
+
+    CC_LOSSES['first_cycle'].append({'train': 0, 'val': 0})
+    CC_LOSSES['second_cycle'].append({'train': 0, 'val': 0})
+    CC_LOSSES['first_full_cycle'].append({'train': 0, 'val': 0})
+    CC_LOSSES['second_full_cycle'].append({'train': 0, 'val': 0})
+
+    ENC_GEN_LOSSES['first_loss'].append({'train': 0, 'val': 0})
+    ENC_GEN_LOSSES['second_loss'].append({'train': 0, 'val': 0})
+    ENC_GEN_LOSSES['latent_loss'].append({'train': 0, 'val': 0})
+
+
+def log_epoch_loss(disc_loss, enc_gen_loss, cc_loss, cur_epoch, op='train'):
+    DISC_LOSSES['first_loss'][cur_epoch][op] += disc_loss[0].item()
+    DISC_LOSSES['second_loss'][cur_epoch][op] += disc_loss[1].item()
+    DISC_LOSSES['latent_loss'][cur_epoch][op] += disc_loss[2].item()
+
+    CC_LOSSES['first_cycle'][cur_epoch][op] += cc_loss[0].item()
+    CC_LOSSES['first_full_cycle'][cur_epoch][op] += cc_loss[1].item()
+    CC_LOSSES['second_cycle'][cur_epoch][op] += cc_loss[2].item()
+    CC_LOSSES['second_full_cycle'][cur_epoch][op] += cc_loss[3].item()
+
+    ENC_GEN_LOSSES['first_loss'][cur_epoch][op] += enc_gen_loss[0].item()
+    ENC_GEN_LOSSES['second_loss'][cur_epoch][op] += enc_gen_loss[1].item()
+    ENC_GEN_LOSSES['latent_loss'][cur_epoch][op] += enc_gen_loss[2].item()
+
+
+def normalize_epoch_loss(scale, cur_epoch, op='train'):
+    DISC_LOSSES['first_loss'][cur_epoch][op] /= scale
+    DISC_LOSSES['second_loss'][cur_epoch][op] /= scale
+    DISC_LOSSES['latent_loss'][cur_epoch][op] /= scale
+
+    CC_LOSSES['first_cycle'][cur_epoch][op] /= scale
+    CC_LOSSES['first_full_cycle'][cur_epoch][op] /= scale
+    CC_LOSSES['second_cycle'][cur_epoch][op] /= scale
+    CC_LOSSES['second_full_cycle'][cur_epoch][op] /= scale
+
+    ENC_GEN_LOSSES['first_loss'][cur_epoch][op] /= scale
+    ENC_GEN_LOSSES['second_loss'][cur_epoch][op] /= scale
+    ENC_GEN_LOSSES['latent_loss'][cur_epoch][op] /= scale

@@ -10,56 +10,8 @@ from data_preparation import get_training_loader
 import utils
 import time
 
-DISC_LOSSES = {'first_loss': [], 'second_loss': [], 'latent_loss': []}
-CC_LOSSES = {'first_cycle': [], 'second_cycle': [], 'first_full_cycle': [], 'second_full_cycle': []}
-ENC_GEN_LOSSES = {'first_loss': [], 'second_loss': [], 'latent_loss': []}
-
 CUR_EPOCH = 0
 
-
-def init_epoch_loss():
-    DISC_LOSSES['first_loss'].append(0)
-    DISC_LOSSES['second_loss'].append(0)
-    DISC_LOSSES['latent_loss'].append(0)
-
-    CC_LOSSES['first_cycle'].append(0)
-    CC_LOSSES['second_cycle'].append(0)
-    CC_LOSSES['first_full_cycle'].append(0)
-    CC_LOSSES['second_full_cycle'].append(0)
-
-    ENC_GEN_LOSSES['first_loss'].append(0)
-    ENC_GEN_LOSSES['second_loss'].append(0)
-    ENC_GEN_LOSSES['latent_loss'].append(0)
-
-
-def log_epoch_loss(disc_loss, enc_gen_loss, cc_loss):
-    DISC_LOSSES['first_loss'][CUR_EPOCH] += disc_loss[0].item()
-    DISC_LOSSES['second_loss'][CUR_EPOCH] += disc_loss[1].item()
-    DISC_LOSSES['latent_loss'][CUR_EPOCH] += disc_loss[2].item()
-
-    CC_LOSSES['first_cycle'][CUR_EPOCH] += cc_loss[0].item()
-    CC_LOSSES['first_full_cycle'][CUR_EPOCH] += cc_loss[1].item()
-    CC_LOSSES['second_cycle'][CUR_EPOCH] += cc_loss[2].item()
-    CC_LOSSES['second_full_cycle'][CUR_EPOCH] += cc_loss[3].item()
-
-    ENC_GEN_LOSSES['first_loss'][CUR_EPOCH] += enc_gen_loss[0].item()
-    ENC_GEN_LOSSES['second_loss'][CUR_EPOCH] += enc_gen_loss[1].item()
-    ENC_GEN_LOSSES['latent_loss'][CUR_EPOCH] += enc_gen_loss[2].item()
-
-
-def normalize_epoch_loss(scale):
-    DISC_LOSSES['first_loss'][CUR_EPOCH] /= scale
-    DISC_LOSSES['second_loss'][CUR_EPOCH] /= scale
-    DISC_LOSSES['latent_loss'][CUR_EPOCH] /= scale
-
-    CC_LOSSES['first_cycle'][CUR_EPOCH] /= scale
-    CC_LOSSES['first_full_cycle'][CUR_EPOCH] /= scale
-    CC_LOSSES['second_cycle'][CUR_EPOCH] /= scale
-    CC_LOSSES['second_full_cycle'][CUR_EPOCH] /= scale
-
-    ENC_GEN_LOSSES['first_loss'][CUR_EPOCH] /= scale
-    ENC_GEN_LOSSES['second_loss'][CUR_EPOCH] /= scale
-    ENC_GEN_LOSSES['latent_loss'][CUR_EPOCH] /= scale
 
 
 def get_cc_components(model, first_gen, second_gen, first_latent, second_latent):
