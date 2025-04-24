@@ -87,7 +87,7 @@ def train(model, train_loader, val_loader):
 
         if CUR_EPOCH % 10 == 0:
             loss_logs = {'disc_loss': utils.DISC_LOSSES, 'enc_gen_loss': utils.ENC_GEN_LOSSES, 'cc_loss': utils.CC_LOSSES,
-                         'train_loss': train_loss_list, 'val_loss' : val_loss_list}
+                         'train_loss': train_loss_list, 'val_loss': val_loss_list}
 
             with open(f'{utils.OUTPUT_FOLDER}/{utils.LOSS_FILE}.json', 'w') as file:
                 json.dump(loss_logs, file)

@@ -226,7 +226,10 @@ class LSTNET(nn.Module):
         total_enc_gen_loss.backward()
         self.enc_gen_optim.step()
 
-        return disc_loss_tuple, enc_gen_loss_tuple, cc_loss_tuple
+        enc_gen_loss_tuple_flot = tuple(loss.item() for loss in enc_gen_loss_tuple)
+        cc_loss_tuple_float = tuple(loss.item() for loss in cc_loss_tuple)
+
+        return disc_loss_tuple, enc_gen_loss_tuple_flot, cc_loss_tuple_float
 
     def run_eval_loop(self, first_real, second_real):
         with torch.no_grad():
