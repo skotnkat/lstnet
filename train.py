@@ -178,6 +178,8 @@ def train(model, loader):
 
     converged = False
     prev_epoch_loss = np.inf
+    best_weights = None
+    best_loss = np.inf
 
     loss_list = []
     start_time = time.time()
@@ -209,6 +211,11 @@ def train(model, loader):
         loss_list.append(epoch_loss)
         prev_epoch_loss = epoch_loss
 
+        if epoch_loss < best_loss:
+            best_weights = copy.deepcopy(model.state_dict())
+            best_loss = epoch_loss
+
+
         end_time = time.time()
         print(f'End of epoch {CUR_EPOCH}')
         print(f'\tCurrent total loss: {epoch_loss}')
@@ -224,6 +231,9 @@ def train(model, loader):
 
             with open(f'{utils.OUTPUT_FOLDER}/loss_logs.json', 'w') as file:
                 json.dump(loss_logs, file)
+
+    best_model = copy.deepcopy(model)
+    best_model.load_state_dict(best_weights)
 
     return model, loss_list
 
