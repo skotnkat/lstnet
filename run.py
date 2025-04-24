@@ -120,7 +120,7 @@ def initialize(args):
 
     data_preparation.MANUAL_SEED = args.seed
     data_preparation.VAL_SIZE = args.val_size
-    train.MAX_PATIENCE = args.patience
+    #train.MAX_PATIENCE = args.patience
 
     if args.operation in ['train', 'all']:
         utils.PARAMS_FILE_PATH = args.params_file
@@ -150,7 +150,7 @@ def run_translation(args, domain, model=None, op='test', return_data=False):
         raise ValueError("Model for translation is not specified.")
 
     if args.load_model:
-        model = LSTNET.load_lstnet_model(args.model_name)
+        model = LSTNET.load_lstnet_model(f'{utils.OUTPUT_FOLDER}{args.model_name}')
     
     translated_data = domain_adaptation.adapt_domain(model, domain)
 
@@ -197,7 +197,7 @@ if __name__ == "__main__":
         print(f'LSTNET model for {args.first_domain}-{args.second_domain} Domain Adaptation is trained.')
 
     elif args.operation == 'translate':
-        run_translation(args, args.domain, args.second_domain)
+        run_translation(args, args.domain, )
 
     elif args.operation == 'eval':
         run_evaluation(args.clf_model, args.domain, args.output_results_file, args.dataset_path)
