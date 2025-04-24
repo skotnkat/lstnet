@@ -235,6 +235,14 @@ def train(model, loader):
     best_model.load_state_dict(best_weights)
 
     best_model.save_model('best_model.pth')
+
+    torch.save(model, f"model_weights_{CUR_EPOCH}.pth")
+    loss_logs = {'disc_loss': DISC_LOSSES, 'enc_gen_loss': ENC_GEN_LOSSES, 'cc_loss': CC_LOSSES,
+                 'epoch_loss': loss_list}
+
+    with open(f'{utils.OUTPUT_FOLDER}/loss_logs.json', 'w') as file:
+        json.dump(loss_logs, file)
+    
     return model, loss_list
 
 
