@@ -102,6 +102,7 @@ def initialize(args):
 
     utils.NUM_WORKERS = args.num_workers
     utils.BATCH_SIZE = args.batch_size
+
     data_preparation.MANUAL_SEED = args.seed
 
     if args.operation in ['train', 'all']:
@@ -109,7 +110,7 @@ def initialize(args):
         utils.LOSS_FILE = args.loss_file
         utils.ADAM_LR = args.learning_rate
         utils.ADAM_DECAY = args.decay
-        utils.MAX_PATIENCE = args.patience
+        train.MAX_PATIENCE = args.patience
 
 
     utils.DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
