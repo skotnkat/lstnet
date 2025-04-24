@@ -6,13 +6,14 @@ import utils
 import train
 import domain_adaptation
 import torch
-
+import data_preparation
 from models.lstnet import  LSTNET
 
 def add_common_args(parser):
     parser.add_argument("--output_folder", type=str, default="output/", help="Path to the output folder")
     parser.add_argument("--batch_size", type=int, default=64, help="Size of batches used in training.")
     parser.add_argument("--num_workers", type=int, default=4, help="Size of batches used in training.")
+    parser.add_argument("--seed", type=int, default=42, help="Size of batches used in training.")
 
     return parser
 
@@ -101,6 +102,7 @@ def initialize(args):
 
     utils.NUM_WORKERS = args.num_workers
     utils.BATCH_SIZE = args.batch_size
+    data_preparation.MANUAL_SEED = args.seed
 
     if args.operation in ['train', 'all']:
         utils.PARAMS_FILE_PATH = args.params_file
@@ -108,6 +110,7 @@ def initialize(args):
         utils.ADAM_LR = args.learning_rate
         utils.ADAM_DECAY = args.decay
         utils.MAX_PATIENCE = args.patience
+
 
     utils.DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f'Device being used: {utils.DEVICE}')

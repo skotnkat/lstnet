@@ -4,8 +4,9 @@ from torch.utils.data import ConcatDataset, DataLoader, random_split
 import torch
 from dual_domain_dataset import DualDomainDataset, DualDomainSupervisedDataset, custom_collate_fn
 
-from models import lstnet
 import utils
+
+MANUAL_SEED = None
 
 BASIC_TRANSFORMATION = Compose([
     ToImage(),
@@ -65,7 +66,7 @@ def load_augmented_dataset(dataset_name, train_op=True, download=True):
     val_size = len(data_all) - train_size
 
     g = torch.Generator()
-    g.manual_seed(42)
+    g.manual_seed(MANUAL_SEED)  # add manual seed to args
     train_data, val_data = random_split(data_all, [train_size, val_size], generator=g)
 
     return train_data, val_data
