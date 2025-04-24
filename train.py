@@ -10,6 +10,7 @@ import time
 CUR_EPOCH = 0
 MAX_PATIENCE = 0
 DELTA_LOSS_FRAC = 1e-3
+WARM_UP = 5
 
 
 def run_loop(model, loader, op='train'):
@@ -22,7 +23,7 @@ def run_loop(model, loader, op='train'):
             disc_loss, enc_gen_loss, cc_loss = model.run_eval_loop(first_real, second_real)
 
         # update discriminators - try to update encoders&generators more
-        elif batch_idx % 3 == 0:  # op == train
+        elif (batch_idx % 2 == 0) and (CUR_EPOCH >= WARM_UP):  # op == train
             disc_loss, enc_gen_loss, cc_loss = model.update_disc(first_real, second_real)
 
         #############################################################
@@ -102,7 +103,7 @@ def train(model, train_loader, val_loader):
                          'train_loss': train_loss_list, 'val_loss': val_loss_list}
 
             with open(f'{utils.OUTPUT_FOLDER}{utils.LOSS_FILE}.json', 'w') as file:
-                json.dump(loss_logs, file)
+                json.dump(loss_logs, file, indent=2)
 
     print(f'Saving model in epoch {best_epoch_idx} with best val loss: {best_loss}')
     best_model.save_model('best_model.pth')
@@ -110,7 +111,7 @@ def train(model, train_loader, val_loader):
     loss_logs = {'disc_loss': utils.DISC_LOSSES, 'enc_gen_loss': utils.ENC_GEN_LOSSES, 'cc_loss': utils.CC_LOSSES,
                  'train_loss': train_loss_list, 'val_loss': val_loss_list}
     with open(f'{utils.OUTPUT_FOLDER}{utils.LOSS_FILE}.json', 'w') as file:
-        json.dump(loss_logs, file)
+        json.dump(loss_logs, file, indent=2)
 
     best_model.save_model('last_model.pth')
 
