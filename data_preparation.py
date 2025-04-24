@@ -64,7 +64,10 @@ def load_augmented_dataset(dataset_name, train_op=True, download=True):
     train_size = int(len(data_all) * 0.75)  # make it a variable/argument
     val_size = len(data_all) - train_size
 
-    train_data, val_data = random_split(data_all, [train_size, val_size])
+    g = torch.Generator()
+    g.manual_seed(42)
+    train_data, val_data = random_split(data_all, [train_size, val_size], generator=g)
+
     return train_data, val_data
 
 
