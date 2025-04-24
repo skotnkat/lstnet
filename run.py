@@ -93,17 +93,23 @@ def parse_args():
 
     args = parser.parse_args()
 
-    args.output_model_file = utils.check_file_ending(args.output_model_file, 'pth')
-    args.model_name = utils.check_file_ending(args.model_name, 'pth')
-    args.output_data_file = utils.check_file_ending(args.output_data_file, 'pt')
-    args.clf_model = utils.check_file_ending(args.clf_model, 'pth')
-    args.output_results_file = utils.check_file_ending(args.output_results_file, 'json')
-
-    utils.LOSS_FILE = utils.check_file_ending(args.loss_file, 'json')
     utils.OUTPUT_FOLDER = utils.check_file_ending(args.output_folder, '/')
 
     if not os.path.exists(args.output_folder):
         os.makedirs(args.output_folder)
+
+    if args.operation == ['train', 'all']:
+        args.output_model_file = utils.check_file_ending(args.output_model_file, 'pth')
+        utils.LOSS_FILE = utils.check_file_ending(args.loss_file, 'json')
+
+    if args.operation == ['translate', 'all'] :
+        args.model_name = utils.check_file_ending(args.model_name, 'pth')
+        args.output_data_file = utils.check_file_ending(args.output_data_file, 'pt')
+
+
+    if args.operation == ['eval', 'all']:
+        args.clf_model = utils.check_file_ending(args.clf_model, 'pth')
+        args.output_results_file = utils.check_file_ending(args.output_results_file, 'json')
 
     return args
 
