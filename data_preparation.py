@@ -1,6 +1,6 @@
 from torchvision import datasets
 from torchvision.transforms.v2 import Compose, RandomAffine, ToImage, ToDtype, Normalize
-from torch.utils.data import ConcatDataset, DataLoader
+from torch.utils.data import ConcatDataset, DataLoader, random_split
 import torch
 from dual_domain_dataset import DualDomainDataset, DualDomainSupervisedDataset, custom_collate_fn
 
@@ -59,26 +59,35 @@ def load_augmented_dataset(dataset_name, train_op=True, download=True):
 
     augmented_data = load_dataset(dataset_name, train_op=train_op, download=False, transform_steps=transform_steps)
 
-    return ConcatDataset([original_data, augmented_data])
+    data_all = ConcatDataset([original_data, augmented_data])
+
+    train_size = int(len(data_all) * 0.75)  # make it a variable/argument
+    val_size = len(data_all) - train_size
+
+    train_data, val_data = random_split(data_all, [train_size, val_size])
+    return train_data, val_data
 
 
 def get_training_loader(first_domain_name, second_domain_name, supervised=True):
-    first_data = load_augmented_dataset(first_domain_name, train_op=True)
+    train_first_data, val_first_data = load_augmented_dataset(first_domain_name, train_op=True)
     print(f'Obtained augmented data for {first_domain_name}')
 
-    second_data = load_augmented_dataset(second_domain_name, train_op=True)
+    train_second_data, val_second_data = load_augmented_dataset(second_domain_name, train_op=True)
     print(f'Obtained augmented data for {second_domain_name}')
 
-    if len(first_data) < len(second_data):
+    if len(train_first_data) < len(train_second_data):
         raise ValueError("First dataset should be larger.")
 
     if supervised:
-        dual_data = DualDomainSupervisedDataset(first_data, second_data)
+        train_dual_data = DualDomainSupervisedDataset(train_first_data, train_second_data)
+        val_dual_data = DualDomainSupervisedDataset(val_first_data, val_second_data)
 
     else:
-        dual_data = DualDomainDataset(first_data, second_data)
+        train_dual_data = DualDomainDataset(train_first_data, train_second_data)
+        val_dual_data = DualDomainDataset(val_first_data, val_second_data)
     print('Obtained Dual Domain Dataset')
-    first_img, _, second_img, _ = dual_data.__getitem__(0)
+
+    first_img, _, second_img, _ = train_dual_data.__getitem__(0)
 
     utils.FIRST_INPUT_SHAPE = first_img.shape[1:]
     utils.FIRST_IN_CHANNELS_NUM = first_img.shape[0]
@@ -87,11 +96,14 @@ def get_training_loader(first_domain_name, second_domain_name, supervised=True):
     utils.SECOND_IN_CHANNELS_NUM = second_img.shape[0]
 
     pin_memory = utils.DEVICE != "cpu"  # locking in physical RAM, higher data transfer with gpu
-    data_loader = DataLoader(dual_data, batch_size=utils.BATCH_SIZE, shuffle=True, collate_fn=custom_collate_fn,
+    val_loader = DataLoader(train_dual_data, batch_size=utils.BATCH_SIZE, shuffle=True, collate_fn=custom_collate_fn,
                              pin_memory=pin_memory, num_workers=utils.NUM_WORKERS, persistent_workers=True)
 
+    train_loader = DataLoader(train_dual_data, batch_size=utils.BATCH_SIZE, shuffle=False, collate_fn=custom_collate_fn,
+                              pin_memory=pin_memory, num_workers=utils.NUM_WORKERS, persistent_workers=True)
+
     print(f'Obtained Data Loader')
-    return data_loader
+    return train_loader, val_loader
 
 
 def get_testing_loader(domain_name):
