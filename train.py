@@ -149,7 +149,7 @@ def update_enc_gen(model, first_real, second_real, optim):
     enc_gen_loss_total = first_enc_gen_loss + second_enc_gen_loss + latent_enc_gen_loss + cc_loss
     enc_gen_loss_total.backward()
 
-    torch.nn.utils.clip_grad_norm_(model.enc_gen_params, max_norm=5.0)
+    torch.nn.utils.clip_grad_norm_(model.enc_gen_params, max_norm=2.0)
 
     optim.step()
 
