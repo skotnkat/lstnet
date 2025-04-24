@@ -196,7 +196,7 @@ class LSTNET(nn.Module):
             imgs_cc = self.get_cc_components(*imgs_mapping)
             cc_loss_tuple = loss_functions.compute_cc_loss(first_real, second_real, *imgs_cc, return_grad=False)
 
-            enc_gen_loss_tuple = loss_functions.compute_enc_gen_loss(self, *imgs_cc, return_grad=False)
+            enc_gen_loss_tuple = loss_functions.compute_enc_gen_loss(self, *imgs_mapping, return_grad=False)
 
         disc_loss_tuple = loss_functions.compute_discriminator_loss(self, first_real, second_real, *imgs_mapping)
 
@@ -215,7 +215,7 @@ class LSTNET(nn.Module):
         imgs_cc = self.get_cc_components(*imgs_mapping)
 
         cc_loss_tuple = loss_functions.compute_cc_loss(first_real, second_real, *imgs_cc)
-        enc_gen_loss_tuple = loss_functions.compute_enc_gen_loss(self, *imgs_cc)
+        enc_gen_loss_tuple = loss_functions.compute_enc_gen_loss(self, *imgs_mapping)
 
         with torch.no_grad():
             disc_loss_tuple = loss_functions.compute_discriminator_loss(self, first_real, second_real, *imgs_mapping,
@@ -236,6 +236,6 @@ class LSTNET(nn.Module):
 
             imgs_cc = self.get_cc_components(*imgs_mapping)
             cc_loss_tuple = loss_functions.compute_cc_loss(first_real, second_real, *imgs_cc, return_grad=False)
-            enc_gen_loss_tuple = loss_functions.compute_enc_gen_loss(self, *imgs_cc, return_grad=False)
+            enc_gen_loss_tuple = loss_functions.compute_enc_gen_loss(self, *imgs_mapping, return_grad=False)
 
         return disc_loss_tuple, enc_gen_loss_tuple, cc_loss_tuple
