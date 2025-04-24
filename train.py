@@ -12,7 +12,7 @@ MAX_PATIENCE = 0
 
 
 def run_loop(model, loader, op='train'):
-    utils.init_epoch_loss(op)
+    utils.init_epoch_loss()
     epoch_loss = 0
     for batch_idx, (first_real, _, second_real, _) in enumerate(loader):
         first_real = first_real.to(utils.DEVICE).detach()
