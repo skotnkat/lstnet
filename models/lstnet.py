@@ -199,13 +199,13 @@ class LSTNET(nn.Module):
             enc_gen_loss_tuple = loss_functions.compute_enc_gen_loss(self, *imgs_mapping, return_grad=False)
 
         disc_loss_tuple = loss_functions.compute_discriminator_loss(self, first_real, second_real, *imgs_mapping)
-
+        
         total_disc_loss = functools.reduce(operator.add, disc_loss_tuple)
         total_disc_loss.backward()
         self.disc_optim.step()
 
-        disc_loss_tuple_float = (loss.item() for loss in disc_loss_tuple)
-
+        disc_loss_tuple_float = tuple(loss.item() for loss in disc_loss_tuple)
+    
         return disc_loss_tuple_float, enc_gen_loss_tuple, cc_loss_tuple
 
     def update_enc_gen(self, first_real, second_real):
