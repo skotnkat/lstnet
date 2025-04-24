@@ -5,6 +5,11 @@ import utils
 
 import torch.nn as nn
 import torch
+from torch.optim import Adam
+import functools
+import operator
+
+import loss_functions
 
 
 class LSTNET(nn.Module):
@@ -26,7 +31,6 @@ class LSTNET(nn.Module):
         self.second_discriminator = None
         self.latent_discriminator = None
 
-        # store the whole model
         if (utils.FIRST_INPUT_SHAPE is None) or (utils.FIRST_IN_CHANNELS_NUM is None) \
                 or (utils.SECOND_INPUT_SHAPE is None) or (utils.SECOND_IN_CHANNELS_NUM is None):
             raise ValueError("Missing one of the required global variables: FIRST_INPUT_SHAPE, FIRST_IN_CHANNELS_NUM, SECOND_INPUT_SHAPE, SECOND_IN_CHANNELS_NUM")
@@ -58,6 +62,9 @@ class LSTNET(nn.Module):
                               + list(self.first_generator.parameters()) \
                               + list(self.second_generator.parameters()) \
                               + list(self.shared_generator.parameters())
+
+        self.disc_optim = Adam(self.disc_params, lr=utils.ADAM_LR, betas=utils.ADAM_DECAY)
+        self.enc_gen_optim = Adam(self.enc_gen_params, lr=utils.ADAM_LR, betas=utils.ADAM_DECAY)
 
     def initialize_encoders(self, first_input_size, second_input_size,
                             first_in_channels_num, second__in_channels_num, params):
@@ -124,6 +131,21 @@ class LSTNET(nn.Module):
 
         return x_first
 
+    def get_cc_components(self, first_gen, second_gen, first_latent, second_latent):
+        # map latent representation of real first images back to first domain
+        first_cycle = self.map_latent_to_first(first_latent)
+
+        # map latent representation of real second images back to second domain
+        second_cycle = self.map_latent_to_second(second_latent)
+
+        # map generated images in second domain back to first domain
+        first_full_cycle = self.map_second_to_first(second_gen)
+
+        # map generated images in first domain back to second domain
+        second_full_cycle = self.map_first_to_second(first_gen)
+
+        return first_cycle, second_cycle, first_full_cycle, second_full_cycle
+
     def set_domain_name(self, name, first=True):
         if first:
             self.first_domain_name = name
@@ -133,7 +155,7 @@ class LSTNET(nn.Module):
 
     def save_model(self, output_path):
         attr_dict = {
-            'domain_name': [self.first_domain_name, self.second_domain_name,],
+            'domain_name': [self.first_domain_name, self.second_domain_name],
             'input_shape': [self.first_input_shape, self.second_input_shape],
             'in_channels_num': [self.first_in_channels_num, self.second_in_channels_num]
         }
@@ -144,6 +166,12 @@ class LSTNET(nn.Module):
         }
 
         torch.save(dict_to_save, output_path)
+
+    def run_networks(self, first_real, second_real):
+        second_gen, first_latent = self.map_first_to_second(first_real, return_latent=True)
+        first_gen, second_latent = self.map_second_to_first(second_real, return_latent=True)
+
+        return first_gen, second_gen, first_latent, second_latent
 
     @staticmethod
     def load_lstnet_model(input_path):
@@ -159,3 +187,55 @@ class LSTNET(nn.Module):
         model.load_state_dict(state_dict)
 
         return model
+
+    def update_disc(self, first_real, second_real):
+        self.disc_optim.zero_grad()
+
+        with torch.no_grad():
+            imgs_mapping = self.run_networks(first_real, second_real)  # generated images and latent
+            imgs_cc = self.get_cc_components(self, *imgs_mapping)
+            cc_loss_tuple = loss_functions.compute_cc_loss(first_real, second_real, *imgs_cc, return_grad=False)
+
+            enc_gen_loss_tuple = loss_functions.compute_enc_gen_loss(self, *imgs_cc, return_grad=False)
+
+        disc_loss_tuple = loss_functions.compute_discriminator_loss(self, first_real, second_real, *imgs_mapping)
+
+        total_disc_loss = functools.reduce(operator.add, disc_loss_tuple)
+        total_disc_loss.backward()
+        self.disc_optim.step()
+
+        disc_loss_tuple_float = (loss.item() for loss in disc_loss_tuple)
+
+        return disc_loss_tuple_float, enc_gen_loss_tuple, cc_loss_tuple
+
+    def update_enc_gen(self, first_real, second_real):
+        self.enc_gen_optim.zero_grad()
+
+        imgs_mapping = self.run_networks(first_real, second_real)  # generated images and latent
+        imgs_cc = self.get_cc_components(self, *imgs_mapping)
+
+        cc_loss_tuple = loss_functions.compute_cc_loss(first_real, second_real, *imgs_cc)
+        enc_gen_loss_tuple = loss_functions.compute_enc_gen_loss(self, *imgs_cc)
+
+        with torch.no_grad():
+            disc_loss_tuple = loss_functions.compute_discriminator_loss(self, first_real, second_real, *imgs_mapping,
+                                                                        return_grad=False)
+
+        total_enc_gen_loss = functools.reduce(operator.add, cc_loss_tuple) + functools.reduce(operator.add, enc_gen_loss_tuple)
+
+        total_enc_gen_loss.backward()
+        self.enc_gen_optim.step()
+
+        return disc_loss_tuple, enc_gen_loss_tuple, cc_loss_tuple
+
+    def run_eval_loop(self, first_real, second_real):
+        with torch.no_grad():
+            imgs_mapping = self.run_networks(first_real, second_real)  # generated images and latent
+            disc_loss_tuple = loss_functions.compute_discriminator_loss(self, first_real, second_real, *imgs_mapping,
+                                                                        return_grad=False)
+
+            imgs_cc = self.get_cc_components(self, *imgs_mapping)
+            cc_loss_tuple = loss_functions.compute_cc_loss(first_real, second_real, *imgs_cc, return_grad=False)
+            enc_gen_loss_tuple = loss_functions.compute_enc_gen_loss(self, *imgs_cc, return_grad=False)
+
+        return disc_loss_tuple, enc_gen_loss_tuple, cc_loss_tuple

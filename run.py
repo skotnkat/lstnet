@@ -7,7 +7,6 @@ import train
 import domain_adaptation
 import torch
 
-from eval_models.clf_models import MnistClf, UspsClf, SvhnClf
 from models.lstnet import  LSTNET
 
 def add_common_args(parser):
@@ -34,7 +33,7 @@ def add_train_args(parser):
     parser.add_argument("--decay", type=float, nargs=2, default=(0.8, 0.999),
                         help="Two float values for Adam optimizer decay (beta1, beta2)")
 
-    parser.add_argument("--delta_loss", type=float, default=0.05,
+    parser.add_argument("--patience", type=float, default=5,
                         help="Maximum allowed change in loss between iterations to consider convergence")
 
 
@@ -108,7 +107,7 @@ def initialize(args):
         utils.LOSS_FILE = args.loss_file
         utils.ADAM_LR = args.learning_rate
         utils.ADAM_DECAY = args.decay
-        utils.DELTA_LOSS = args.delta_loss
+        utils.MAX_PATIENCE = args.patience
 
     utils.DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f'Device being used: {utils.DEVICE}')

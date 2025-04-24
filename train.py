@@ -1,201 +1,104 @@
 import numpy as np
-import torch
-from torch.optim import Adam
 import json
 import copy
 
 from models.lstnet import LSTNET
-from loss_functions import compute_discriminator_loss, compute_enc_gen_loss, compute_cc_loss
 from data_preparation import get_training_loader
 import utils
 import time
 
 CUR_EPOCH = 0
+MAX_PATIENCE = 0
 
 
+def run_loop(model, loader, op='train'):
+    utils.init_epoch_loss(op)
+    epoch_loss = 0
+    for batch_idx, (first_real, _, second_real, _) in enumerate(loader):
+        first_real = first_real.to(utils.DEVICE).detach()
+        second_real = second_real.to(utils.DEVICE).detach()
 
-def get_cc_components(model, first_gen, second_gen, first_latent, second_latent):
-    # map latent representation of real first images back to first domain
-    first_cycle = model.map_latent_to_first(first_latent)
+        if op == 'eval':
+            disc_loss, enc_gen_loss, cc_loss = model.run_eval_loop(first_real, second_real)
 
-    # map latent representation of real second images back to second domain
-    second_cycle = model.map_latent_to_second(second_latent)
+        # update discriminators
+        elif batch_idx % 2 == 0:  # op == train
+            disc_loss, enc_gen_loss, cc_loss = model.update_disc(first_real, second_real)
 
-    # map generated images in second domain back to first domain
-    first_full_cycle = model.map_second_to_first(second_gen)
+        #############################################################
+        # update encoders and generators
+        else:
+            disc_loss, enc_gen_loss, cc_loss = model.update_enc_gen(first_real, second_real)
+        #############################################################
 
-    # map generated images in first domain back to second domain
-    second_full_cycle = model.map_first_to_second(first_gen)
+    epoch_loss += sum(disc_loss) + sum(cc_loss)
+    epoch_loss /= len(loader)  # compute mean of the losses
+    utils.normalize_epoch_loss(len(loader), CUR_EPOCH, op)
 
-    return first_cycle, second_cycle, first_full_cycle, second_full_cycle
+    utils.log_epoch_loss(disc_loss, enc_gen_loss, cc_loss, CUR_EPOCH, op)
 
-
-def update_disc(model, first_real, second_real, optim_disc_1, optim_disc_2, optim_disc_latent):
-    optim_disc_1.zero_grad()
-    optim_disc_2.zero_grad()
-    optim_disc_latent.zero_grad()
-
-    with torch.no_grad():
-        second_gen, first_latent = model.map_first_to_second(first_real, return_latent=True)
-        first_gen, second_latent = model.map_second_to_first(second_real, return_latent=True)
-
-        first_gen = first_gen.detach()
-        second_gen = second_gen.detach()
-
-        first_latent = first_latent.detach()
-        second_latent = second_latent.detach()
-
-    disc_loss_1, disc_loss_2, disc_loss_latent = compute_discriminator_loss(model, first_real, second_real,
-                                                                            first_gen, second_gen,
-                                                                            first_latent, second_latent)
-    disc_loss_1.backward()
-    optim_disc_1.step()
-
-    disc_loss_2.backward()
-    optim_disc_2.step()
-
-    disc_loss_latent.backward()
-    optim_disc_latent.step()
+    return epoch_loss
 
 
-    with torch.no_grad():
-        first_cycle, second_cycle, first_full_cycle, second_full_cycle = get_cc_components(model,
-                                                                                           first_gen, second_gen,
-                                                                                           first_latent, second_latent)
-        cc_loss_1, cc_loss_2, cc_loss_3, cc_loss_4 = compute_cc_loss(first_real, second_real,
-                                  first_cycle, second_cycle,
-                                  first_full_cycle, second_full_cycle)
-
-        first_enc_gen_loss, second_enc_gen_loss, latent_enc_gen_loss = compute_enc_gen_loss(model, first_gen,
-                                                                                            second_gen, first_latent,
-                                                                                            second_latent)
-
-    log_epoch_loss(
-        (disc_loss_1, disc_loss_2, disc_loss_latent),
-        (first_enc_gen_loss, second_enc_gen_loss, latent_enc_gen_loss),
-        (cc_loss_1, cc_loss_2, cc_loss_3, cc_loss_4)
-    )
-
-    cc_loss = cc_loss_1.item() + cc_loss_2.item() + cc_loss_3.item() + cc_loss_4.item()
-
-    return disc_loss_1.item() + disc_loss_2.item() + disc_loss_latent.item() + cc_loss
-
-
-def update_enc_gen(model, first_real, second_real, optim):
-    optim.zero_grad()
-
-    second_gen, first_latent = model.map_first_to_second(first_real, return_latent=True)
-    first_gen, second_latent = model.map_second_to_first(second_real, return_latent=True)
-
-    first_enc_gen_loss, second_enc_gen_loss, latent_enc_gen_loss = compute_enc_gen_loss(model, first_gen, second_gen, first_latent, second_latent)
-
-    # cycle consistency
-    first_cycle, second_cycle, first_full_cycle, second_full_cycle = get_cc_components(model,
-                                                                                       first_gen, second_gen,
-                                                                                       first_latent, second_latent)
-    cc_loss_1, cc_loss_2, cc_loss_3, cc_loss_4 = compute_cc_loss(first_real, second_real,
-                              first_cycle, second_cycle,
-                              first_full_cycle, second_full_cycle)
-
-    cc_loss = cc_loss_1 + cc_loss_2 + cc_loss_3 + cc_loss_4
-    enc_gen_loss_total = 2*(first_enc_gen_loss + second_enc_gen_loss + latent_enc_gen_loss) + cc_loss
-    enc_gen_loss_total.backward()
-
-
-    optim.step()
-
-    with torch.no_grad():
-        disc_loss_1, disc_loss_2, disc_loss_latent = compute_discriminator_loss(model, first_real, second_real,
-                                                                                first_gen.detach(), second_gen.detach(),
-                                                                                first_latent.detach(), second_latent.detach())
-
-    log_epoch_loss(
-        (disc_loss_1, disc_loss_2, disc_loss_latent),
-        (first_enc_gen_loss, second_enc_gen_loss, latent_enc_gen_loss),
-        (cc_loss_1, cc_loss_2, cc_loss_3, cc_loss_4)
-    )
-
-    return cc_loss.item() + disc_loss_1.item() + disc_loss_2.item() + disc_loss_latent.item()
-
-
-
-def train(model, loader):
+def train(model, train_loader, val_loader):
     """First phase of training. Without knowledge of the labels (will be ignoring the labels)."""
     global CUR_EPOCH
-    optim_disc_1 = Adam(model.first_discriminator.parameters(), lr=utils.ADAM_LR, betas=utils.ADAM_DECAY, amsgrad=True)
-    optim_disc_2 = Adam(model.second_discriminator.parameters(), lr=utils.ADAM_LR, betas=utils.ADAM_DECAY, amsgrad=True)
-    optim_disc_latent = Adam(model.latent_discriminator.parameters(), lr=utils.ADAM_LR, betas=utils.ADAM_DECAY, amsgrad=True)
-    optim_enc_gen = Adam(model.enc_gen_params, lr=utils.ADAM_LR, betas=utils.ADAM_DECAY, amsgrad=True)
 
-    converged = False
-    prev_epoch_loss = np.inf
-    best_weights = None
+    best_model = None
     best_loss = np.inf
 
-    loss_list = []
-    start_time = time.time()
-
-    while not converged:
-        epoch_loss = 0
-        init_epoch_loss()
-        for batch_idx, (first_real, _, second_real, _) in enumerate(loader):
-            first_real = first_real.to(utils.DEVICE).detach()
-            second_real = second_real.to(utils.DEVICE).detach()
-
-            #############################################################
-            # update discriminators
-            if batch_idx % 2 == 0:
-                epoch_loss += update_disc(model, first_real, second_real, optim_disc_1, optim_disc_2, optim_disc_latent)
-            #############################################################
-            # update encoders and generators
-            else:
-                epoch_loss += update_enc_gen(model, first_real, second_real, optim_enc_gen)
-
-            #############################################################
-
-        epoch_loss /= len(loader)  # compute mean of the losses
-        normalize_epoch_loss(len(loader))
-
-        if np.abs(epoch_loss - prev_epoch_loss) < utils.DELTA_LOSS:
-            converged = True
-
-        loss_list.append(epoch_loss)
-        prev_epoch_loss = epoch_loss
-
-        if epoch_loss < best_loss:
-            best_weights = copy.deepcopy(model.state_dict())
-            best_loss = epoch_loss
-
-
+    train_loss_list = []
+    val_loss_list = []
+    cur_patience = 0
+    while True:
+        start_time = time.time()
+        train_loss = run_loop(model, train_loader)
         end_time = time.time()
+
+        train_loss_list.append(train_loss)
+        train_time = end_time-start_time
+
+        start_time = time.time()
+        val_loss = run_loop(model, val_loader, op='eval')
+        end_time = time.time()
+
+        val_loss_list.append(val_loss)
+        val_time = end_time - start_time
+
+        if val_loss < best_loss:
+            best_model = copy.deepcopy(model)
+            best_loss = val_loss
+            cur_patience = 0
+
+        else:
+            cur_patience += 1
+
         print(f'End of epoch {CUR_EPOCH}')
-        print(f'\tCurrent total loss: {epoch_loss}')
-        print(f'\tTook: {(end_time-start_time)/60:.2f} min')
+        print(f'\tCurrent train loss: {train_loss}, val loss: {val_loss}')
+        print(f'\tTrain took: {(train_time) / 60:.2f} min, Val took: {(val_time) / 60:.2f} min')
+        print(f'\tPatience: {cur_patience}')
+
+        if cur_patience > MAX_PATIENCE:
+            print(f'\tMax Patience Reached')
+            break
 
         CUR_EPOCH += 1
-        start_time = time.time()
 
         if CUR_EPOCH % 10 == 0:
-            torch.save(model, f"model_weights_{CUR_EPOCH}.pth")
-            loss_logs = {'disc_loss': DISC_LOSSES, 'enc_gen_loss': ENC_GEN_LOSSES, 'cc_loss': CC_LOSSES,
-                         'epoch_loss': loss_list}
+            loss_logs = {'disc_loss': utils.DISC_LOSSES, 'enc_gen_loss': utils.ENC_GEN_LOSSES, 'cc_loss': utils.CC_LOSSES,
+                         'train_loss': train_loss_list, 'val_loss' : val_loss_list}
 
-            with open(f'{utils.OUTPUT_FOLDER}/loss_logs.json', 'w') as file:
+            with open(f'{utils.OUTPUT_FOLDER}/{utils.LOSS_FILE}.json', 'w') as file:
                 json.dump(loss_logs, file)
 
-    best_model = copy.deepcopy(model)
-    best_model.load_state_dict(best_weights)
-
+    print(f'Saving model in epoch {CUR_EPOCH} with best val loss: {best_loss}')
     best_model.save_model('best_model.pth')
-
-    torch.save(model, f"model_weights_{CUR_EPOCH}.pth")
-    loss_logs = {'disc_loss': DISC_LOSSES, 'enc_gen_loss': ENC_GEN_LOSSES, 'cc_loss': CC_LOSSES,
-                 'epoch_loss': loss_list}
-
-    with open(f'{utils.OUTPUT_FOLDER}/loss_logs.json', 'w') as file:
+    loss_logs = {'disc_loss': utils.DISC_LOSSES, 'enc_gen_loss': utils.ENC_GEN_LOSSES, 'cc_loss': utils.CC_LOSSES,
+                 'train_loss': train_loss_list, 'val_loss': val_loss_list}
+    with open(f'{utils.OUTPUT_FOLDER}/{utils.LOSS_FILE}.json', 'w') as file:
         json.dump(loss_logs, file)
-    
-    return model, loss_list
+
+    return model
 
 
 def run(first_domain_name, second_domain_name, supervised):
@@ -206,10 +109,6 @@ def run(first_domain_name, second_domain_name, supervised):
     model.to(utils.DEVICE)
     print('LSTNET model moved to device')
 
-    model, loss_list = train(model, data_loader)
-
-    with open(f'{utils.OUTPUT_FOLDER}/{utils.LOSS_FILE}.json', 'w') as file:
-        json.dump(loss_list, file, indent=2)
     model = train(model, train_loader, val_loader)
 
     print('Model trained.')
