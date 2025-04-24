@@ -120,7 +120,7 @@ def initialize(args):
 
     data_preparation.MANUAL_SEED = args.seed
     data_preparation.VAL_SIZE = args.val_size
-    #train.MAX_PATIENCE = args.patience
+    train.MAX_PATIENCE = args.patience
 
     if args.operation in ['train', 'all']:
         utils.PARAMS_FILE_PATH = args.params_file
