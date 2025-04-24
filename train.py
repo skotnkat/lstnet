@@ -146,10 +146,9 @@ def update_enc_gen(model, first_real, second_real, optim):
                               first_full_cycle, second_full_cycle)
 
     cc_loss = cc_loss_1 + cc_loss_2 + cc_loss_3 + cc_loss_4
-    enc_gen_loss_total = first_enc_gen_loss + second_enc_gen_loss + latent_enc_gen_loss + cc_loss
+    enc_gen_loss_total = 2*(first_enc_gen_loss + second_enc_gen_loss + latent_enc_gen_loss) + cc_loss
     enc_gen_loss_total.backward()
 
-    torch.nn.utils.clip_grad_norm_(model.enc_gen_params, max_norm=2.0)
 
     optim.step()
 
@@ -235,6 +234,7 @@ def train(model, loader):
     best_model = copy.deepcopy(model)
     best_model.load_state_dict(best_weights)
 
+    best_model.save_model('best_model.pth')
     return model, loss_list
 
 
