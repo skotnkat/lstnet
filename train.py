@@ -18,7 +18,7 @@ def run_loop(model, loader, op='train'):
         first_real = first_real.to(utils.DEVICE).detach()
         second_real = second_real.to(utils.DEVICE).detach()
 
-        if op == 'eval':
+        if op == 'val':
             disc_loss, enc_gen_loss, cc_loss = model.run_eval_loop(first_real, second_real)
 
         # update discriminators
@@ -59,7 +59,7 @@ def train(model, train_loader, val_loader):
         train_time = end_time-start_time
 
         start_time = time.time()
-        val_loss = run_loop(model, val_loader, op='eval')
+        val_loss = run_loop(model, val_loader, op='val')
         end_time = time.time()
 
         val_loss_list.append(val_loss)
