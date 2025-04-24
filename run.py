@@ -105,6 +105,8 @@ def parse_args():
     if not os.path.exists(args.output_folder):
         os.makedirs(args.output_folder)
 
+    return args
+
 
 def initialize(args):
     utils.NUM_WORKERS = args.num_workers
