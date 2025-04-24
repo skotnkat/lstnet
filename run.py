@@ -119,7 +119,7 @@ def run_training(first_domain, second_domain, supervised, output_file, return_mo
 
     model_path = f'{utils.OUTPUT_FOLDER}/{args.output_model_file}.pth'
     # torch.save(model, model_path)
-    model.save(model_path)
+    model.save_model(model_path)
 
     if return_model:
         return model
