@@ -4,7 +4,6 @@ from torch.utils.data import ConcatDataset, DataLoader
 import torch
 from dual_domain_dataset import DualDomainDataset, DualDomainSupervisedDataset, custom_collate_fn
 
-from models import lstnet
 import utils
 
 BASIC_TRANSFORMATION = Compose([
@@ -80,11 +79,11 @@ def get_training_loader(first_domain_name, second_domain_name, supervised=True):
     print('Obtained Dual Domain Dataset')
     first_img, _, second_img, _ = dual_data.__getitem__(0)
 
-    lstnet.FIRST_INPUT_SHAPE = first_img.shape[1:]
-    lstnet.FIRST_IN_CHANNELS_NUM = first_img.shape[0]
+    utils.FIRST_INPUT_SHAPE = first_img.shape[1:]
+    utils.FIRST_IN_CHANNELS_NUM = first_img.shape[0]
 
-    lstnet.SECOND_INPUT_SHAPE = second_img.shape[1:]
-    lstnet.SECOND_IN_CHANNELS_NUM = second_img.shape[0]
+    utils.SECOND_INPUT_SHAPE = second_img.shape[1:]
+    utils.SECOND_IN_CHANNELS_NUM = second_img.shape[0]
 
     pin_memory = utils.DEVICE != "cpu"  # locking in physical RAM, higher data transfer with gpu
     data_loader = DataLoader(dual_data, batch_size=utils.BATCH_SIZE, shuffle=True, collate_fn=custom_collate_fn,
