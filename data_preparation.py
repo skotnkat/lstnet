@@ -74,7 +74,7 @@ def get_training_loader(first_domain_name, second_domain_name, supervised=True):
     print(f'Obtained augmented data for {second_domain_name}')
 
     if len(first_data) < len(second_data):
-        raise ValueError("First dataset should be larger.")
+        raise ValueError("First dataset should be larger or at least of the same size.")
 
     if supervised:
         dual_data = DualDomainSupervisedDataset(first_data, second_data)
