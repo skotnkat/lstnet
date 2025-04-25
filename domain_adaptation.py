@@ -3,6 +3,7 @@ from torch.utils.data import TensorDataset
 from tqdm import tqdm
 
 from data_preparation import get_testing_loader
+from torch.utils.data import DataLoader
 import utils
 
 
@@ -23,17 +24,21 @@ def translate_to_diff_domain(loader, map_fn):
     return TensorDataset(trans_igms_tensor, labels_tensor)
 
 
-def adapt_domain(model, orig_domain_name, is_second_domain):
+def adapt_domain(model, orig_domain_name):
     loader = get_testing_loader(orig_domain_name)
+
     model.to(utils.DEVICE)
     model.eval()
 
-    map_fn = model.map_first_to_second   # original domain is first, mapping to second
-    # if model.second_domain_name == orig_domain_name:
-    if is_second_domain:
-        map_fn = model.map_second_to_first  # original domain is second -> mapping to frist
+    map_fn = model.map_first_to_second  # original domain is first -> mapping to second
 
+    if orig_domain_name == model.second_domain_name:
+        map_fn = model.map_second_to_first  # original domain is second -> mapping to first
+
+    print(f'function used for mapping: {map_fn}')
     trans_dataset = translate_to_diff_domain(loader, map_fn)
+
+    print(f'Mapped to domain with shape: {trans_dataset[0][0].shape}')
 
     return trans_dataset
 
