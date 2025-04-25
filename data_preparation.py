@@ -57,9 +57,13 @@ def load_augmented_dataset(dataset_name, train_op=True, download=True):
     img_size = original_data[0][0].shape[1]  # size to use for resize
     transform_steps = create_augmentation_steps(img_size)
 
+    # use transformations also on original data -> improve robustness
+    original_data = load_dataset(dataset_name, train_op=train_op, download=False, transform_steps=transform_steps)
     augmented_data = load_dataset(dataset_name, train_op=train_op, download=False, transform_steps=transform_steps)
 
-    return ConcatDataset([original_data, augmented_data])
+    data = ConcatDataset([original_data, augmented_data])
+
+    return data
 
 
 def get_training_loader(first_domain_name, second_domain_name, supervised=True):
