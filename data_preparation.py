@@ -6,6 +6,7 @@ from dual_domain_dataset import DualDomainDataset, DualDomainSupervisedDataset, 
 
 import utils
 
+
 BASIC_TRANSFORMATION = Compose([
     ToImage(),
     ToDtype(torch.float32, scale=True),  # scale from [0, 250] to [0, 1]
@@ -81,7 +82,9 @@ def get_training_loader(first_domain_name, second_domain_name, supervised=True):
 
     else:
         dual_data = DualDomainDataset(first_data, second_data)
+
     print('Obtained Dual Domain Dataset')
+
     first_img, _, second_img, _ = dual_data.__getitem__(0)
 
     utils.FIRST_INPUT_SHAPE = first_img.shape[1:]
@@ -93,8 +96,8 @@ def get_training_loader(first_domain_name, second_domain_name, supervised=True):
     pin_memory = utils.DEVICE != "cpu"  # locking in physical RAM, higher data transfer with gpu
     data_loader = DataLoader(dual_data, batch_size=utils.BATCH_SIZE, shuffle=True, collate_fn=custom_collate_fn,
                              pin_memory=pin_memory, num_workers=utils.NUM_WORKERS, persistent_workers=True)
-
     print(f'Obtained Data Loader')
+
     return data_loader
 
 

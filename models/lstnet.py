@@ -6,6 +6,8 @@ import utils
 import torch.nn as nn
 import torch
 from torch.optim import Adam
+import functools
+import operator
 
 import loss_functions
 
@@ -20,11 +22,11 @@ class LSTNET(nn.Module):
         self.first_encoder = None
         self.second_encoder = None
         self.shared_encoder = None
-        
+
         self.first_generator = None
         self.second_generator = None
         self.shared_generator = None
-        
+
         self.first_discriminator = None
         self.second_discriminator = None
         self.latent_discriminator = None
@@ -79,11 +81,11 @@ class LSTNET(nn.Module):
     def initialize_generators(self, params):
         input_size_shared = self.shared_encoder.get_last_layer_output_size()
         out_channels_shared = self.shared_encoder.get_last_layer_out_channels()
-        
+
         self.shared_generator = Generator(input_size_shared, out_channels_shared, params["shared_generator"])
 
         input_size = self.shared_generator.get_last_layer_output_size()
-        
+
         out_channels = self.shared_generator.get_last_layer_out_channels()
 
         self.first_generator = Generator(input_size, out_channels, params["first_generator"])
@@ -92,11 +94,13 @@ class LSTNET(nn.Module):
     def initialize_discriminators(self, first_input_size, second_input_size,
                                   first_in_channels_num, second_in_channels_num, params):
         self.first_discriminator = Discriminator(first_input_size, first_in_channels_num, params["first_discriminator"])
-        self.second_discriminator = Discriminator(second_input_size, second_in_channels_num, params["second_discriminator"])
+        self.second_discriminator = Discriminator(second_input_size, second_in_channels_num,
+                                                  params["second_discriminator"])
 
         input_size_shared = self.shared_encoder.get_last_layer_output_size()
         out_channels_shared = self.shared_encoder.get_last_layer_out_channels()
-        self.latent_discriminator = Discriminator(input_size_shared, out_channels_shared, params["latent_discriminator"])
+        self.latent_discriminator = Discriminator(input_size_shared, out_channels_shared,
+                                                  params["latent_discriminator"])
 
     def map_first_to_latent(self, x_first):
         x_latent = self.first_encoder.forward(x_first)
@@ -109,7 +113,7 @@ class LSTNET(nn.Module):
     def map_latent_to_first(self, x_latent):
         x_first = self.shared_generator.forward(x_latent)
         return self.first_generator.forward(x_first).to(utils.DEVICE)
-    
+
     def map_latent_to_second(self, x_latent):
         x_second = self.shared_generator.forward(x_latent)
         return self.second_generator.forward(x_second).to(utils.DEVICE)
@@ -230,3 +234,5 @@ class LSTNET(nn.Module):
 
         enc_gen_loss_tuple_flot = tuple(loss.item() for loss in enc_gen_loss_tuple)
         cc_loss_tuple_float = tuple(loss.item() for loss in cc_loss_tuple)
+
+        return disc_loss_tuple, enc_gen_loss_tuple_flot, cc_loss_tuple_float
