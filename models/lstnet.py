@@ -4,6 +4,8 @@ from models.discriminator import Discriminator
 import utils
 
 import torch.nn as nn
+import torch
+from torch.optim import Adam
 
 import loss_functions
 
@@ -59,6 +61,11 @@ class LSTNET(nn.Module):
                               + list(self.first_generator.parameters()) \
                               + list(self.second_generator.parameters()) \
                               + list(self.shared_generator.parameters())
+
+        if utils.ADAM_LR is not None and utils.ADAM_DECAY is not None:
+            self.disc_optim = Adam(self.disc_params, lr=utils.ADAM_LR, betas=utils.ADAM_DECAY)
+            self.enc_gen_optim = Adam(self.enc_gen_params, lr=utils.ADAM_LR, betas=utils.ADAM_DECAY)
+
 
     def initialize_encoders(self, first_input_size, second_input_size,
                             first_in_channels_num, second__in_channels_num, params):
