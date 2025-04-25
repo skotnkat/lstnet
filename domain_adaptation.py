@@ -43,8 +43,14 @@ def adapt_domain(model, orig_domain_name):
     return trans_dataset
 
 
-def evaluate(clf, orig_domain_name):
-    loader = get_testing_loader(orig_domain_name)
+def evaluate(clf, orig_domain_name, data_path):
+    if data_path == "":
+        loader = get_testing_loader(orig_domain_name)
+
+    else:
+        data = torch.load(utils.OUTPUT_FOLDER + data_path, weights_only=False)
+        loader = DataLoader(data, batch_size=utils.BATCH_SIZE, shuffle=False, num_workers=utils.NUM_WORKERS)
+
     clf.to(utils.DEVICE)
 
     clf.eval()
