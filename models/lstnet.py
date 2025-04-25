@@ -5,11 +5,7 @@ import utils
 
 import torch.nn as nn
 
-FIRST_INPUT_SHAPE = None
-SECOND_INPUT_SHAPE = None
-
-FIRST_IN_CHANNELS_NUM = None
-SECOND_IN_CHANNELS_NUM = None
+import loss_functions
 
 
 class LSTNET(nn.Module):
@@ -31,21 +27,26 @@ class LSTNET(nn.Module):
         self.second_discriminator = None
         self.latent_discriminator = None
 
-        if (FIRST_INPUT_SHAPE is None) or (FIRST_IN_CHANNELS_NUM is None) \
-                or (SECOND_INPUT_SHAPE is None) or (SECOND_IN_CHANNELS_NUM is None):
-            raise ValueError("Missing one of the required global variables: FIRST_INPUT_SHAPE, FIRST_IN_CHANNELS_NUM, \
-                                SECOND_INPUT_SHAPE, SECOND_IN_CHANNELS_NUM")
+        if (utils.FIRST_INPUT_SHAPE is None) or (utils.FIRST_IN_CHANNELS_NUM is None) \
+                or (utils.SECOND_INPUT_SHAPE is None) or (utils.SECOND_IN_CHANNELS_NUM is None):
+            raise ValueError(
+                "Missing one of the required global variables: FIRST_INPUT_SHAPE, FIRST_IN_CHANNELS_NUM, SECOND_INPUT_SHAPE, SECOND_IN_CHANNELS_NUM")
+
+        self.first_input_shape = utils.FIRST_INPUT_SHAPE
+        self.second_input_shape = utils.SECOND_INPUT_SHAPE
+        self.first_in_channels_num = utils.FIRST_IN_CHANNELS_NUM
+        self.second_in_channels_num = utils.SECOND_IN_CHANNELS_NUM
 
         params = utils.get_networks_params()
 
-        self.initialize_encoders(FIRST_INPUT_SHAPE, SECOND_INPUT_SHAPE,
-                                 FIRST_IN_CHANNELS_NUM, SECOND_IN_CHANNELS_NUM,
+        self.initialize_encoders(self.first_input_shape, self.second_input_shape,
+                                 self.first_in_channels_num, self.second_in_channels_num,
                                  params)
 
         self.initialize_generators(params)
 
-        self.initialize_discriminators(FIRST_INPUT_SHAPE, SECOND_INPUT_SHAPE,
-                                       FIRST_IN_CHANNELS_NUM, SECOND_IN_CHANNELS_NUM,
+        self.initialize_discriminators(self.first_input_shape, self.second_input_shape,
+                                       self.first_in_channels_num, self.second_in_channels_num,
                                        params)
 
         self.disc_params = list(self.first_discriminator.parameters()) \
