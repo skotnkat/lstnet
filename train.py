@@ -8,39 +8,46 @@ import utils
 import time
 
 CUR_EPOCH = 0
+MAX_PATIENCE = 0
+DELTA_LOSS = 1e-3
 
 
+def check_stop_condition(cur_loss, prev_loss, cur_patience):
+    if prev_loss is not None:
+        rel_change = np.abs(cur_loss - prev_loss) / prev_loss
 
+        if rel_change < DELTA_LOSS:
+            cur_patience += 1
+            print(f'Relative loss change is {rel_change:.5f} < {DELTA_LOSS} -> increasing patience to {cur_patience}')
 
+        else:
+            cur_patience = 0
 
+    stop_flag = False
+    if cur_patience > MAX_PATIENCE:
+        stop_flag = True
 
+    return stop_flag, cur_patience
 
 
 
 def train(model, loader):
     """First phase of training. Without knowledge of the labels (will be ignoring the labels)."""
     global CUR_EPOCH
-    optim_disc_1 = Adam(model.first_discriminator.parameters(), lr=utils.ADAM_LR, betas=utils.ADAM_DECAY)
-    optim_disc_2 = Adam(model.second_discriminator.parameters(), lr=utils.ADAM_LR, betas=utils.ADAM_DECAY)
-    optim_disc_latent = Adam(model.latent_discriminator.parameters(), lr=utils.ADAM_LR, betas=utils.ADAM_DECAY)
-    optim_enc_gen = Adam(model.enc_gen_params, lr=utils.ADAM_LR, betas=utils.ADAM_DECAY)
 
-    converged = False
-    prev_epoch_loss = np.inf
-    best_epoch_loss = np.inf
-    best_weights = None
-    best_epoch_idx = np.inf
+    best_model = None
+    best_loss = np.inf
+    best_epoch_idx = None
 
+    prev_loss = None
     loss_list = []
-    start_time = time.time()
+    cur_patience = 0
 
-
-    while not converged:
-        DISC_LOSSES[CUR_EPOCH] = []
-        CC_LOSSES[CUR_EPOCH] = []
-        ENC_GEN_LOSSES[CUR_EPOCH] = []
-
+    while True:
+        utils.init_epoch_loss()
         epoch_loss = 0
+
+        start_time = time.time()
         for batch_idx, (first_real, _, second_real, _) in enumerate(loader):
             first_real = first_real.to(utils.DEVICE).detach()
             second_real = second_real.to(utils.DEVICE).detach()
@@ -48,61 +55,70 @@ def train(model, loader):
             #############################################################
             # update discriminators
             if batch_idx % 2 == 0:
-                epoch_loss += update_disc(model, first_real, second_real, optim_disc_1, optim_disc_2, optim_disc_latent)
-            #############################################################
+                disc_loss, enc_gen_loss, cc_loss = model.update_disc(first_real, second_real)
+
             # update encoders and generators
             else:
-                epoch_loss += update_enc_gen(model, first_real, second_real, optim_enc_gen)
-
+                disc_loss, enc_gen_loss, cc_loss = model.update_enc_gen(first_real, second_real)
             #############################################################
+
+            epoch_loss += sum(disc_loss) + sum(cc_loss)
 
         epoch_loss /= len(loader)  # compute mean of the losses
 
-        if np.abs(epoch_loss - prev_epoch_loss) < utils.DELTA_LOSS:
-            converged = True
-
+        utils.normalize_epoch_loss(len(loader), CUR_EPOCH)
+        utils.log_epoch_loss(disc_loss, enc_gen_loss, cc_loss, CUR_EPOCH)
         loss_list.append(epoch_loss)
 
-        # should be last but also best?
-        if epoch_loss < best_epoch_loss:
-            best_epoch_loss = epoch_loss
-            best_weights = copy.deepcopy(model.state_dict())
+        stop_flag, cur_patience = check_stop_condition(epoch_loss, prev_loss, cur_patience)
+        if stop_flag:
+            break
+
+        prev_loss = epoch_loss
+
+        if epoch_loss < best_loss:
+            best_model = copy.deepcopy(model)
+            best_loss = epoch_loss
             best_epoch_idx = CUR_EPOCH
 
         end_time = time.time()
         print(f'End of epoch {CUR_EPOCH}')
-        print(f'\tCurrent total loss: {epoch_loss}')
-        print(f'\tTook: {(end_time-start_time)/60:.2f} min')
+        print(f'\tCurrent train loss: {epoch_loss}')
+        print(f'\tTrain took: {(end_time - start_time) / 60:.2f} min')
+        print(f'\tPatience: {cur_patience}')
 
         CUR_EPOCH += 1
-        start_time = time.time()
 
         if CUR_EPOCH % 10 == 0:
-            torch.save(best_weights, f"model_weights_{CUR_EPOCH}.pth")
-            loss_logs = {'disc_loss': DISC_LOSSES, 'enc_gen_loss': ENC_GEN_LOSSES, 'cc_loss': CC_LOSSES,
-                         'epoch_loss': loss_list}
+            loss_logs = {'disc_loss': utils.DISC_LOSSES, 'enc_gen_loss': utils.ENC_GEN_LOSSES,
+                         'cc_loss': utils.CC_LOSSES, 'train_loss': loss_list}
 
-            with open(f'{utils.OUTPUT_FOLDER}/loss_logs.json', 'w') as file:
-                json.dump(loss_logs, file)
+            with open(f'{utils.OUTPUT_FOLDER}{utils.LOSS_FILE}.json', 'w') as file:
+                json.dump(loss_logs, file, indent=2)
 
-    print(f'Best epoch: {best_epoch_idx}')
-    torch.save(best_weights, "best_model_weights.pth")
+    print(f'Saving model in epoch {best_epoch_idx} with best val loss: {best_loss}')
+    best_model.save_model('best_model.pth')
 
-    return model, loss_list
+    loss_logs = {'disc_loss': utils.DISC_LOSSES, 'enc_gen_loss': utils.ENC_GEN_LOSSES,
+                 'cc_loss': utils.CC_LOSSES, 'train_loss': loss_list}
+
+    with open(f'{utils.OUTPUT_FOLDER}{utils.LOSS_FILE}.json', 'w') as file:
+        json.dump(loss_logs, file, indent=2)
+
+    best_model.save_model('last_model.pth')
+
+    return model
 
 
 def run(first_domain_name, second_domain_name, supervised):
-    data_loader = get_training_loader(first_domain_name, second_domain_name, supervised)
+    loader = get_training_loader(first_domain_name, second_domain_name, supervised)
     print('Creating an instance of LSTNET model')
     model = LSTNET(first_domain_name, second_domain_name)
     print(f'LSTNET model initialized')
     model.to(utils.DEVICE)
     print('LSTNET model moved to device')
 
-    model, loss_list = train(model, data_loader)
-
-    with open(f'{utils.OUTPUT_FOLDER}/{utils.LOSS_FILE}.json', 'w') as file:
-        json.dump(loss_list, file, indent=2)
+    model = train(model, loader)
 
     print('Model trained.')
     print('Loss scores dumped.')
