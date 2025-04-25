@@ -153,6 +153,42 @@ class LSTNET(nn.Module):
 
         else:
             self.second_domain_name = name
+
+    def save_model(self, output_path):
+        attr_dict = {
+            'domain_name': [self.first_domain_name, self.second_domain_name],
+            'input_shape': [self.first_input_shape, self.second_input_shape],
+            'in_channels_num': [self.first_in_channels_num, self.second_in_channels_num]
+        }
+
+        dict_to_save = {
+            'attr_dict': attr_dict,
+            'state_dict': self.state_dict()
+        }
+
+        torch.save(dict_to_save, output_path)
+
+    def run_networks(self, first_real, second_real):
+        second_gen, first_latent = self.map_first_to_second(first_real, return_latent=True)
+        first_gen, second_latent = self.map_second_to_first(second_real, return_latent=True)
+
+        return first_gen, second_gen, first_latent, second_latent
+
+    @staticmethod
+    def load_lstnet_model(input_path):
+        dict_to_load = torch.load(input_path, map_location=utils.DEVICE)
+        attr_dict = dict_to_load['attr_dict']
+        state_dict = dict_to_load['state_dict']
+
+        first_domain_name, second_domain_name = attr_dict['domain_name']
+        utils.FIRST_INPUT_SHAPE, utils.SECOND_INPUT_SHAPE = attr_dict['input_shape']
+        utils.FIRST_IN_CHANNELS_NUM, utils.SECOND_IN_CHANNELS_NUM = attr_dict['in_channels_num']
+
+        model = LSTNET(first_domain_name, second_domain_name)
+        model.load_state_dict(state_dict)
+
+        return model
+
     def update_disc(self, first_real, second_real):
         self.disc_optim.zero_grad()
 
