@@ -8,6 +8,7 @@ import torch
 from torch.optim import Adam
 import functools
 import operator
+import torch.nn.init as init
 
 import loss_functions
 
@@ -66,6 +67,8 @@ class LSTNET(nn.Module):
         if utils.ADAM_LR is not None and utils.ADAM_DECAY is not None:
             self.disc_optim = Adam(self.disc_params, lr=utils.ADAM_LR, betas=utils.ADAM_DECAY)
             self.enc_gen_optim = Adam(self.enc_gen_params, lr=utils.ADAM_LR, betas=utils.ADAM_DECAY)
+
+        self.apply(glorot_uniform_init)
 
 
     def initialize_encoders(self):
@@ -234,3 +237,13 @@ class LSTNET(nn.Module):
         cc_loss_tuple_float = tuple(loss.item() for loss in cc_loss_tuple)
 
         return disc_loss_tuple, enc_gen_loss_tuple_flot, cc_loss_tuple_float
+
+
+def glorot_uniform_init(m):  # as in tensorflow
+    if isinstance(m, (nn.Conv2d, nn.ConvTranspose2d, nn.Linear)):
+        init.xavier_uniform_(m.weight)  # This is Glorot Uniform
+        if m.bias is not None:
+            init.zeros_(m.bias)
+    elif isinstance(m, nn.BatchNorm2d):
+        init.ones_(m.weight)
+        init.zeros_(m.bias)
