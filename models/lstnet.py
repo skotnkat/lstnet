@@ -13,7 +13,7 @@ import loss_functions
 
 
 class LSTNET(nn.Module):
-    def __init__(self, first_domain_name="", second_domain_name=""):
+    def __init__(self, first_domain_name="", second_domain_name="", params=None):
         super().__init__()
 
         self.first_domain_name = first_domain_name
@@ -36,22 +36,20 @@ class LSTNET(nn.Module):
             raise ValueError(
                 "Missing one of the required global variables: FIRST_INPUT_SHAPE, FIRST_IN_CHANNELS_NUM, SECOND_INPUT_SHAPE, SECOND_IN_CHANNELS_NUM")
 
-        self.first_input_shape = utils.FIRST_INPUT_SHAPE
-        self.second_input_shape = utils.SECOND_INPUT_SHAPE
+        self.first_input_size = utils.FIRST_INPUT_SHAPE
+        self.second_input_size = utils.SECOND_INPUT_SHAPE
         self.first_in_channels_num = utils.FIRST_IN_CHANNELS_NUM
         self.second_in_channels_num = utils.SECOND_IN_CHANNELS_NUM
 
-        params = utils.get_networks_params()
+        self.params = params
+        if self.params is None:
+            self.params = utils.get_networks_params()
 
-        self.initialize_encoders(self.first_input_shape, self.second_input_shape,
-                                 self.first_in_channels_num, self.second_in_channels_num,
-                                 params)
+        self.initialize_encoders()
 
-        self.initialize_generators(params)
+        self.initialize_generators()
 
-        self.initialize_discriminators(self.first_input_shape, self.second_input_shape,
-                                       self.first_in_channels_num, self.second_in_channels_num,
-                                       params)
+        self.initialize_discriminators()
 
         self.disc_params = list(self.first_discriminator.parameters()) \
                            + list(self.second_discriminator.parameters()) \
@@ -64,43 +62,42 @@ class LSTNET(nn.Module):
                               + list(self.second_generator.parameters()) \
                               + list(self.shared_generator.parameters())
 
+        print(f'Adam prameters, LR: {utils.ADAM_LR}, betas: {utils.ADAM_DECAY}')
         if utils.ADAM_LR is not None and utils.ADAM_DECAY is not None:
             self.disc_optim = Adam(self.disc_params, lr=utils.ADAM_LR, betas=utils.ADAM_DECAY)
             self.enc_gen_optim = Adam(self.enc_gen_params, lr=utils.ADAM_LR, betas=utils.ADAM_DECAY)
 
 
-    def initialize_encoders(self, first_input_size, second_input_size,
-                            first_in_channels_num, second__in_channels_num, params):
-        self.first_encoder = Encoder(first_input_size, first_in_channels_num, params["first_encoder"])
-        self.second_encoder = Encoder(second_input_size, second__in_channels_num, params["second_encoder"])
+    def initialize_encoders(self):
+        self.first_encoder = Encoder(self.first_input_size, self.first_in_channels_num, self.params["first_encoder"])
+        self.second_encoder = Encoder(self.second_input_size, self.second_in_channels_num, self.params["second_encoder"])
 
         input_size_shared = self.first_encoder.get_last_layer_output_size()
         in_channels_num_shared = self.first_encoder.get_last_layer_out_channels()
-        self.shared_encoder = Encoder(input_size_shared, in_channels_num_shared, params=params["shared_encoder"])
+        self.shared_encoder = Encoder(input_size_shared, in_channels_num_shared, params=self.params["shared_encoder"])
 
-    def initialize_generators(self, params):
+    def initialize_generators(self):
         input_size_shared = self.shared_encoder.get_last_layer_output_size()
         out_channels_shared = self.shared_encoder.get_last_layer_out_channels()
 
-        self.shared_generator = Generator(input_size_shared, out_channels_shared, params["shared_generator"])
+        self.shared_generator = Generator(input_size_shared, out_channels_shared, self.params["shared_generator"])
 
         input_size = self.shared_generator.get_last_layer_output_size()
 
         out_channels = self.shared_generator.get_last_layer_out_channels()
 
-        self.first_generator = Generator(input_size, out_channels, params["first_generator"])
-        self.second_generator = Generator(input_size, out_channels, params["second_generator"])
+        self.first_generator = Generator(input_size, out_channels, self.params["first_generator"])
+        self.second_generator = Generator(input_size, out_channels, self.params["second_generator"])
 
-    def initialize_discriminators(self, first_input_size, second_input_size,
-                                  first_in_channels_num, second_in_channels_num, params):
-        self.first_discriminator = Discriminator(first_input_size, first_in_channels_num, params["first_discriminator"])
-        self.second_discriminator = Discriminator(second_input_size, second_in_channels_num,
-                                                  params["second_discriminator"])
+    def initialize_discriminators(self):
+        self.first_discriminator = Discriminator(self.first_input_size, self.first_in_channels_num, self.params["first_discriminator"])
+        self.second_discriminator = Discriminator(self.second_input_size, self.second_in_channels_num,
+                                                  self.params["second_discriminator"])
 
         input_size_shared = self.shared_encoder.get_last_layer_output_size()
         out_channels_shared = self.shared_encoder.get_last_layer_out_channels()
         self.latent_discriminator = Discriminator(input_size_shared, out_channels_shared,
-                                                  params["latent_discriminator"])
+                                                  self.params["latent_discriminator"])
 
     def map_first_to_latent(self, x_first):
         x_latent = self.first_encoder.forward(x_first)
@@ -161,8 +158,9 @@ class LSTNET(nn.Module):
     def save_model(self, output_path):
         attr_dict = {
             'domain_name': [self.first_domain_name, self.second_domain_name],
-            'input_shape': [self.first_input_shape, self.second_input_shape],
-            'in_channels_num': [self.first_in_channels_num, self.second_in_channels_num]
+            'input_shape': [self.first_input_size, self.second_input_size],
+            'in_channels_num': [self.first_in_channels_num, self.second_in_channels_num],
+            'params' : self.params
         }
 
         dict_to_save = {
@@ -188,7 +186,7 @@ class LSTNET(nn.Module):
         utils.FIRST_INPUT_SHAPE, utils.SECOND_INPUT_SHAPE = attr_dict['input_shape']
         utils.FIRST_IN_CHANNELS_NUM, utils.SECOND_IN_CHANNELS_NUM = attr_dict['in_channels_num']
 
-        model = LSTNET(first_domain_name, second_domain_name)
+        model = LSTNET(first_domain_name, second_domain_name, params=attr_dict['params'])
         model.load_state_dict(state_dict)
 
         return model
