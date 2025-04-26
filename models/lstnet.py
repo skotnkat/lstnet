@@ -63,7 +63,7 @@ class LSTNET(nn.Module):
                               + list(self.second_generator.parameters()) \
                               + list(self.shared_generator.parameters())
 
-        print(f'Adam prameters, LR: {utils.ADAM_LR}, betas: {utils.ADAM_DECAY}')
+        print(f'Adam prameters - learning rate: {utils.ADAM_LR}, betas: {utils.ADAM_DECAY}')
         if utils.ADAM_LR is not None and utils.ADAM_DECAY is not None:
             self.disc_optim = Adam(self.disc_params, lr=utils.ADAM_LR, betas=utils.ADAM_DECAY)
             self.enc_gen_optim = Adam(self.enc_gen_params, lr=utils.ADAM_LR, betas=utils.ADAM_DECAY)
@@ -240,6 +240,7 @@ class LSTNET(nn.Module):
 
 
 def glorot_uniform_init(m):  # as in tensorflow
+    print(f'Setting init distribution as glorot uniform')
     if isinstance(m, (nn.Conv2d, nn.ConvTranspose2d, nn.Linear)):
         init.xavier_uniform_(m.weight)  # This is Glorot Uniform
         if m.bias is not None:
