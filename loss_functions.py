@@ -9,7 +9,8 @@ cycle_loss = nn.L1Loss()
 
 def adversarial_loss_real(batch):
     batch_size = batch.size(0)
-    ones_labels = torch.ones(batch_size, 1, device=batch.device, requires_grad=False)  # expecting to be real
+    #ones_labels = torch.ones(batch_size, 1, device=batch.device, requires_grad=False)  # expecting to be real
+    ones_labels = torch.full((batch_size, 1), 0.9, device=batch.device, requires_grad=False)  # avoid discriminators to become too strong
 
     return adversarial_loss(batch, ones_labels)
 
