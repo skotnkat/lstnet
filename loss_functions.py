@@ -72,7 +72,7 @@ def compute_enc_gen_loss(model, first_gen, second_gen, first_latent, second_late
     first_latent_disc = model.latent_discriminator.forward(first_latent)
     second_latent_disc = model.latent_discriminator.forward(second_latent)
 
-    latent_loss = adversarial_loss_real(first_latent_disc) + adversarial_loss_real(second_latent_disc)
+    latent_loss = (adversarial_loss_real(first_latent_disc) + adversarial_loss_real(second_latent_disc)) / 2
 
     if return_grad:
         return W_1 * first_gen_loss, W_2 * second_gen_loss, W_l * latent_loss
