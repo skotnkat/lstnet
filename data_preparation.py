@@ -6,7 +6,6 @@ from dual_domain_dataset import DualDomainDataset, DualDomainSupervisedDataset, 
 
 import utils
 
-
 BASIC_TRANSFORMATION = Compose([
     ToImage(),
     ToDtype(torch.float32, scale=True),  # scale from [0, 250] to [0, 1]
@@ -86,6 +85,9 @@ def get_training_loader(first_domain_name, second_domain_name, supervised=True):
     print('Obtained Dual Domain Dataset')
 
     first_img, _, second_img, _ = dual_data.__getitem__(0)
+
+    print(f'first domain: {first_img.shape}')
+    print(f'second domain: {second_img.shape}')
 
     utils.FIRST_INPUT_SHAPE = first_img.shape[1:]
     utils.FIRST_IN_CHANNELS_NUM = first_img.shape[0]
