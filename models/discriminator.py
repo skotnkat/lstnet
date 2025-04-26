@@ -38,7 +38,7 @@ class Discriminator(LstnetComponent):
     def _create_stand_layer(params, in_channels, input_size):
         conv_params, pool_params = params
         conv = Conv2dExtended(in_channels, input_size=input_size, **conv_params)  
-        relu = nn.LeakyReLU(negative_slope=0.01)
+        relu = nn.LeakyReLU(negative_slope=0.3)
 
         output_size = conv.compute_output_size(input_size)
 
