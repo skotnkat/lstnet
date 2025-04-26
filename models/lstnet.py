@@ -69,7 +69,7 @@ class LSTNET(nn.Module):
             self.enc_gen_optim = Adam(self.enc_gen_params, lr=utils.ADAM_LR, betas=utils.ADAM_DECAY, amsgrad=True)
 
         print('Setting init distribution as glorot uniform')
-        self.apply(glorot_uniform_init)
+        self.apply(custom_init)
 
 
     def initialize_encoders(self):
@@ -240,11 +240,20 @@ class LSTNET(nn.Module):
         return disc_loss_tuple, enc_gen_loss_tuple_flot, cc_loss_tuple_float
 
 
-def glorot_uniform_init(m):  # as in tensorflow
-    if isinstance(m, (nn.Conv2d, nn.ConvTranspose2d, nn.Linear)):
-        init.xavier_uniform_(m.weight)  # This is Glorot Uniform
+def custom_init(m):
+    if isinstance(m, (nn.Conv2d, nn.ConvTranspose2d)):
+        if hasattr(m, '_is_last_layer') and m._is_last_layer:
+            init.xavier_uniform_(m.weight)
+        else:
+            init.kaiming_normal_(m.weight, a=0.3, mode='fan_in', nonlinearity='leaky_relu')
         if m.bias is not None:
             init.zeros_(m.bias)
+
+    elif isinstance(m, nn.Linear):
+        init.xavier_uniform_(m.weight)
+        if m.bias is not None:
+            init.zeros_(m.bias)
+
     elif isinstance(m, nn.BatchNorm2d):
         init.ones_(m.weight)
         init.zeros_(m.bias)

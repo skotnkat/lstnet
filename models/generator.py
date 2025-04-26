@@ -31,6 +31,8 @@ class Generator(LstnetComponent):
             ConvTranspose2dExtended(in_channels, **params),
             nn.Tanh()            
         )
+
+        last_layer._is_last_layer = True
     
         return last_layer
 
