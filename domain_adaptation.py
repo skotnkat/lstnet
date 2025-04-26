@@ -68,3 +68,5 @@ def evaluate(clf, orig_domain_name, data_path):
         test_acc /= len(loader.dataset)
 
     print(f'Testing accuracy: {test_acc}')
+
+    return test_acc
