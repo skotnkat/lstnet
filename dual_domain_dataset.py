@@ -10,9 +10,6 @@ class DualDomainDataset(Dataset):
         self.first_size = len(self.first_data)
         self.second_size = len(self.second_data)
 
-        self.first_labels = self._extract_labels(self.first_data)
-        self.second_labels = self._extract_labels(self.second_data)
-
         self.max_size = max(self.first_size, self.second_size)
 
     def __len__(self):
@@ -45,6 +42,9 @@ class DualDomainSupervisedDataset(DualDomainDataset):  # first dataset should be
 
         if self.first_size < self.second_size:
             raise ValueError("First dataset cannot be smaller than the second one.")
+
+        self.first_labels = self._extract_labels(self.first_data)
+        self.second_labels = self._extract_labels(self.second_data)
 
         self.unique_labels = torch.unique(self.first_labels).tolist()
 
