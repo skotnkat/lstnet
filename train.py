@@ -94,24 +94,21 @@ def train(model, loader):
             loss_logs = {'disc_loss': utils.DISC_LOSSES, 'enc_gen_loss': utils.ENC_GEN_LOSSES,
                          'cc_loss': utils.CC_LOSSES, 'train_loss': loss_list}
 
-            with open(f'{utils.OUTPUT_FOLDER}{utils.LOSS_FILE}.json', 'w') as file:
+            with open(f'{utils.OUTPUT_FOLDER}{utils.LOSS_FILE}', 'w') as file:
                 json.dump(loss_logs, file, indent=2)
 
     print(f'Saving model in epoch {best_epoch_idx} with best val loss: {best_loss}')
-    best_model.save_model('best_model.pth')
 
     loss_logs = {'disc_loss': utils.DISC_LOSSES, 'enc_gen_loss': utils.ENC_GEN_LOSSES,
-                 'cc_loss': utils.CC_LOSSES, 'train_loss': loss_list}
+                 'cc_loss': utils.CC_LOSSES, 'train_loss': loss_list, 'best_epoch_idx': best_epoch_idx}
 
-    with open(f'{utils.OUTPUT_FOLDER}{utils.LOSS_FILE}.json', 'w') as file:
+    with open(f'{utils.OUTPUT_FOLDER}{utils.LOSS_FILE}', 'w') as file:
         json.dump(loss_logs, file, indent=2)
 
-    best_model.save_model('last_model.pth')
-
-    return model
+    return best_model
 
 
-def run(first_domain_name, second_domain_name, supervised):
+def run(first_domain_name, second_domain_name, supervised, output_model_file):
     loader = get_training_loader(first_domain_name, second_domain_name, supervised)
     print('Creating an instance of LSTNET model')
     model = LSTNET(first_domain_name, second_domain_name)
@@ -123,7 +120,9 @@ def run(first_domain_name, second_domain_name, supervised):
 
     print('Model trained.')
     print('Loss scores dumped.')
+    model.to("cpu")
 
-    model.to('cpu')
+    model_path = f'{utils.OUTPUT_FOLDER}{output_model_file}'
+    model.save_model(model_path)
 
     return model
