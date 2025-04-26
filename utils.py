@@ -95,8 +95,8 @@ def log_epoch_loss(disc_loss, enc_gen_loss, cc_loss, cur_epoch):
     DISC_LOSSES['latent_loss'][cur_epoch] += disc_loss[2]
 
     CC_LOSSES['first_cycle'][cur_epoch] += cc_loss[0]
-    CC_LOSSES['first_full_cycle'][cur_epoch] += cc_loss[1]
-    CC_LOSSES['second_cycle'][cur_epoch] += cc_loss[2]
+    CC_LOSSES['second_cycle'][cur_epoch] += cc_loss[1]
+    CC_LOSSES['first_full_cycle'][cur_epoch] += cc_loss[2]
     CC_LOSSES['second_full_cycle'][cur_epoch] += cc_loss[3]
 
     ENC_GEN_LOSSES['first_loss'][cur_epoch] += enc_gen_loss[0]
