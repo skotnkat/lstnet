@@ -8,7 +8,7 @@ import utils
 import time
 
 CUR_EPOCH = 0
-MAX_PATIENCE = 0
+MAX_PATIENCE = None
 DELTA_LOSS = 1e-3
 
 
@@ -22,9 +22,10 @@ def check_stop_condition(cur_loss, prev_loss, cur_patience):
 
         else:
             cur_patience = 0
+            print(f'Relative loss change not enough: {rel_change:.5f}')
 
     stop_flag = False
-    if cur_patience > MAX_PATIENCE:
+    if cur_patience >= MAX_PATIENCE:
         stop_flag = True
 
     return stop_flag, cur_patience
