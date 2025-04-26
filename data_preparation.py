@@ -17,13 +17,13 @@ def create_augmentation_steps(img_size):
     dy_translation = dx_translation = 2 / img_size
     return Compose([
         ToImage(),
-        ToDtype(torch.float32, scale=True),
-        Normalize(mean=[0.5], std=[0.5]),
         RandomAffine(
             degrees=(-10, 10),
             translate=(dx_translation, dy_translation),
             scale=(0.9, 1.1)
         ),
+        ToDtype(torch.float32, scale=True),
+        Normalize(mean=[0.5], std=[0.5]),
     ])
 
 
