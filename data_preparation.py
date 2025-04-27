@@ -58,7 +58,7 @@ def load_augmented_dataset(dataset_name, train_op=True, download=True):
     transform_steps = create_augmentation_steps(img_size)
 
     # use transformations also on original data -> improve robustness
-    original_data = load_dataset(dataset_name, train_op=train_op, download=False, transform_steps=transform_steps)
+    # original_data = load_dataset(dataset_name, train_op=train_op, download=False, transform_steps=transform_steps)
     augmented_data = load_dataset(dataset_name, train_op=train_op, download=False, transform_steps=transform_steps)
 
     data = ConcatDataset([original_data, augmented_data])
