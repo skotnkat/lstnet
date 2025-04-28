@@ -29,11 +29,6 @@ def add_train_args(parser):
     parser.add_argument("--supervised", action="store_true",
                         help="Run supervised domain adaptation. If not set, unsupervised domain adaptation is run.")
 
-    parser.add_argument("--loss_file", type=str, default="training_loss",
-                        help="File with recorded losses for each epoch.")
-    parser.add_argument("--output_model_file", type=str, default="lstnet_model",
-                        help="Name of the file to store the trained model.")
-
     parser.add_argument("--learning_rate", type=float, default=1e-4, help="Learning rate used in Adam optimizer.")
     parser.add_argument("--decay", type=float, nargs=2, default=(0.8, 0.999),
                         help="Two float values for Adam optimizer decay (beta1, beta2)")
@@ -48,15 +43,15 @@ def add_translate_args(parser):
     parser.add_argument("domain", type=str.upper, help="Name of the domain to be translated to the other domain.")
     parser.add_argument("--model_name", type=str, default="lstnet_model",
                         help="Name of the model to be loaded for translation")
-    parser.add_argument("--output_data_file", type=str, default="translated_data.pt",
-                        help="Name of the file to store the translated data.")
+    parser.add_argument("--full_training", action="store_true",
+                        help="If after train and validate another round of training should be run with full training set.")
+    parser.add_argument("--full_training_only", action="store_true",
+                        help="If after train and validate another round of training should be run with full training set.")
 
 
 def add_eval_args(parser):
     parser.add_argument("domain", type=str.upper, help="Name of the domain to be evaluated.")
     parser.add_argument("clf_model", type=str, help="Name of the model to classify the data.")
-    parser.add_argument("--output_results_file", default="eval_results_file.json", type=str,
-                        help="Name of file to store test results")
     parser.add_argument("--dataset_path", default="", type=str, help="Name of file to load the dataset from")
 
 
@@ -65,11 +60,8 @@ def add_end_to_end_parser(parser):
 
     parser.add_argument("clf_first_domain", type=str, help="Path to the trained classifier of the first domain")
     parser.add_argument("clf_second_domain", type=str, help="Path to the trained classifier of the second domain")
-    parser.add_argument("--output_results_file", type=str, default="results.json", help="Name of file to store test results")
     parser.add_argument("--save_trans_data", action="store_true",
                         help="Bool if the translated data that are result of the translation phase should be saved in files")
-    parser.add_argument("--output_data_file", type=str, default="translated_data.pt",
-                        help="Name of the file to store the translated data. Only when '--save_trans_data' is set to true.")
 
 
 def parse_args():
@@ -101,6 +93,8 @@ def parse_args():
     add_common_args(all_parser)
     add_end_to_end_parser(all_parser)
 
+
+
     args = parser.parse_args()
 
     utils.OUTPUT_FOLDER = utils.check_file_ending(args.output_folder, '/')
@@ -108,17 +102,10 @@ def parse_args():
     if not os.path.exists(args.output_folder):
         os.makedirs(args.output_folder)
 
-    if args.operation in ['train', 'all']:
-        args.output_model_file = utils.check_file_ending(args.output_model_file, '.pth')
-        utils.LOSS_FILE = utils.check_file_ending(args.loss_file, '.json')
-
-    if args.operation == ['translate', 'all']:
-        args.model_name = utils.check_file_ending(args.model_name, '.pth')
-        args.output_data_file = utils.check_file_ending(args.output_data_file, '.pt')
 
     if args.operation == ['eval', 'all']:
         args.clf_model = utils.check_file_ending(args.clf_model, '.pth')
-        args.output_results_file = utils.check_file_ending(args.output_results_file, '.json')
+
 
     return args
 
@@ -139,14 +126,19 @@ def initialize(args):
     print(f'Device being used: {utils.DEVICE}')
 
 
-def run_training(first_domain, second_domain, supervised, output_file, return_model=False):
-    model = train.run(args.first_domain, args.second_domain, args.supervised, args.output_model_file)
+def run_training(args, return_model=False):
+    best_epoch_idx = 10  # load_best_epoch_idx from the loss json file
+    if not args.full_training_only:
+        model, best_epoch_idx = train.run(args.first_domain, args.second_domain, args.supervised)
+
+    if args.full_training_only or args.full_training:
+        model = train.run_full_training(args.first_domain, args.second_domain, args.supervised, )
 
     if return_model:
         return model
 
 
-def run_translation(args, domain, model=None, op='test', return_data=False):
+def run_translation(args, domain, model=None, return_data=False):
     if model is None and args.load_model is False:
         raise ValueError("Model for translation is not specified.")
 
@@ -155,35 +147,30 @@ def run_translation(args, domain, model=None, op='test', return_data=False):
 
     translated_data = domain_adaptation.adapt_domain(model, domain)
 
-    torch.save(translated_data, f'{utils.OUTPUT_FOLDER}/{args.output_data_file}.pt')
+    if args.save_trans_data:
+        file_name = f"{domain}_translated_data.pt"
+        torch.save(translated_data, f'{utils.OUTPUT_FOLDER}{file_name}')
 
     if return_data:
         return translated_data
 
 
-def run_evaluation(clf_name, domain_name, results_file, data_path=""):
+def run_evaluation(clf_name, domain_name, data_path=""):
     model = torch.load(clf_name, weights_only=False, map_location=utils.DEVICE)
     test_acc = domain_adaptation.evaluate(model, domain_name, data_path)
 
-    with open(f'{results_file}.json', 'a') as file:
-        json.dump({f'{domain_name}_test_acc': test_acc}, file, indent=2)
+    with open(f'{utils.OUTPUT_FOLDER}{domain_name}_eval_results.json', 'w') as file:
+        json.dump({f'test_acc': test_acc}, file, indent=2)
 
 
 def run_end_to_end(args):
-    model = run_training(args.first_domain, args.second_domain, args.supervised, args.output_model_file,
-                         return_model=True)
+    model = run_training(args, return_model=True)
 
-    first_data_trans = run_translation(args, args.first_domain, model, return_data=True)
-    second_data_trans = run_translation(args, args.second_domain, model, return_data=True)
+    run_translation(args, args.first_domain, model)  # might be better to return data and immediately use them in eval
+    run_translation(args, args.second_domain, model)
 
-    first_trans_data_path = f'{args.first_domain}_{args.output_data_file}'
-    second_trans_data_path = f'{args.second_domain}_{args.output_data_file}'
-    if args.save_trans_data:
-        torch.save(first_data_trans, first_trans_data_path)
-        torch.save(second_data_trans, second_trans_data_path)
-
-    run_evaluation(args.clf_second_domain, args.first_domain, f'{utils.OUTPUT_FOLDER}{args.first_domain}_output_results_file', data_path=first_trans_data_path)
-    run_evaluation(args.clf_first_domain, args.second_domain, f'{utils.OUTPUT_FOLDER}{args.second_domain}_output_results_file', data_path=second_trans_data_path)
+    run_evaluation(args.clf_second_domain, args.first_domain)
+    run_evaluation(args.clf_first_domain, args.second_domain)
 
 
 if __name__ == "__main__":
@@ -191,11 +178,10 @@ if __name__ == "__main__":
     initialize(args)
 
     if args.operation == 'train':
-        run_training(args.first_domain, args.second_domain, args.supervised, args.output_model_file)
-        print(f'LSTNET model for {args.first_domain}-{args.second_domain} Domain Adaptation is trained.')
+        run_training(args)
 
     elif args.operation == 'translate':
-        run_translation(args, args.domain, )
+        run_translation(args, args.domain)
 
     elif args.operation == 'eval':
         run_evaluation(args.clf_model, args.domain, args.output_results_file, args.dataset_path)
