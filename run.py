@@ -35,7 +35,7 @@ def add_train_args(parser):
 
     parser.add_argument("--delta_los", type=float, default=1e-3,
                         help="Delta loss used for convergence")
-    parser.add_argument("--patience", type=float, default=5,
+    parser.add_argument("--patience", type=float, default=1,
                         help="Maximum allowed change in loss between iterations to consider convergence")
 
 
