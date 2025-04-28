@@ -17,6 +17,8 @@ def add_common_args(parser):
     parser.add_argument("--num_workers", type=int, default=4, help="Size of batches used in training.")
     parser.add_argument("--load_model", action="store_true",
                         help="If a model with name 'model_name' should be loaded for data translation.")
+    parser.add_argument("--manual_seed", type=int, default=42)
+    parser.add_argument("--val_size", type=float, default=0.25)  # move to train?
 
     return parser
 
@@ -113,6 +115,8 @@ def parse_args():
 def initialize(args):
     utils.NUM_WORKERS = args.num_workers
     utils.BATCH_SIZE = args.batch_size
+    utils.MANUAL_SEED = args.manual_seed
+    utils.VAL_SIZE = args.val_size
 
     utils.PARAMS_FILE_PATH = "mnist_usps_params.json"
     if args.operation in ['train', 'all']:
