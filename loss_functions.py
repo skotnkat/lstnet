@@ -11,8 +11,8 @@ def adversarial_loss_real(batch, label_smoothing=False):
     batch_size = batch.size(0)
     ones_labels = torch.ones(batch_size, 1, device=batch.device, requires_grad=False)  # expecting to be real
     
-    if label_smoothing:
-        ones_labels = torch.full((batch_size, 1), 0.9, device=batch.device, requires_grad=False)  # avoid discriminators to become too strong
+    # if label_smoothing:
+    #     ones_labels = torch.full((batch_size, 1), 0.9, device=batch.device, requires_grad=False)  # avoid discriminators to become too strong
 
     return adversarial_loss(batch, ones_labels)
 
@@ -21,8 +21,8 @@ def adversarial_loss_gen(batch, label_smoothing=False):
     batch_size = batch.size(0)
     zeros_labels = torch.zeros(batch_size, 1, device=batch.device, requires_grad=False)  # expecting to be fake
 
-    if label_smoothing:
-        zeros_labels = torch.full((batch_size, 1), 0.9, device=batch.device, requires_grad=False)  # avoid discriminators to become too strong
+    # if label_smoothing:
+    #     zeros_labels = torch.full((batch_size, 1), 0.9, device=batch.device, requires_grad=False)  # avoid discriminators to become too strong
 
     return adversarial_loss(batch, zeros_labels)
 
