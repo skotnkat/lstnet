@@ -37,17 +37,17 @@ def add_train_args(parser):
                         help="Delta loss used for convergence")
     parser.add_argument("--patience", type=float, default=1,
                         help="Maximum allowed change in loss between iterations to consider convergence")
+    parser.add_argument("--full_training", action="store_true",
+                        help="If after train and validate another round of training should be run with full training set.")
+    parser.add_argument("--full_training_only", action="store_true",
+                        help="If after train and validate another round of training should be run with full training set.")
+
 
 
 def add_translate_args(parser):
     parser.add_argument("domain", type=str.upper, help="Name of the domain to be translated to the other domain.")
     parser.add_argument("--model_name", type=str, default="lstnet_model",
                         help="Name of the model to be loaded for translation")
-    parser.add_argument("--full_training", action="store_true",
-                        help="If after train and validate another round of training should be run with full training set.")
-    parser.add_argument("--full_training_only", action="store_true",
-                        help="If after train and validate another round of training should be run with full training set.")
-
 
 def add_eval_args(parser):
     parser.add_argument("domain", type=str.upper, help="Name of the domain to be evaluated.")
