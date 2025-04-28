@@ -61,15 +61,25 @@ def load_dataset(dataset_name, train_op=True, transform_steps=BASIC_TRANSFORMATI
     return train_data, val_data
 
 
+def get_dataset_img_size(dataset):
+    single_img = dataset[0][0]
+    if isinstance(dataset, tuple):
+        single_img = single_img[0]
+
+    return single_img.shape[1]  # size to use for resize
+
+
 def load_augmented_dataset(dataset_name, train_op=True, download=True, split_data=False):
     print(f'Loading dataset: {dataset_name}')
-    original_data = load_dataset(dataset_name, train_op=train_op, download=download)
+    original_data = load_dataset(dataset_name, train_op=train_op, download=download, split_data=split_data)
 
-    img_size = original_data[0][0].shape[1]  # size to use for resize
+    img_size = get_dataset_img_size(original_data)
     transform_steps = create_augmentation_steps(img_size)
 
     # use transformations also on original data -> improve robustness
-    augmented_data = load_dataset(dataset_name, train_op=train_op, download=False, transform_steps=transform_steps)
+    # original_data = load_dataset(dataset_name, train_op=train_op, download=False, transform_steps=transform_steps,
+    #                               split_data=split_data)
+    augmented_data = load_dataset(dataset_name, train_op=train_op, download=False, transform_steps=transform_steps, split_data=split_data)
 
     if not split_data:
         return ConcatDataset([original_data, augmented_data])
@@ -77,7 +87,7 @@ def load_augmented_dataset(dataset_name, train_op=True, download=True, split_dat
     orig_train, orig_val = original_data
     augm_train, _ = augmented_data  # forgetting augmented validation, do not want that
 
-    train_data = ConcatDataset([original_data, augmented_data])
+    train_data = ConcatDataset([orig_train, augm_train])
 
     return train_data, orig_val
 
