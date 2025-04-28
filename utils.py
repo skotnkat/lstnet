@@ -9,6 +9,8 @@ BATCH_SIZE = None
 ADAM_LR = None
 ADAM_DECAY = None
 DELTA_LOSS = None
+MANUAL_SEED = None
+VAL_SIZE = None
 
 DEVICE = None
 NUM_WORKERS = None

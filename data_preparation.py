@@ -53,7 +53,7 @@ def load_dataset(dataset_name, train_op=True, transform_steps=BASIC_TRANSFORMATI
     g = torch.Generator()
     g.manual_seed(utils.MANUAL_SEED)
 
-    val_size = int(len(data)*utils.VAL_PERCENTAGE)
+    val_size = int(len(data)*utils.VAL_SIZE)
     train_size = len(data) - val_size
 
     train_data, val_data = random_split(data, [train_size, val_size], generator=g)
