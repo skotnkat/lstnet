@@ -89,3 +89,13 @@ def custom_collate_fn(batch):
     second_labels = torch.tensor(second_labels)
 
     return first_imgs, first_labels, second_imgs, second_labels
+
+
+def get_dual_domain_dataset(first_data, second_data, supervised):
+    if supervised:
+        dual_data = DualDomainSupervisedDataset(first_data, second_data)
+
+    else:
+        dual_data = DualDomainDataset(first_data, second_data)
+
+    return dual_data
