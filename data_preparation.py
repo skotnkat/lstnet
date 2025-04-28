@@ -1,8 +1,8 @@
 from torchvision import datasets
 from torchvision.transforms.v2 import Compose, RandomAffine, ToImage, ToDtype, Normalize
-from torch.utils.data import ConcatDataset, DataLoader
+from torch.utils.data import ConcatDataset, DataLoader, random_split
 import torch
-from dual_domain_dataset import DualDomainDataset, DualDomainSupervisedDataset, custom_collate_fn
+from dual_domain_dataset import get_dual_domain_dataset, custom_collate_fn
 
 import utils
 
@@ -27,7 +27,7 @@ def create_augmentation_steps(img_size):
     ])
 
 
-def load_dataset(dataset_name, train_op=True, transform_steps=BASIC_TRANSFORMATION, download=True, **kwargs):
+def load_dataset(dataset_name, train_op=True, transform_steps=BASIC_TRANSFORMATION, download=True, split_data=False, **kwargs):
     # load data from torchvision datasets
     if dataset_name == 'MNIST':
         data = datasets.MNIST(root="./data", train=train_op, transform=transform_steps, download=download, **kwargs)
@@ -47,10 +47,21 @@ def load_dataset(dataset_name, train_op=True, transform_steps=BASIC_TRANSFORMATI
         data = torch.load(dataset_name, weights_only=False)  # dataset_name is path
         print(f'Dataset loaded, number of records: {len(data)}, shape: {data[0][0].shape}')
 
-    return data
+    if not split_data:
+        return data
+
+    g = torch.Generator()
+    g.manual_seed(utils.MANUAL_SEED)
+
+    val_size = int(len(data)*utils.VAL_PERCENTAGE)
+    train_size = len(data) - val_size
+
+    train_data, val_data = random_split(data, [train_size, val_size], generator=g)
+
+    return train_data, val_data
 
 
-def load_augmented_dataset(dataset_name, train_op=True, download=True):
+def load_augmented_dataset(dataset_name, train_op=True, download=True, split_data=False):
     print(f'Loading dataset: {dataset_name}')
     original_data = load_dataset(dataset_name, train_op=train_op, download=download)
 
@@ -58,47 +69,52 @@ def load_augmented_dataset(dataset_name, train_op=True, download=True):
     transform_steps = create_augmentation_steps(img_size)
 
     # use transformations also on original data -> improve robustness
-    # original_data = load_dataset(dataset_name, train_op=train_op, download=False, transform_steps=transform_steps)
     augmented_data = load_dataset(dataset_name, train_op=train_op, download=False, transform_steps=transform_steps)
 
-    data = ConcatDataset([original_data, augmented_data])
+    if not split_data:
+        return ConcatDataset([original_data, augmented_data])
 
-    return data
+    orig_train, orig_val = original_data
+    augm_train, _ = augmented_data  # forgetting augmented validation, do not want that
+
+    train_data = ConcatDataset([original_data, augmented_data])
+
+    return train_data, orig_val
 
 
-def get_training_loader(first_domain_name, second_domain_name, supervised=True):
+
+def get_train_val_loaders(first_domain_name, second_domain_name, supervised):
+    first_train, first_val = load_augmented_dataset(first_domain_name, train_op=True, split_data=True)
+    second_train, second_val = load_augmented_dataset(second_domain_name, train_op=True, split_data=True)
+
+    val_data = get_dual_domain_dataset(first_val, second_val, supervised=False)
+    train_data = get_dual_domain_dataset(first_train, second_train, supervised)
+
+    utils.set_input_dimensions(train_data)
+
+    pin_memory = utils.DEVICE != "cpu"  # locking in physical RAM, higher data transfer with gpu
+    train_loader = DataLoader(train_data, batch_size=utils.BATCH_SIZE, shuffle=True, collate_fn=custom_collate_fn,
+                             pin_memory=pin_memory, num_workers=utils.NUM_WORKERS, persistent_workers=True)
+    val_loader = DataLoader(val_data, batch_size=utils.BATCH_SIZE, shuffle=True, collate_fn=custom_collate_fn,
+                             pin_memory=pin_memory, num_workers=utils.NUM_WORKERS, persistent_workers=True)
+    print(f'Obtained Data Loader for both training and validation')
+
+    return train_loader, val_loader
+
+def get_training_loader(first_domain_name, second_domain_name, supervised=True, split_data=False):
+    if split_data:
+        return get_train_val_loaders(first_domain_name, second_domain_name, supervised)
+
     first_data = load_augmented_dataset(first_domain_name, train_op=True)
-    print(f'Obtained augmented data for {first_domain_name}')
-
     second_data = load_augmented_dataset(second_domain_name, train_op=True)
-    print(f'Obtained augmented data for {second_domain_name}')
+    dual_data = get_dual_domain_dataset(first_data, second_data, supervised)
 
-    if len(first_data) < len(second_data):
-        raise ValueError("First dataset should be larger or at least of the same size.")
-
-    if supervised:
-        dual_data = DualDomainSupervisedDataset(first_data, second_data)
-
-    else:
-        dual_data = DualDomainDataset(first_data, second_data)
-
-    print('Obtained Dual Domain Dataset')
-
-    first_img, _, second_img, _ = dual_data.__getitem__(0)
-
-    print(f'first domain: {first_img.shape}')
-    print(f'second domain: {second_img.shape}')
-
-    utils.FIRST_INPUT_SHAPE = first_img.shape[1:]
-    utils.FIRST_IN_CHANNELS_NUM = first_img.shape[0]
-
-    utils.SECOND_INPUT_SHAPE = second_img.shape[1:]
-    utils.SECOND_IN_CHANNELS_NUM = second_img.shape[0]
+    utils.set_input_dimensions(dual_data)
 
     pin_memory = utils.DEVICE != "cpu"  # locking in physical RAM, higher data transfer with gpu
     data_loader = DataLoader(dual_data, batch_size=utils.BATCH_SIZE, shuffle=True, collate_fn=custom_collate_fn,
                              pin_memory=pin_memory, num_workers=utils.NUM_WORKERS, persistent_workers=True)
-    print(f'Obtained Data Loader')
+    print(f'Obtained Data Loader for training')
 
     return data_loader
 
