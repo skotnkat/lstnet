@@ -5,7 +5,6 @@ NETWORK_NAMES = {"first_encoder", "second_encoder", "shared_encoder", "first_gen
                  "shared_generator", "first_discriminator", "second_discriminator", "latent_discriminator"}
 
 OUTPUT_FOLDER = None
-LOSS_FILE = None
 BATCH_SIZE = None
 ADAM_LR = None
 ADAM_DECAY = None
@@ -19,7 +18,7 @@ FIRST_IN_CHANNELS_NUM, SECOND_IN_CHANNELS_NUM = None, None
 
 DISC_LOSSES = {'first_loss': [], 'second_loss': [], 'latent_loss': []}
 CC_LOSSES = {'first_cycle': [], 'second_cycle': [], 'first_full_cycle': [], 'second_full_cycle': []}
-ENC_GEN_LOSSES = {'first_loss': [], 'second_loss': [], 'latent_loss': []}
+# ENC_GEN_LOSSES = {'first_loss': [], 'second_loss': [], 'latent_loss': []}
 
 
 def get_networks_params():
@@ -84,9 +83,9 @@ def init_epoch_loss():
     CC_LOSSES['first_full_cycle'].append(0)
     CC_LOSSES['second_full_cycle'].append(0)
 
-    ENC_GEN_LOSSES['first_loss'].append(0)
-    ENC_GEN_LOSSES['second_loss'].append(0)
-    ENC_GEN_LOSSES['latent_loss'].append(0)
+    # ENC_GEN_LOSSES['first_loss'].append(0)
+    # ENC_GEN_LOSSES['second_loss'].append(0)
+    # ENC_GEN_LOSSES['latent_loss'].append(0)
 
 
 def log_epoch_loss(disc_loss, enc_gen_loss, cc_loss, cur_epoch):
@@ -99,9 +98,9 @@ def log_epoch_loss(disc_loss, enc_gen_loss, cc_loss, cur_epoch):
     CC_LOSSES['first_full_cycle'][cur_epoch] += cc_loss[2]
     CC_LOSSES['second_full_cycle'][cur_epoch] += cc_loss[3]
 
-    ENC_GEN_LOSSES['first_loss'][cur_epoch] += enc_gen_loss[0]
-    ENC_GEN_LOSSES['second_loss'][cur_epoch] += enc_gen_loss[1]
-    ENC_GEN_LOSSES['latent_loss'][cur_epoch] += enc_gen_loss[2]
+    # ENC_GEN_LOSSES['first_loss'][cur_epoch] += enc_gen_loss[0]
+    # ENC_GEN_LOSSES['second_loss'][cur_epoch] += enc_gen_loss[1]
+    # ENC_GEN_LOSSES['latent_loss'][cur_epoch] += enc_gen_loss[2]
 
 
 def normalize_epoch_loss(scale, cur_epoch):
@@ -114,9 +113,9 @@ def normalize_epoch_loss(scale, cur_epoch):
     CC_LOSSES['second_cycle'][cur_epoch] /= scale
     CC_LOSSES['second_full_cycle'][cur_epoch] /= scale
 
-    ENC_GEN_LOSSES['first_loss'][cur_epoch] /= scale
-    ENC_GEN_LOSSES['second_loss'][cur_epoch] /= scale
-    ENC_GEN_LOSSES['latent_loss'][cur_epoch] /= scale
+    # ENC_GEN_LOSSES['first_loss'][cur_epoch] /= scale
+    # ENC_GEN_LOSSES['second_loss'][cur_epoch] /= scale
+    # ENC_GEN_LOSSES['latent_loss'][cur_epoch] /= scale
 
 
 def check_file_ending(file, ending):
@@ -124,3 +123,14 @@ def check_file_ending(file, ending):
         file = file + ending
 
     return file
+
+
+def set_input_dimensions(dataset):
+    global FIRST_INPUT_SHAPE, SECOND_INPUT_SHAPE, FIRST_IN_CHANNELS_NUM, SECOND_IN_CHANNELS_NUM
+    first_img, _, second_img, _ = dataset.__getitem__(0)
+
+    FIRST_INPUT_SHAPE = first_img.shape[1:]
+    FIRST_IN_CHANNELS_NUM = first_img.shape[0]
+
+    SECOND_INPUT_SHAPE = second_img.shape[1:]
+    SECOND_IN_CHANNELS_NUM = second_img.shape[0]

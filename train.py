@@ -91,16 +91,15 @@ def train(model, loader):
         CUR_EPOCH += 1
 
         if CUR_EPOCH % 10 == 0:
-            loss_logs = {'disc_loss': utils.DISC_LOSSES, 'enc_gen_loss': utils.ENC_GEN_LOSSES,
-                         'cc_loss': utils.CC_LOSSES, 'train_loss': loss_list}
+            loss_logs = {'disc_loss': utils.DISC_LOSSES, 'cc_loss': utils.CC_LOSSES, 'train_loss': loss_list}  # 'enc_gen_loss': utils.ENC_GEN_LOSSES
 
             with open(f'{utils.OUTPUT_FOLDER}{utils.LOSS_FILE}', 'w') as file:
                 json.dump(loss_logs, file, indent=2)
 
     print(f'Saving model in epoch {best_epoch_idx} with best val loss: {best_loss}')
 
-    loss_logs = {'disc_loss': utils.DISC_LOSSES, 'enc_gen_loss': utils.ENC_GEN_LOSSES,
-                 'cc_loss': utils.CC_LOSSES, 'train_loss': loss_list, 'best_epoch_idx': best_epoch_idx}
+    loss_logs = {'disc_loss': utils.DISC_LOSSES, 'cc_loss': utils.CC_LOSSES,
+                 'train_loss': loss_list, 'best_epoch_idx': best_epoch_idx}  # 'enc_gen_loss': utils.ENC_GEN_LOSSES,
 
     with open(f'{utils.OUTPUT_FOLDER}{utils.LOSS_FILE}', 'w') as file:
         json.dump(loss_logs, file, indent=2)
