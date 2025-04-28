@@ -165,7 +165,7 @@ def run_evaluation(clf_name, domain_name, results_file, data_path=""):
     model = torch.load(clf_name, weights_only=False, map_location=utils.DEVICE)
     test_acc = domain_adaptation.evaluate(model, domain_name, data_path)
 
-    with open(f'{utils.OUTPUT_FOLDER}/{results_file}.json', 'a') as file:
+    with open(f'{results_file}.json', 'a') as file:
         json.dump({f'{domain_name}_test_acc': test_acc}, file, indent=2)
 
 
@@ -176,15 +176,14 @@ def run_end_to_end(args):
     first_data_trans = run_translation(args, args.first_domain, model, return_data=True)
     second_data_trans = run_translation(args, args.second_domain, model, return_data=True)
 
+    first_trans_data_path = f'{args.first_domain}_{args.output_data_file}'
+    second_trans_data_path = f'{args.second_domain}_{args.output_data_file}'
     if args.save_trans_data:
-        torch.save(first_data_trans, f'{utils.OUTPUT_FOLDER}/{args.first_domain}_{args.output_data_file}')
-        torch.save(second_data_trans, f'{utils.OUTPUT_FOLDER}/{args.second_domain}_{args.output_data_file}')
+        torch.save(first_data_trans, first_trans_data_path)
+        torch.save(second_data_trans, second_trans_data_path)
 
-    first_clf = torch.load(args.clf_first_domain, weights_only=False, map_location=utils.DEVICE)
-    run_evaluation(args, args.first_domain, first_clf)
-
-    second_clf = torch.load(args.clf_second_domain, weights_only=False, map_location=utils.DEVICE)
-    run_evaluation(args, args.second_domain, second_clf)
+    run_evaluation(args.clf_second_domain, args.first_domain, f'{utils.OUTPUT_FOLDER}{args.first_domain}_output_results_file', data_path=first_trans_data_path)
+    run_evaluation(args.clf_first_domain, args.second_domain, f'{utils.OUTPUT_FOLDER}{args.second_domain}_output_results_file', data_path=second_trans_data_path)
 
 
 if __name__ == "__main__":
