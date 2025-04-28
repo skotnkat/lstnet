@@ -257,3 +257,21 @@ def custom_init(m):
     elif isinstance(m, nn.BatchNorm2d):
         init.ones_(m.weight)
         init.zeros_(m.bias)
+
+
+def init_kaiming_normal_leaky_relu(m):
+    """
+    Custom initialization function to apply Kaiming Normal
+    with the correct negative slope for Leaky ReLU (a=0.3).
+
+    Args:
+        m (nn.Module): The module to initialize.
+    """
+    if isinstance(m, (nn.Conv2d, nn.ConvTranspose2d, nn.Linear)):
+        init.kaiming_normal_(m.weight, a=0.3, mode='fan_in', nonlinearity='leaky_relu')
+        if m.bias is not None:
+            init.zeros_(m.bias)
+    
+    elif isinstance(m, nn.BatchNorm2d):
+        init.ones_(m.weight)
+        init.zeros_(m.bias)
