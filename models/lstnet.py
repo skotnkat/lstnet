@@ -205,7 +205,7 @@ class LSTNET(nn.Module):
 
         disc_loss_tuple = loss_functions.compute_discriminator_loss(self, first_real, second_real, *imgs_mapping)
 
-        total_disc_loss = - functools.reduce(operator.add, disc_loss_tuple)  # maximizing is minimizing - loss
+        total_disc_loss = functools.reduce(operator.add, disc_loss_tuple)
         total_disc_loss.backward()
 
         self.disc_optim.step()
