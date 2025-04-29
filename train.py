@@ -116,8 +116,8 @@ def train_and_validate(model, train_loader, val_loader):
 
         end_time = time.time()
         print(f'End of epoch {CUR_EPOCH}')
-        print(f'\tCurrent train loss: {epoch_loss}')
-        print(f'\tTrain took: {(end_time - start_time) / 60:.2f} min')
+        print(f'\tCurrent val loss: {epoch_loss}')
+        print(f'\tEpoch took: {(end_time - start_time) / 60:.2f} min')
         print(f'\tPatience: {cur_patience}')
 
         CUR_EPOCH += 1
