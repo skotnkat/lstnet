@@ -55,6 +55,8 @@ def run_train_loop(model, train_loader, run_val=False, val_loader=None):
 
     epoch_loss = 0
     for batch_idx, (first_real, _, second_real, _) in enumerate(val_loader):
+        first_real = first_real.to(utils.DEVICE)
+        second_real = second_real.to(utils.DEVICE)
         disc_loss_tuple, cc_loss_tuple = model.run_eval_loop(first_real, second_real)
         utils.log_epoch_loss(disc_loss_tuple, cc_loss_tuple, CUR_EPOCH)
 
