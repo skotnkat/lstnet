@@ -90,7 +90,7 @@ def init_epoch_loss():
     # ENC_GEN_LOSSES['latent_loss'].append(0)
 
 
-def log_epoch_loss(disc_loss, enc_gen_loss, cc_loss, cur_epoch):
+def log_epoch_loss(disc_loss, cc_loss, cur_epoch):
     DISC_LOSSES['first_loss'][cur_epoch] += disc_loss[0]
     DISC_LOSSES['second_loss'][cur_epoch] += disc_loss[1]
     DISC_LOSSES['latent_loss'][cur_epoch] += disc_loss[2]
