@@ -44,7 +44,7 @@ def add_train_args(parser):
     parser.add_argument("--full_training_only", action="store_true",
                         help="If after train and validate another round of training should be run with full training set.")
 
-
+    parser.add_argument("--epoch_num", type=int, default=50)
 
 def add_translate_args(parser):
     parser.add_argument("domain", type=str.upper, help="Name of the domain to be translated to the other domain.")
@@ -132,12 +132,11 @@ def initialize(args):
 
 
 def run_training(args, return_model=False):
-    best_epoch_idx = 5  # load_best_epoch_idx from the loss json file
     if not args.full_training_only:
         model, best_epoch_idx = train.run(args.first_domain, args.second_domain, args.supervised)
 
-    if args.full_training_only or args.full_training:
-        model = train.run_full_training(args.first_domain, args.second_domain, args.supervised, best_epoch_idx+2)
+    else :
+        model = train.run_full_training(args.first_domain, args.second_domain, args.supervised, args.epoch_num)
 
     if return_model:
         return model
