@@ -48,13 +48,14 @@ def add_train_args(parser):
 
 def add_translate_args(parser):
     parser.add_argument("domain", type=str.upper, help="Name of the domain to be translated to the other domain.")
-    parser.add_argument("--model_name", type=str, default="lstnet_model",
+    parser.add_argument("--model_name", type=str, default="lstnet.pth",
                         help="Name of the model to be loaded for translation")
 
 def add_eval_args(parser):
     parser.add_argument("domain", type=str.upper, help="Name of the domain to be evaluated.")
     parser.add_argument("clf_model", type=str, help="Name of the model to classify the data.")
     parser.add_argument("--dataset_path", default="", type=str, help="Name of file to load the dataset from")
+    parser.add_argument("--output_results_file", default="results_json", type=str)
 
 
 def add_end_to_end_parser(parser):
@@ -131,18 +132,18 @@ def initialize(args):
 
 
 def run_training(args, return_model=False):
-    best_epoch_idx = 10  # load_best_epoch_idx from the loss json file
+    best_epoch_idx = 5  # load_best_epoch_idx from the loss json file
     if not args.full_training_only:
         model, best_epoch_idx = train.run(args.first_domain, args.second_domain, args.supervised)
 
     if args.full_training_only or args.full_training:
-        model = train.run_full_training(args.first_domain, args.second_domain, args.supervised, )
+        model = train.run_full_training(args.first_domain, args.second_domain, args.supervised, best_epoch_idx+2)
 
     if return_model:
         return model
 
 
-def run_translation(args, domain, model=None, return_data=False):
+def run_translation(args, domain, model=None, return_data=False, save_trans_data=True):
     if model is None and args.load_model is False:
         raise ValueError("Model for translation is not specified.")
 
@@ -151,7 +152,7 @@ def run_translation(args, domain, model=None, return_data=False):
 
     translated_data = domain_adaptation.adapt_domain(model, domain)
 
-    if args.save_trans_data:
+    if save_trans_data:
         file_name = f"{domain}_translated_data.pt"
         torch.save(translated_data, f'{utils.OUTPUT_FOLDER}{file_name}')
 
@@ -170,8 +171,8 @@ def run_evaluation(clf_name, domain_name, data_path=""):
 def run_end_to_end(args):
     model = run_training(args, return_model=True)
 
-    run_translation(args, args.first_domain, model)  # might be better to return data and immediately use them in eval
-    run_translation(args, args.second_domain, model)
+    run_translation(args, args.first_domain, model, args.save_trans_data)  # might be better to return data and immediately use them in eval
+    run_translation(args, args.second_domain, model, args.save_trans_data)
 
     run_evaluation(args.clf_second_domain, args.first_domain)
     run_evaluation(args.clf_first_domain, args.second_domain)
@@ -185,10 +186,10 @@ if __name__ == "__main__":
         run_training(args)
 
     elif args.operation == 'translate':
-        run_translation(args, args.domain)
+        run_translation(args, args.domain, save_trans_data=True)
 
     elif args.operation == 'eval':
-        run_evaluation(args.clf_model, args.domain, args.output_results_file, args.dataset_path)
+        run_evaluation(args.clf_model, args.domain, args.dataset_path)
 
     else:
         run_end_to_end(args)
