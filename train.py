@@ -40,10 +40,10 @@ def run_train_loop(model, train_loader, run_val=False, val_loader=None):
     for batch_idx, (first_real, _, second_real, _) in enumerate(val_loader):
         first_real = first_real.to(utils.DEVICE)
         second_real = second_real.to(utils.DEVICE)
-        enc_gen_loss_tuple, cc_loss_tuple = model.run_eval_loop(first_real, second_real)
-        utils.log_epoch_loss(enc_gen_loss_tuple, cc_loss_tuple, CUR_EPOCH)
+        disc_loss_tuple, cc_loss_tuple = model.run_eval_loop(first_real, second_real)
+        utils.log_epoch_loss(disc_loss_tuple, cc_loss_tuple, CUR_EPOCH)
 
-        epoch_loss += sum(enc_gen_loss_tuple) + sum(cc_loss_tuple)
+        epoch_loss += sum(disc_loss_tuple) + sum(cc_loss_tuple)
 
     scale = len(val_loader)
     utils.normalize_epoch_loss(scale, CUR_EPOCH)
