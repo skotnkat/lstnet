@@ -6,32 +6,15 @@ from models.lstnet import LSTNET
 from data_preparation import get_training_loader
 import utils
 import time
+from tqdm import tqdm
 
 CUR_EPOCH = 0
 MAX_PATIENCE = None
+MAX_EPOCH = 100
 DELTA_LOSS = 1e-3
 
 MODEL_PATH = "lstnet.pth"
 LOSS_FILE = "loss_logs.json"
-
-
-def check_stop_condition(cur_loss, prev_loss, cur_patience):
-    if prev_loss is not None:
-        rel_change = np.abs(cur_loss - prev_loss) / prev_loss
-
-        if rel_change < DELTA_LOSS:
-            cur_patience += 1
-            print(f'Relative loss change is {rel_change:.5f} < {DELTA_LOSS} -> increasing patience to {cur_patience}')
-
-        else:
-            cur_patience = 0
-            print(f'Relative loss change not enough: {rel_change:.5f}')
-
-    stop_flag = False
-    if cur_patience >= MAX_PATIENCE:
-        stop_flag = True
-
-    return stop_flag, cur_patience
 
 
 def run_train_loop(model, train_loader, run_val=False, val_loader=None):
@@ -57,10 +40,10 @@ def run_train_loop(model, train_loader, run_val=False, val_loader=None):
     for batch_idx, (first_real, _, second_real, _) in enumerate(val_loader):
         first_real = first_real.to(utils.DEVICE)
         second_real = second_real.to(utils.DEVICE)
-        disc_loss_tuple, cc_loss_tuple = model.run_eval_loop(first_real, second_real)
-        utils.log_epoch_loss(disc_loss_tuple, cc_loss_tuple, CUR_EPOCH)
+        enc_gen_loss_tuple, cc_loss_tuple = model.run_eval_loop(first_real, second_real)
+        utils.log_epoch_loss(enc_gen_loss_tuple, cc_loss_tuple, CUR_EPOCH)
 
-        epoch_loss += sum(disc_loss_tuple) + sum(cc_loss_tuple)
+        epoch_loss += sum(enc_gen_loss_tuple) + sum(cc_loss_tuple)
 
     scale = len(val_loader)
     utils.normalize_epoch_loss(scale, CUR_EPOCH)
@@ -70,11 +53,12 @@ def run_train_loop(model, train_loader, run_val=False, val_loader=None):
 
 
 def run_full_training(first_domain_name, second_domain_name, supervised, epoch_num):
-    loader = get_training_loader(first_domain_name, second_domain_name, supervised, data_split=False)
+    loader = get_training_loader(first_domain_name, second_domain_name, supervised, split_data=False)
     model = LSTNET(first_domain_name, second_domain_name)
     model.to(utils.DEVICE)
 
-    for idx in range(epoch_num):
+    print('Starting full training')
+    for idx in tqdm(range(epoch_num)):
         run_train_loop(model, loader)  # without validation, only train
 
     model_path = f'{utils.OUTPUT_FOLDER}{MODEL_PATH}'
@@ -91,8 +75,6 @@ def train_and_validate(model, train_loader, val_loader):
     best_model = None
     best_loss = np.inf
     best_epoch_idx = None
-
-    prev_loss = None
     loss_list = []
     cur_patience = 0
 
@@ -103,16 +85,18 @@ def train_and_validate(model, train_loader, val_loader):
 
         loss_list.append(epoch_loss)
 
-        stop_flag, cur_patience = check_stop_condition(epoch_loss, prev_loss, cur_patience)
-        if stop_flag:
-            break
-
-        prev_loss = epoch_loss
-
         if epoch_loss < best_loss:
             best_model = copy.deepcopy(model)
             best_loss = epoch_loss
             best_epoch_idx = CUR_EPOCH
+            cur_patience = 0
+
+        else:
+            cur_patience += 1
+
+            if cur_patience >= MAX_PATIENCE:
+                print(f'max patience reached')
+                break
 
         end_time = time.time()
         print(f'End of epoch {CUR_EPOCH}')
@@ -127,6 +111,10 @@ def train_and_validate(model, train_loader, val_loader):
 
             with open(f'{utils.OUTPUT_FOLDER}{LOSS_FILE}', 'w') as file:
                 json.dump(loss_logs, file, indent=2)
+
+        if CUR_EPOCH >= MAX_EPOCH:
+            print(f'Max epoch reached')
+            break
 
     print(f'Saving model in epoch {best_epoch_idx} with best val loss: {best_loss}')
 
