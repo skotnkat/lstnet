@@ -229,10 +229,10 @@ class LSTNET(nn.Module):
             imgs_mapping = self.run_networks(first_real, second_real)
             imgs_cc = self.get_cc_components(*imgs_mapping)
 
-            enc_gen_loss_tuple = loss_functions.compute_enc_gen_loss(self, *imgs_mapping, return_grad=False)
+            disc_loss_tuple = loss_functions.compute_discriminator_loss(self, first_real, second_real, *imgs_mapping, return_grad=False)
             cc_loss_tuple = loss_functions.compute_cc_loss(first_real, second_real, *imgs_cc, return_grad=False)
 
-        return enc_gen_loss_tuple, cc_loss_tuple
+        return disc_loss_tuple, cc_loss_tuple
 
 
 def custom_init(m):
