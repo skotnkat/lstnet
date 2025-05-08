@@ -18,9 +18,7 @@ NUM_WORKERS = None
 FIRST_INPUT_SHAPE, SECOND_INPUT_SHAPE = None, None
 FIRST_IN_CHANNELS_NUM, SECOND_IN_CHANNELS_NUM = None, None
 
-DISC_LOSSES = {'first_loss': [], 'second_loss': [], 'latent_loss': []}
-CC_LOSSES = {'first_cycle': [], 'second_cycle': [], 'first_full_cycle': [], 'second_full_cycle': []}
-# ENC_GEN_LOSSES = {'first_loss': [], 'second_loss': [], 'latent_loss': []}
+LOSS_LOGS = dict()
 
 
 def get_networks_params():
@@ -75,49 +73,72 @@ def compute_effective_kernel_size(kernel_size, dilation):
     return dilation * (kernel_size - 1) + 1
 
 
-def init_epoch_loss():
-    DISC_LOSSES['first_loss'].append(0)
-    DISC_LOSSES['second_loss'].append(0)
-    DISC_LOSSES['latent_loss'].append(0)
-
-    CC_LOSSES['first_cycle'].append(0)
-    CC_LOSSES['second_cycle'].append(0)
-    CC_LOSSES['first_full_cycle'].append(0)
-    CC_LOSSES['second_full_cycle'].append(0)
-
-    # ENC_GEN_LOSSES['first_loss'].append(0)
-    # ENC_GEN_LOSSES['second_loss'].append(0)
-    # ENC_GEN_LOSSES['latent_loss'].append(0)
+def init_logs(ops=['train', 'val']):
+    for op in ops:
+        LOSS_LOGS[op] = {
+            'disc_loss': {'first_loss': [], 'second_loss': [], 'latent_loss': []},
+            'enc_gen_loss': {'first_loss': [], 'second_loss': [], 'latent_loss': []},
+            'cc_loss': {'first_cycle_loss': [], 'second_cycle_loss': [], 'first_full_cycle_loss': [], 'second_full_cycle_loss': []}
+        }
 
 
-def log_epoch_loss(disc_loss, cc_loss, cur_epoch):
-    DISC_LOSSES['first_loss'][cur_epoch] += disc_loss[0]
-    DISC_LOSSES['second_loss'][cur_epoch] += disc_loss[1]
-    DISC_LOSSES['latent_loss'][cur_epoch] += disc_loss[2]
+def init_epoch_loss(op='train'):
+    op_logs = LOSS_LOGS[op]
 
-    CC_LOSSES['first_cycle'][cur_epoch] += cc_loss[0]
-    CC_LOSSES['second_cycle'][cur_epoch] += cc_loss[1]
-    CC_LOSSES['first_full_cycle'][cur_epoch] += cc_loss[2]
-    CC_LOSSES['second_full_cycle'][cur_epoch] += cc_loss[3]
+    op_logs['disc_loss']['first_loss'].append(0)
+    op_logs['disc_loss']['second_loss'].append(0)
+    op_logs['disc_loss']['latent_loss'].append(0)
 
-    # ENC_GEN_LOSSES['first_loss'][cur_epoch] += enc_gen_loss[0]
-    # ENC_GEN_LOSSES['second_loss'][cur_epoch] += enc_gen_loss[1]
-    # ENC_GEN_LOSSES['latent_loss'][cur_epoch] += enc_gen_loss[2]
+    op_logs['enc_gen_loss']['first_loss'].append(0)
+    op_logs['enc_gen_loss']['second_loss'].append(0)
+    op_logs['enc_gen_loss']['latent_loss'].append(0)
+
+    op_logs['cc_loss']['first_cycle_loss'].append(0)
+    op_logs['cc_loss']['second_cycle_loss'].append(0)
+    op_logs['cc_loss']['first_full_cycle_loss'].append(0)
+    op_logs['cc_loss']['second_full_cycle_loss'].append(0)
 
 
-def normalize_epoch_loss(scale, cur_epoch):
-    DISC_LOSSES['first_loss'][cur_epoch] /= scale
-    DISC_LOSSES['second_loss'][cur_epoch] /= scale
-    DISC_LOSSES['latent_loss'][cur_epoch] /= scale
+def log_epoch_loss(disc_loss, enc_gen_loss, cc_loss, op_train=True):
+    if op_train:
+        op = 'train'
 
-    CC_LOSSES['first_cycle'][cur_epoch] /= scale
-    CC_LOSSES['first_full_cycle'][cur_epoch] /= scale
-    CC_LOSSES['second_cycle'][cur_epoch] /= scale
-    CC_LOSSES['second_full_cycle'][cur_epoch] /= scale
+    else:
+        op = 'val'
 
-    # ENC_GEN_LOSSES['first_loss'][cur_epoch] /= scale
-    # ENC_GEN_LOSSES['second_loss'][cur_epoch] /= scale
-    # ENC_GEN_LOSSES['latent_loss'][cur_epoch] /= scale
+    op_logs = LOSS_LOGS[op]
+    cur_epoch = len(op_logs['disc_loss']['first_loss']) - 1  # last epoch
+
+    op_logs['disc_loss']['first_loss'][cur_epoch] += disc_loss[0]
+    op_logs['disc_loss']['second_loss'][cur_epoch] += disc_loss[1]
+    op_logs['disc_loss']['latent_loss'][cur_epoch] += disc_loss[2]
+
+    op_logs['enc_gen_loss']['first_loss'][cur_epoch] += enc_gen_loss[0]
+    op_logs['enc_gen_loss']['second_loss'][cur_epoch] += enc_gen_loss[1]
+    op_logs['enc_gen_loss']['latent_loss'][cur_epoch] += enc_gen_loss[2]
+
+    op_logs['cc_loss']['first_cycle_loss'][cur_epoch] += cc_loss[0]
+    op_logs['cc_loss']['second_cycle_loss'][cur_epoch] += cc_loss[1]
+    op_logs['cc_loss']['first_full_cycle_loss'][cur_epoch] += cc_loss[2]
+    op_logs['cc_loss']['second_full_cycle_loss'][cur_epoch] += cc_loss[3]
+
+
+def normalize_epoch_loss(scale, cur_epoch, op='train'):
+    op_logs = LOSS_LOGS[op]
+    op_logs['disc_loss']['first_loss'][cur_epoch] /= scale
+    op_logs['disc_loss']['second_loss'][cur_epoch] /= scale
+    op_logs['disc_loss']['latent_loss'][cur_epoch] /= scale
+
+    op_logs['enc_gen_loss']['first_loss'][cur_epoch] /= scale
+    op_logs['enc_gen_loss']['second_loss'][cur_epoch] /= scale
+    op_logs['enc_gen_loss']['latent_loss'][cur_epoch] /= scale
+
+    op_logs['cc_loss']['first_cycle_loss'][cur_epoch] /= scale
+    op_logs['cc_loss']['first_full_cycle_loss'][cur_epoch] /= scale
+    op_logs['cc_loss']['second_cycle_loss'][cur_epoch] /= scale
+    op_logs['cc_loss']['second_full_cycle_loss'][cur_epoch] /= scale
+
+
 
 
 def check_file_ending(file, ending):
