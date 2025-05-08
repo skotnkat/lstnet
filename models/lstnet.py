@@ -8,7 +8,6 @@ import torch
 from torch.optim import Adam
 import functools
 import operator
-import torch.nn.init as init
 
 import loss_functions
 
@@ -67,9 +66,6 @@ class LSTNET(nn.Module):
         if utils.ADAM_LR is not None and utils.ADAM_DECAY is not None:
             self.disc_optim = Adam(self.disc_params, lr=utils.ADAM_LR, betas=utils.ADAM_DECAY, amsgrad=True)
             self.enc_gen_optim = Adam(self.enc_gen_params, lr=utils.ADAM_LR, betas=utils.ADAM_DECAY, amsgrad=True)
-
-        # print('Setting init distribution as glorot uniform')
-        # self.apply(custom_init)
 
         print('LSTNET model initialized')
 
@@ -233,40 +229,4 @@ class LSTNET(nn.Module):
             cc_loss_tuple = loss_functions.compute_cc_loss(first_real, second_real, *imgs_cc, return_grad=False)
 
         return disc_loss_tuple, cc_loss_tuple
-
-
-def custom_init(m):
-    if isinstance(m, (nn.Conv2d, nn.ConvTranspose2d)):
-        if hasattr(m, '_is_last_layer') and m._is_last_layer:
-            init.xavier_uniform_(m.weight)
-        else:
-            init.kaiming_normal_(m.weight, a=0.3, mode='fan_in', nonlinearity='leaky_relu')
-        if m.bias is not None:
-            init.zeros_(m.bias)
-
-    elif isinstance(m, nn.Linear):
-        init.xavier_uniform_(m.weight)
-        if m.bias is not None:
-            init.zeros_(m.bias)
-
-    elif isinstance(m, nn.BatchNorm2d):
-        init.ones_(m.weight)
-        init.zeros_(m.bias)
-
-
-def init_kaiming_normal_leaky_relu(m):
-    """
-    Custom initialization function to apply Kaiming Normal
-    with the correct negative slope for Leaky ReLU (a=0.3).
-
-    Args:
-        m (nn.Module): The module to initialize.
-    """
-    if isinstance(m, (nn.Conv2d, nn.ConvTranspose2d, nn.Linear)):
-        init.kaiming_normal_(m.weight, a=0.3, mode='fan_in', nonlinearity='leaky_relu')
-        if m.bias is not None:
-            init.zeros_(m.bias)
-    
-    elif isinstance(m, nn.BatchNorm2d):
-        init.ones_(m.weight)
-        init.zeros_(m.bias)
+        return disc_loss_tuple, enc_gen_loss_tuple, cc_loss_tuple
