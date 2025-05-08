@@ -18,7 +18,6 @@ def add_common_args(parser):
     parser.add_argument("--load_model", action="store_true",
                         help="If a model with name 'model_name' should be loaded for data translation.")
     parser.add_argument("--manual_seed", type=int, default=42)
-    parser.add_argument("--val_size", type=float, default=0.25)  # move to train?
 
     return parser
 
@@ -34,17 +33,13 @@ def add_train_args(parser):
     parser.add_argument("--learning_rate", type=float, default=1e-4, help="Learning rate used in Adam optimizer.")
     parser.add_argument("--decay", type=float, nargs=2, default=(0.8, 0.999),
                         help="Two float values for Adam optimizer decay (beta1, beta2)")
-
-    parser.add_argument("--delta_los", type=float, default=1e-3,
-                        help="Delta loss used for convergence")
-    parser.add_argument("--patience", type=float, default=1,
-                        help="Maximum allowed change in loss between iterations to consider convergence")
-    parser.add_argument("--full_training", action="store_true",
-                        help="If after train and validate another round of training should be run with full training set.")
     parser.add_argument("--full_training_only", action="store_true",
                         help="If after train and validate another round of training should be run with full training set.")
 
     parser.add_argument("--epoch_num", type=int, default=50)
+    parser.add_argument("--val_size", type=float, default=0.25)
+    parser.add_argument("--early_stopping", action="store_true")
+    parser.add_argument("--patience", type=int, default=10)
 
 def add_translate_args(parser):
     parser.add_argument("domain", type=str.upper, help="Name of the domain to be translated to the other domain.")
@@ -96,8 +91,6 @@ def parse_args():
     add_common_args(all_parser)
     add_end_to_end_parser(all_parser)
 
-
-
     args = parser.parse_args()
 
     utils.OUTPUT_FOLDER = utils.check_file_ending(args.output_folder, '/')
@@ -124,7 +117,11 @@ def initialize(args):
         utils.PARAMS_FILE_PATH = args.params_file #  svae params in architecture
         utils.ADAM_LR = args.learning_rate
         utils.ADAM_DECAY = args.decay
-        train.MAX_PATIENCE = args.patience
+        train.MAX_PATIENCE = args.epoch_num  # by default no early stopping (number of epochs)
+
+        if args.early_stopping:
+            train.MAX_PATIENCE = args.patience
+
 
     utils.DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -133,9 +130,9 @@ def initialize(args):
 
 def run_training(args, return_model=False):
     if not args.full_training_only:
-        model, best_epoch_idx = train.run(args.first_domain, args.second_domain, args.supervised)
+        model = train.run(args.first_domain, args.second_domain, args.supervised, args.epoch_num)
 
-    else :
+    else:
         model = train.run_full_training(args.first_domain, args.second_domain, args.supervised, args.epoch_num)
 
     if return_model:

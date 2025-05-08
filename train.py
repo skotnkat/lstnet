@@ -8,87 +8,64 @@ import utils
 import time
 from tqdm import tqdm
 
-CUR_EPOCH = 0
 MAX_PATIENCE = None
-MAX_EPOCH = 100
-DELTA_LOSS = 1e-3
 
 MODEL_PATH = "lstnet.pth"
 LOSS_FILE = "loss_logs.json"
 
 
-def run_train_loop(model, train_loader, run_val=False, val_loader=None):
-    for batch_idx, (first_real, _, second_real, _) in enumerate(train_loader):
+def run_loop(model, loader, train_op=True):
+    epoch_loss = 0
+
+    for batch_idx, (first_real, _, second_real, _) in enumerate(loader):
         first_real = first_real.to(utils.DEVICE).detach()
         second_real = second_real.to(utils.DEVICE).detach()
-
-        if batch_idx % 2 == 0:
-            model.update_disc(first_real, second_real)
-
+        if train_op:
+            disc_loss_tuple, enc_gen_loss_tuple, cc_loss_tuple = model.run_eval_loop(first_real, second_real)
+        elif batch_idx % 2 == 0:
+            disc_loss_tuple, enc_gen_loss_tuple, cc_loss_tuple = model.update_disc(first_real, second_real)
         else:
-            model.update_enc_gen(first_real, second_real)
-
-    if not run_val:
-        return
-
-    # validation loop
-    if val_loader is None:
-        raise ValueError("Validation cannot be run without a loader with validation data.")
-
-
-    epoch_loss = 0
-    for batch_idx, (first_real, _, second_real, _) in enumerate(val_loader):
-        first_real = first_real.to(utils.DEVICE)
-        second_real = second_real.to(utils.DEVICE)
-        disc_loss_tuple, cc_loss_tuple = model.run_eval_loop(first_real, second_real)
-        utils.log_epoch_loss(disc_loss_tuple, cc_loss_tuple, CUR_EPOCH)
+            disc_loss_tuple, enc_gen_loss_tuple, cc_loss_tuple = model.update_enc_gen(first_real, second_real)
 
         epoch_loss += sum(disc_loss_tuple) + sum(cc_loss_tuple)
+        utils.log_epoch_loss(disc_loss_tuple, enc_gen_loss_tuple, cc_loss_tuple, train_op)
 
-    scale = len(val_loader)
-    utils.normalize_epoch_loss(scale, CUR_EPOCH)
+    scale = len(loader)
+    utils.normalize_epoch_loss(scale, train_op)
     epoch_loss /= scale
 
     return epoch_loss
 
 
-def run_full_training(first_domain_name, second_domain_name, supervised, epoch_num):
-    loader = get_training_loader(first_domain_name, second_domain_name, supervised, split_data=False)
-    model = LSTNET(first_domain_name, second_domain_name)
-    model.to(utils.DEVICE)
-
-    print('Starting full training')
-    for idx in tqdm(range(epoch_num)):
-        run_train_loop(model, loader)  # without validation, only train
-
-    model_path = f'{utils.OUTPUT_FOLDER}{MODEL_PATH}'
-    model.save_model(model_path)
-
-    model.to("cpu")
-    return model
-
-
-def train_and_validate(model, train_loader, val_loader):
-    """First phase of training. Without knowledge of the labels (will be ignoring the labels)."""
-    global CUR_EPOCH
+def train_and_validate(model, train_loader, max_epoch_num, val_loader=None):
+    """
+        First phase of training. Without knowledge of the labels (will be ignoring the labels).
+        Validate only if val_loader is passed.
+    """
 
     best_model = None
     best_loss = np.inf
     best_epoch_idx = None
-    loss_list = []
+    train_loss_list = []
+    val_loss_list = []
     cur_patience = 0
 
-    while True:
+    model.to(utils.DEVICE)
+    for epoch_idx in tqdm(range(max_epoch_num)):
         start_time = time.time()
         utils.init_epoch_loss()
-        epoch_loss = run_train_loop(model, train_loader, run_val=True, val_loader=val_loader)
+        epoch_loss = run_loop(model, train_loader)
+        train_loss_list.append(epoch_loss)
 
-        loss_list.append(epoch_loss)
+        if val_loader is not None:  # if validation is being run then the decision loss is validation, otherwise train  `
+            epoch_loss = run_loop(model, val_loader, train_op=False)
+            val_loss_list.append(epoch_loss)
+
 
         if epoch_loss < best_loss:
             best_model = copy.deepcopy(model)
             best_loss = epoch_loss
-            best_epoch_idx = CUR_EPOCH
+            best_epoch_idx = epoch_idx
             cur_patience = 0
 
         else:
@@ -99,47 +76,46 @@ def train_and_validate(model, train_loader, val_loader):
                 break
 
         end_time = time.time()
-        print(f'End of epoch {CUR_EPOCH}')
+        print(f'End of epoch {epoch_idx}')
         print(f'\tCurrent val loss: {epoch_loss}')
         print(f'\tEpoch took: {(end_time - start_time) / 60:.2f} min')
         print(f'\tPatience: {cur_patience}')
 
-        CUR_EPOCH += 1
+    print(f'Best loss obtained in epoch {best_epoch_idx}')
 
-        if CUR_EPOCH % 10 == 0:
-            loss_logs = {'disc_loss': utils.DISC_LOSSES, 'cc_loss': utils.CC_LOSSES, 'train_loss': loss_list}  # 'enc_gen_loss': utils.ENC_GEN_LOSSES
-
-            with open(f'{utils.OUTPUT_FOLDER}{LOSS_FILE}', 'w') as file:
-                json.dump(loss_logs, file, indent=2)
-
-        if CUR_EPOCH >= MAX_EPOCH:
-            print(f'Max epoch reached')
-            break
-
-    print(f'Saving model in epoch {best_epoch_idx} with best val loss: {best_loss}')
-
-    loss_logs = {'disc_loss': utils.DISC_LOSSES, 'cc_loss': utils.CC_LOSSES,
-                 'train_loss': loss_list, 'best_epoch_idx': best_epoch_idx}  # 'enc_gen_loss': utils.ENC_GEN_LOSSES,
+    utils.LOSS_LOGS['best_epoch_idx'] = best_epoch_idx
 
     with open(f'{utils.OUTPUT_FOLDER}{LOSS_FILE}', 'w') as file:
-        json.dump(loss_logs, file, indent=2)
+        json.dump(utils.LOSS_LOGS, file, indent=2)
 
+    best_model.to("cpu")
     return best_model, best_epoch_idx
 
 
-def run(first_domain_name, second_domain_name, supervised):
-    train_loader, val_loader = get_training_loader(first_domain_name, second_domain_name, supervised, split_data=True)
-
+def run_full_training(first_domain_name, second_domain_name, supervised, epoch_num):
+    loader = get_training_loader(first_domain_name, second_domain_name, supervised, split_data=False)
     model = LSTNET(first_domain_name, second_domain_name)
-    model.to(utils.DEVICE)
+    utils.init_logs(['train'])
 
-    model, best_epoch_idx = train_and_validate(model, train_loader, val_loader)  # pass both loaders at once
-    model.to("cpu")
+    print('Starting full training')
+    model, best_epoch_idx = train_and_validate(model, loader, epoch_num)
+    print('Model trained on full train dataset.')
+    model_path = f'{utils.OUTPUT_FOLDER}{MODEL_PATH}'
+    model.save_model(model_path)
 
+    return model
+
+
+def run(first_domain_name, second_domain_name, supervised, epoch_num):
+    train_loader, val_loader = get_training_loader(first_domain_name, second_domain_name, supervised, split_data=True)
+    model = LSTNET(first_domain_name, second_domain_name)
+    utils.init_logs(['train', 'val'])
+
+    print('Starting train and validate')
+    model, best_epoch_idx = train_and_validate(model, train_loader, val_loader, epoch_num)  # pass both loaders at once
     print('Model trained trained and validated.')
-    print('Validation loss scores dumped.')
 
     model_path = f'{utils.OUTPUT_FOLDER}{MODEL_PATH}'
     model.save_model(model_path)
 
-    return model, best_epoch_idx
+    return model
