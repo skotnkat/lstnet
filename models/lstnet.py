@@ -68,6 +68,7 @@ class LSTNET(nn.Module):
             self.enc_gen_optim = Adam(self.enc_gen_params, lr=utils.ADAM_LR, betas=utils.ADAM_DECAY, amsgrad=True)
 
         print('LSTNET model initialized')
+        print(f'Optimizers: \n\tDisc Optim: {self.disc_optim}, \n\tEnc-Gen Optim: {self.enc_gen_optim}')
 
 
     def initialize_encoders(self):
@@ -225,8 +226,7 @@ class LSTNET(nn.Module):
         cc_loss_tensors = loss_functions.compute_cc_loss(first_real, second_real, *imgs_cc)
         enc_gen_loss_tensors = loss_functions.compute_enc_gen_loss(self, *imgs_mapping)
 
-        total_enc_gen_loss = functools.reduce(operator.add, cc_loss_tensors) + functools.reduce(operator.add,
-                                                                                              enc_gen_loss_tensors)
+        total_enc_gen_loss = functools.reduce(operator.add, cc_loss_tensors) + functools.reduce(operator.add, enc_gen_loss_tensors)
         total_enc_gen_loss.backward()
         self.enc_gen_optim.step()
 

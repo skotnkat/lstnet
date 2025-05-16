@@ -84,6 +84,7 @@ def train_and_validate(model, train_loader, max_epoch_num, val_loader=None):
     print(f'Best loss obtained in epoch {best_epoch_idx}')
 
     utils.LOSS_LOGS['best_epoch_idx'] = best_epoch_idx
+    utils.LOSS_LOGS['train_loss'] = train_loss_list
 
     with open(f'{utils.OUTPUT_FOLDER}{LOSS_FILE}', 'w') as file:
         json.dump(utils.LOSS_LOGS, file, indent=2)
@@ -94,6 +95,7 @@ def train_and_validate(model, train_loader, max_epoch_num, val_loader=None):
 
 def run_full_training(first_domain_name, second_domain_name, supervised, epoch_num):
     loader = get_training_loader(first_domain_name, second_domain_name, supervised, split_data=False)
+    print(f'Number of data in training dataset: {len(loader.dataset)}')
     model = LSTNET(first_domain_name, second_domain_name)
     utils.init_logs(['train'])
 
