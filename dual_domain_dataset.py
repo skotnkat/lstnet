@@ -1,5 +1,6 @@
 from torch.utils.data import Dataset
 import torch
+import random
 
 
 class DualDomainDataset(Dataset):
@@ -53,8 +54,11 @@ class DualDomainSupervisedDataset(DualDomainDataset):  # first dataset should be
         for idx, label in enumerate(self.second_labels):
             self.label_indices[label.item()].append(idx)
 
-        self.label_cur_pos = {label: 0 for label in self.unique_labels}
-        self.label_max_size = {label: len(self.label_indices[label])-1 for label in self.unique_labels}
+        self.label_usage_counts = dict()
+        self.weights = dict()
+        for label, indices in self.label_indices.items():
+            self.label_usage_counts[label] = {idx: 0 for idx in indices}
+            self.weights[label] = {idx: 1 for idx in indices}
 
     def __len__(self):
         return self.max_size
@@ -63,14 +67,16 @@ class DualDomainSupervisedDataset(DualDomainDataset):  # first dataset should be
         first_idx = idx % self.first_size
         first_img, first_label = self.first_data[first_idx]
 
-        cur_label_pos = self.label_cur_pos[first_label]
-        second_idx = self.label_indices[first_label][cur_label_pos]
+        indices = self.label_indices[first_label]
+        usage_counts = self.label_usage_counts[first_label]
+
+        second_idx = random.choices(indices, weights=self.weights[first_label], k=1)[0]
 
         second_img, second_label = self.second_data[second_idx]
 
         # update current position for the label for second data
-        self.label_cur_pos[first_label] = (cur_label_pos + 1) % self.label_max_size[first_label]
-
+        usage_counts[second_idx] += 1
+        self.weights[first_label][second_idx] = 1.0 / (1 + usage_counts[second_idx])
         if first_label != second_label:
             raise AssertionError(f'Labels should be the same. First label: {first_label}. Second label: {second_label}')
 
