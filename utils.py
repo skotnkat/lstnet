@@ -99,13 +99,7 @@ def init_epoch_loss(op='train'):
     op_logs['cc_loss']['second_full_cycle_loss'].append(0)
 
 
-def log_epoch_loss(disc_loss, enc_gen_loss, cc_loss, op_train=True):
-    if op_train:
-        op = 'train'
-
-    else:
-        op = 'val'
-
+def log_epoch_loss(disc_loss, enc_gen_loss, cc_loss, op):
     op_logs = LOSS_LOGS[op]
     cur_epoch = len(op_logs['disc_loss']['first_loss']) - 1  # last epoch
 
@@ -123,13 +117,7 @@ def log_epoch_loss(disc_loss, enc_gen_loss, cc_loss, op_train=True):
     op_logs['cc_loss']['second_full_cycle_loss'][cur_epoch] += cc_loss[3]
 
 
-def normalize_epoch_loss(scale, op_train=True):
-    if op_train:
-        op = 'train'
-
-    else:
-        op = 'val'
-
+def normalize_epoch_loss(scale, op):
     op_logs = LOSS_LOGS[op]
     cur_epoch = len(op_logs['disc_loss']['first_loss']) - 1  # last epoch
 
