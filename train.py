@@ -13,13 +13,16 @@ MODEL_PATH = "lstnet.pth"
 LOSS_FILE = "loss_logs.json"
 
 
-def run_loop(model, loader, train_op=True):
+def run_loop(model, loader, val_op=False):
     epoch_loss = 0
+    op = 'train'
+    if val_op:
+        op = 'val'
 
     for batch_idx, (first_real, _, second_real, _) in enumerate(loader):
         first_real = first_real.to(utils.DEVICE).detach()
         second_real = second_real.to(utils.DEVICE).detach()
-        if train_op:
+        if val_op:
             disc_loss_tuple, enc_gen_loss_tuple, cc_loss_tuple = model.run_eval_loop(first_real, second_real)
         elif batch_idx % 2 == 0:
             disc_loss_tuple, enc_gen_loss_tuple, cc_loss_tuple = model.update_disc(first_real, second_real)
@@ -27,10 +30,10 @@ def run_loop(model, loader, train_op=True):
             disc_loss_tuple, enc_gen_loss_tuple, cc_loss_tuple = model.update_enc_gen(first_real, second_real)
 
         epoch_loss += sum(disc_loss_tuple) + sum(cc_loss_tuple)
-        utils.log_epoch_loss(disc_loss_tuple, enc_gen_loss_tuple, cc_loss_tuple, train_op)
+        utils.log_epoch_loss(disc_loss_tuple, enc_gen_loss_tuple, cc_loss_tuple, op)
 
     scale = len(loader)
-    utils.normalize_epoch_loss(scale, train_op)
+    utils.normalize_epoch_loss(scale, op)
     epoch_loss /= scale
 
     return epoch_loss
@@ -59,7 +62,7 @@ def train_and_validate(model, train_loader, max_epoch_num, val_loader=None):
         print(f'\tTrain loss: {epoch_loss}')
 
         if val_loader is not None:  # if validation is being run then the decision loss is validation, otherwise train  `
-            epoch_loss = run_loop(model, val_loader, train_op=False)
+            epoch_loss = run_loop(model, val_loader, val_op=True)
             val_loss_list.append(epoch_loss)
             print(f'\tVal loss: {epoch_loss}')
 
