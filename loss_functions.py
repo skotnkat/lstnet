@@ -17,7 +17,7 @@ def adversarial_loss_real(batch, label_smoothing=False):
     return adversarial_loss(batch, ones_labels)
 
 
-def adversarial_loss_gen(batch, label_smoothing=False):
+def adversarial_loss_fake(batch, label_smoothing=False):
     batch_size = batch.size(0)
     zeros_labels = torch.zeros(batch_size, 1, device=batch.device, requires_grad=False)  # expecting to be fake
 
@@ -29,7 +29,7 @@ def adversarial_loss_gen(batch, label_smoothing=False):
 
 def network_adversarial_loss(batch_real, batch_gen, label_smoothing=False):
     real_loss = adversarial_loss_real(batch_real, label_smoothing)
-    gen_loss = adversarial_loss_gen(batch_gen, label_smoothing)
+    gen_loss = adversarial_loss_fake(batch_gen, label_smoothing)
 
     return real_loss + gen_loss
 
