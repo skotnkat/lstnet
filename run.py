@@ -110,13 +110,14 @@ def initialize(args):
     utils.NUM_WORKERS = args.num_workers
     utils.BATCH_SIZE = args.batch_size
     utils.MANUAL_SEED = args.manual_seed
-    utils.VAL_SIZE = args.val_size
+
 
     utils.PARAMS_FILE_PATH = "mnist_usps_params.json"
     if args.operation in ['train', 'all']:
         utils.PARAMS_FILE_PATH = args.params_file #  svae params in architecture
         utils.ADAM_LR = args.learning_rate
         utils.ADAM_DECAY = args.decay
+        utils.VAL_SIZE = args.val_size
         train.MAX_PATIENCE = args.epoch_num  # by default no early stopping (number of epochs)
 
         if args.early_stopping:
