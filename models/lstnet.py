@@ -225,7 +225,6 @@ class LSTNET(nn.Module):
         cc_loss_tensors = loss_functions.compute_cc_loss(first_real, second_real, *imgs_cc)
         enc_gen_loss_tensors = loss_functions.compute_enc_gen_loss(self, *imgs_mapping)
 
-                                                                                              enc_gen_loss_tuple)
         total_enc_gen_loss = functools.reduce(operator.add, cc_loss_tensors) + functools.reduce(operator.add,
                                                                                               enc_gen_loss_tensors)
         total_enc_gen_loss.backward()
