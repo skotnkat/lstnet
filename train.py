@@ -51,15 +51,17 @@ def train_and_validate(model, train_loader, max_epoch_num, val_loader=None):
 
     model.to(utils.DEVICE)
     for epoch_idx in range(max_epoch_num):
+        print(f'Running epoch {epoch_idx}')
         start_time = time.time()
         utils.init_epoch_loss()
         epoch_loss = run_loop(model, train_loader)
         train_loss_list.append(epoch_loss)
+        print(f'\tTrain loss: {epoch_loss}')
 
         if val_loader is not None:  # if validation is being run then the decision loss is validation, otherwise train  `
             epoch_loss = run_loop(model, val_loader, train_op=False)
             val_loss_list.append(epoch_loss)
-
+            print(f'\tVal loss: {epoch_loss}')
 
         if epoch_loss < best_loss:
             best_model = copy.deepcopy(model)
@@ -75,8 +77,7 @@ def train_and_validate(model, train_loader, max_epoch_num, val_loader=None):
                 break
 
         end_time = time.time()
-        print(f'End of epoch {epoch_idx}')
-        print(f'\tCurrent val loss: {epoch_loss}')
+
         print(f'\tEpoch took: {(end_time - start_time) / 60:.2f} min')
         print(f'\tPatience: {cur_patience}')
 
