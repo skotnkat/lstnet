@@ -199,18 +199,20 @@ class LSTNET(nn.Module):
         with torch.no_grad():
             imgs_mapping = self.run_networks(first_real, second_real)  # generated images and latent
 
-        disc_loss_tuple = loss_functions.compute_discriminator_loss(self, first_real, second_real, *imgs_mapping)
+        disc_loss_tensors = loss_functions.compute_discriminator_loss(self, first_real, second_real, *imgs_mapping)
 
-        total_disc_loss = functools.reduce(operator.add, disc_loss_tuple)
+        total_disc_loss = functools.reduce(operator.add, disc_loss_tensors)
         total_disc_loss.backward()
 
         self.disc_optim.step()
 
+        disc_loss_tuple = tuple(tensor.item() for tensor in disc_loss_tensors)   # transform tensor to tuple
+
         # only for obtaining all the losses, no update
         with torch.no_grad():
             imgs_cc = self.get_cc_components(*imgs_mapping)
-            enc_gen_loss_tuple = loss_functions.compute_enc_gen_loss(self, *imgs_mapping)
-            cc_loss_tuple = loss_functions.compute_cc_loss(first_real, second_real, *imgs_cc)
+            cc_loss_tuple = loss_functions.compute_cc_loss(first_real, second_real, *imgs_cc, return_grad=False)
+            enc_gen_loss_tuple = loss_functions.compute_enc_gen_loss(self, *imgs_mapping, return_grad=False)
 
         return disc_loss_tuple, enc_gen_loss_tuple, cc_loss_tuple
 
@@ -220,17 +222,20 @@ class LSTNET(nn.Module):
         imgs_mapping = self.run_networks(first_real, second_real)  # generated images and latent
         imgs_cc = self.get_cc_components(*imgs_mapping)
 
-        cc_loss_tuple = loss_functions.compute_cc_loss(first_real, second_real, *imgs_cc)
-        enc_gen_loss_tuple = loss_functions.compute_enc_gen_loss(self, *imgs_mapping)
+        cc_loss_tensors = loss_functions.compute_cc_loss(first_real, second_real, *imgs_cc)
+        enc_gen_loss_tensors = loss_functions.compute_enc_gen_loss(self, *imgs_mapping)
 
-        total_enc_gen_loss = functools.reduce(operator.add, cc_loss_tuple) + functools.reduce(operator.add,
                                                                                               enc_gen_loss_tuple)
+        total_enc_gen_loss = functools.reduce(operator.add, cc_loss_tensors) + functools.reduce(operator.add,
+                                                                                              enc_gen_loss_tensors)
         total_enc_gen_loss.backward()
         self.enc_gen_optim.step()
 
+        cc_loss_tuple = tuple(tensor.item() for tensor in cc_loss_tensors)  # transform tensor to tuple
+        enc_gen_loss_tuple = tuple(tensor.item() for tensor in enc_gen_loss_tensors)  # transform tensor to tuple
         # only for obtaining all losses, no update
         with torch.no_grad():
-            disc_loss_tuple = loss_functions.compute_discriminator_loss(self, first_real, second_real, *imgs_mapping)
+            disc_loss_tuple = loss_functions.compute_discriminator_loss(self, first_real, second_real, *imgs_mapping, return_grad=False)
 
         return disc_loss_tuple, enc_gen_loss_tuple, cc_loss_tuple
 
@@ -240,7 +245,7 @@ class LSTNET(nn.Module):
             imgs_cc = self.get_cc_components(*imgs_mapping)
 
             disc_loss_tuple = loss_functions.compute_discriminator_loss(self, first_real, second_real, *imgs_mapping, return_grad=False)
-            enc_gen_loss_tuple = loss_functions.compute_enc_gen_loss(self, *imgs_mapping)
             cc_loss_tuple = loss_functions.compute_cc_loss(first_real, second_real, *imgs_cc, return_grad=False)
+            enc_gen_loss_tuple = loss_functions.compute_enc_gen_loss(self, *imgs_mapping, return_grad=False)
 
         return disc_loss_tuple, enc_gen_loss_tuple, cc_loss_tuple
