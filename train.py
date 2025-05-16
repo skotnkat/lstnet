@@ -6,7 +6,6 @@ from models.lstnet import LSTNET
 from data_preparation import get_training_loader
 import utils
 import time
-from tqdm import tqdm
 
 MAX_PATIENCE = None
 
@@ -51,7 +50,7 @@ def train_and_validate(model, train_loader, max_epoch_num, val_loader=None):
     cur_patience = 0
 
     model.to(utils.DEVICE)
-    for epoch_idx in tqdm(range(max_epoch_num)):
+    for epoch_idx in range(max_epoch_num):
         start_time = time.time()
         utils.init_epoch_loss()
         epoch_loss = run_loop(model, train_loader)
