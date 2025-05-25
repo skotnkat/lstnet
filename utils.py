@@ -1,4 +1,6 @@
 import json
+import torch
+from lion_pytorch import Lion
 
 PARAMS_FILE_PATH = None
 NETWORK_NAMES = {"first_encoder", "second_encoder", "shared_encoder", "first_generator", "second_generator",
@@ -135,8 +137,6 @@ def normalize_epoch_loss(scale, op):
     op_logs['cc_loss']['second_full_cycle_loss'][cur_epoch] /= scale
 
 
-
-
 def check_file_ending(file, ending):
     if not file.endswith(ending):
         file = file + ending
@@ -153,6 +153,26 @@ def set_input_dimensions(dataset):
 
     SECOND_INPUT_SHAPE = second_img.shape[1:]
     SECOND_IN_CHANNELS_NUM = second_img.shape[0]
+
+
+def init_optimizer(optim_name, model_params, lr):
+    optim = None
+    if optim_name == "Adam":
+        optim = torch.optim.Adam(model_params, lr)
+
+    elif optim_name == "AdamW":
+        optim = torch.optim.AdamW(model_params, lr)
+
+    elif optim_name == "Lion":
+        optim = Lion(model_params, lr)
+
+    else:
+        err_msg = f"Given optimizer name {optim_name} is not internally implemented yet"
+        print(f'Error message: {err_msg}')  # throw argument error
+
+    return optim
+
+
 def get_device():
     return torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
