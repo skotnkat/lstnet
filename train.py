@@ -40,7 +40,7 @@ def run_loop(model, loader, val_op=False):
     return epoch_loss
 
 
-def train_and_validate(model, train_loader, max_epoch_num, val_loader=None):
+def train_and_validate(model, train_loader, max_epoch_num, val_loader=None, return_last_model=False):
     """
         First phase of training. Without knowledge of the labels (will be ignoring the labels).
         Validate only if val_loader is passed.
@@ -85,16 +85,17 @@ def train_and_validate(model, train_loader, max_epoch_num, val_loader=None):
         print(f'\tEpoch took: {(end_time - start_time) / 60:.2f} min')
         print(f'\tPatience: {cur_patience}')
 
-    print(f'Best loss obtained in epoch {best_epoch_idx}')
+    if not return_last_model:  # return best one
+        utils.LOSS_LOGS['best_epoch_idx'] = best_epoch_idx
+        model = best_model
 
-    utils.LOSS_LOGS['best_epoch_idx'] = best_epoch_idx
     utils.LOSS_LOGS['train_loss'] = train_loss_list
 
     with open(f'{utils.OUTPUT_FOLDER}{LOSS_FILE}', 'w') as file:
         json.dump(utils.LOSS_LOGS, file, indent=2)
 
-    best_model.to("cpu")
-    return best_model, best_epoch_idx
+    model.to("cpu")
+    return model
 
 
 def run_full_training(first_domain_name, second_domain_name, supervised, epoch_num):
@@ -104,7 +105,7 @@ def run_full_training(first_domain_name, second_domain_name, supervised, epoch_n
     utils.init_logs(['train'])
 
     print('Starting full training')
-    model, best_epoch_idx = train_and_validate(model, loader, epoch_num)
+    model = train_and_validate(model, loader, epoch_num)
     print('Model trained on full train dataset.')
     model_path = f'{utils.OUTPUT_FOLDER}{MODEL_PATH}'
     model.save_model(model_path)
@@ -118,7 +119,7 @@ def run(first_domain_name, second_domain_name, supervised, epoch_num):
     utils.init_logs(['train', 'val'])
 
     print('Starting train and validate')
-    model, best_epoch_idx = train_and_validate(model, train_loader, val_loader, epoch_num)  # pass both loaders at once
+    model = train_and_validate(model, train_loader, val_loader, epoch_num)  # pass both loaders at once
     print('Model trained trained and validated.')
 
     model_path = f'{utils.OUTPUT_FOLDER}{MODEL_PATH}'
