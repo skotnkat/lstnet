@@ -153,3 +153,12 @@ def set_input_dimensions(dataset):
 
     SECOND_INPUT_SHAPE = second_img.shape[1:]
     SECOND_IN_CHANNELS_NUM = second_img.shape[0]
+def get_device():
+    return torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+
+def assign_device():
+    global DEVICE
+
+    DEVICE = get_device()
+    print(f'Using device: {DEVICE}')
