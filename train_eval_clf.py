@@ -66,7 +66,7 @@ def train(domain_name, params, train_loader, val_loader, optuna=False, trial=Non
     clf = clf_utils.select_classifier(domain_name, params)
 
     best_clf = None
-    best_val_acc = np.inf
+    best_val_acc = -np.inf
 
     train_loss_list = []
     train_acc_list = []
