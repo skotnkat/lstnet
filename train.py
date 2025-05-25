@@ -20,8 +20,9 @@ def run_loop(model, loader, val_op=False):
         op = 'val'
 
     for batch_idx, (first_real, _, second_real, _) in enumerate(loader):
-        first_real = first_real.to(utils.DEVICE).detach()
-        second_real = second_real.to(utils.DEVICE).detach()
+        first_real = first_real.to(utils.DEVICE)
+        second_real = second_real.to(utils.DEVICE)
+
         if val_op:
             disc_loss_tuple, enc_gen_loss_tuple, cc_loss_tuple = model.run_eval_loop(first_real, second_real)
         elif batch_idx % 2 == 0:
