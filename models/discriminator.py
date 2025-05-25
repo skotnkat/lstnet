@@ -9,10 +9,13 @@ EPSILON = 1e-8
 
 class Discriminator(LstnetComponent):
     def __init__(self, input_size, in_channels_num, params):
-        self.dense_layer_params = params[-1]
+        self.dense_layer_params = params[-2]
+        self.negative_slope = params[-1]["leaky_relu_neg_slope"]
+
         self.last_layer_idx = 2
-        
-        super().__init__(input_size, in_channels_num, params[:-1])  # pass all the params apart for last layer
+
+        # pass all the params apart from leaky relu and last layer
+        super().__init__(input_size, in_channels_num, params[:-2])
 
         last_output_size = self.get_last_layer_output_size()  
         last_layer_out_channels = self.get_last_layer_out_channels()
@@ -20,7 +23,7 @@ class Discriminator(LstnetComponent):
         in_features = last_output_size[0]*last_output_size[1]*last_layer_out_channels
 
         self.dense_layer_params["in_features"] = in_features
-        last_layer = Discriminator._create_last_layer(self.dense_layer_params)
+        last_layer = self._create_last_layer()
 
         self.layers.append(last_layer)
 
@@ -28,17 +31,10 @@ class Discriminator(LstnetComponent):
         x = self.layers.forward(x)
         return x  # returns raw
 
-        # not needed as using BCELogits
-        # for numerical stability
-        # x_clamped = torch.clamp(x, min=EPSILON, max=1-EPSILON)
-        
-        # return x_clamped
-
-    @staticmethod
-    def _create_stand_layer(params, in_channels, input_size):
+    def _create_stand_layer(self, params, in_channels, input_size):
         conv_params, pool_params = params
         conv = Conv2dExtended(in_channels, input_size=input_size, **conv_params)  
-        relu = nn.LeakyReLU(negative_slope=0.3)
+        relu = nn.LeakyReLU(negative_slope=self.negative_slope)
 
         output_size = conv.compute_output_size(input_size)
 
@@ -48,11 +44,10 @@ class Discriminator(LstnetComponent):
     
         return layer
 
-    @staticmethod
-    def _create_last_layer(params):
+    def _create_last_layer(self):
         last_layer = nn.Sequential(
             nn.Flatten(),
-            nn.Linear(**params),
+            nn.Linear(**self.dense_layer_params),
         )
     
         return last_layer
