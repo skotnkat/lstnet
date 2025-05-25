@@ -31,9 +31,8 @@ class LstnetComponent(ABC, nn.Module):
 
         return output_size
 
-    @staticmethod
     @abstractmethod
-    def _create_stand_layer(params, in_channels, input_size=None):  
+    def _create_stand_layer(self, params, in_channels, input_size=None):
         pass
 
     @staticmethod
