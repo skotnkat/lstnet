@@ -123,8 +123,7 @@ def initialize(args):
         if args.early_stopping:
             train.MAX_PATIENCE = args.patience
 
-
-    utils.DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    utils.assign_device()
 
     print(f'Device being used: {utils.DEVICE}')
 
