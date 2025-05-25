@@ -5,6 +5,7 @@ import json
 import os
 from time import time
 import numpy as np
+import optuna
 
 import clf_utils
 from data_preparation import load_augmented_dataset
@@ -62,9 +63,7 @@ def load_data(domain_name):
     return train_loader, val_loader
 
 
-def train(domain_name, params, train_loader, val_loader, optuna=False, trial=None):
-    clf = clf_utils.select_classifier(domain_name, params)
-
+def train(clf, train_loader, val_loader, run_optuna=False, trial=None):
     best_clf = None
     best_val_acc = -np.inf
 
@@ -101,16 +100,16 @@ def train(domain_name, params, train_loader, val_loader, optuna=False, trial=Non
         else:
             patience_cnt += 1
 
-            if patience_cnt > clf.patience:
+            if patience_cnt >= clf.patience:
                 print(f'Patience {patience_cnt} reached its limit {clf.patience}.')
                 break
-
-        if optuna:
+        
+        # print output only when not doing hyperparameter tuning
+        if run_optuna:
             trial.report(val_acc, epoch)
             if trial.should_prune():
                 raise optuna.exceptions.TrialPruned()
 
-        # print output only when not doing hyperparameter tuning
         else:
             print(f'Epoch {epoch}:')
             print(f'\tTrain loss: {train_loss:.6f}, Train acc: {train_acc:.6f}')
@@ -144,8 +143,9 @@ if __name__ == "__main__":
         params = json.load(file)
 
     train_loader, val_loader = load_data(args.domain_name)
-
-    clf, val_acc, results = train(args.domain_name, params, train_loader, val_loader)
+    clf = clf_utils.select_classifier(domain_name, params)
+    
+    clf, val_acc, results = train(clf, train_loader, val_loader)
 
     with open(f'{MODEL_FOLDER}/results.json', 'w') as file:
         json.dump(results, file, indent=2)
