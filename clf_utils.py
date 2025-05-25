@@ -7,15 +7,12 @@ def select_classifier(domain_name, params):
 
     if domain_name == "MNIST":
         clf = MnistClf(params)
-        print(f'MNIST Classifier Initialized')
 
     elif domain_name == "USPS":
         clf = UspsClf(params)
-        print(f'USPS Classifier Initialized')
 
     elif domain_name == "SVHN":
         clf = SvhnClf(params)
-        print(f'SVHN Classifier Initialized')
 
     if clf is None:
         raise ValueError("No classifier model as loaded.")
