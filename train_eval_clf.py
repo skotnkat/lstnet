@@ -75,7 +75,6 @@ def train(domain_name, params, train_loader, val_loader, optuna=False, trial=Non
     patience_cnt = 0
 
     for epoch in range(clf.epochs):
-        print(f'Epoch {epoch}:')
         start_time = time()
         ######################################################
         clf.train()
@@ -93,9 +92,6 @@ def train(domain_name, params, train_loader, val_loader, optuna=False, trial=Non
 
         ######################################################
         end_time = time()
-        print(f'\tTrain loss: {train_loss:.6f}, Train acc: {train_acc:.6f}')
-        print(f'\tVal loss: {val_loss:.6f}, Val acc: {val_acc:.6f}')
-        print(f'\tTook: {(end_time-start_time)/60:.2f} min')
 
         if val_acc > best_val_acc:
             best_val_acc = val_acc
@@ -109,14 +105,21 @@ def train(domain_name, params, train_loader, val_loader, optuna=False, trial=Non
                 print(f'Patience {patience_cnt} reached its limit {clf.patience}.')
                 break
 
-        print(f'patience: {patience_cnt}')
-
         if optuna:
             trial.report(val_acc, epoch)
             if trial.should_prune():
                 raise optuna.exceptions.TrialPruned()
 
+        # print output only when not doing hyperparameter tuning
+        else:
+            print(f'Epoch {epoch}:')
+            print(f'\tTrain loss: {train_loss:.6f}, Train acc: {train_acc:.6f}')
+            print(f'\tVal loss: {val_loss:.6f}, Val acc: {val_acc:.6f}')
+            print(f'\tTook: {(end_time - start_time) / 60:.2f} min')
+            print(f'\tPatience: {patience_cnt}')
+
         ######################################################
+
     results = {'train_loss': train_loss_list, 'train_acc': train_acc_list,
                'val_loss': val_loss_list, 'val_acc': val_acc_list}
 
