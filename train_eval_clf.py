@@ -32,8 +32,8 @@ def run_loop(clf, loader, train=True):
     loss_total = 0
     acc_total = 0
     for x, y in loader:
-        x = x.to(device)
-        y = y.to(device)
+        x = x.to(utils.DEVICE)
+        y = y.to(utils.DEVICE)
         clf.optimizer.zero_grad()
         outputs = clf.forward(x)
 
@@ -125,8 +125,7 @@ def train(domain_name, params, train_loader, val_loader, optuna=False, trial=Non
 
 if __name__ == "__main__":
     args = parse_args()
-    device = utils.get_device()
-    print(f'Using device: {device}')
+    utils.assign_device()
 
     # obtain the dataset size
     args.domain_name = args.domain_name.upper()
