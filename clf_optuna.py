@@ -102,15 +102,19 @@ if __name__ == "__main__":
     best_model = study.best_trial.user_attrs["best_model"]
     torch.save(best_model, f"{output_dir}/model.pth")
 
+    best_params["best_val_acc"] = best_val_acc
     with open(f"{output_dir}/params.json", "w") as file:
         json.dump(best_params, file, indent=2)
 
         # visualize importances and accuracies
-    fig1 = plot_param_importances(study)
-    fig1.figure.savefig(f"{output_dir}/param_importances.png")
+    fig1 = plot_param_importances(study).figure
+    fig1.savefig(f"{output_dir}/param_importances.png")
+    plt.closefig(fig1)
     
-    fig2 = plot_optimization_history(study)
-    fig2.figure.savefig(f"{output_dir}/optimization_history.png")
+    fig2 = plot_optimization_history(study).figure
+    fig2.savefig(f"{output_dir}/optimization_history.png")
+    plt.closefig(fig2)
     
-    fig3 = plot_parallel_coordinate(study)
-    fig3.figure.savefig(f"{output_dir}/parallel_coordinate.png")
+    fig3 = plot_parallel_coordinate(study).figure
+    fig3.savefig(f"{output_dir}/parallel_coordinate.png")
+    plt.closefig(fig3)
