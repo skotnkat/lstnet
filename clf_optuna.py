@@ -88,9 +88,11 @@ if __name__ == "__main__":
     study.optimize(lambda trial: objective(trial, args.domain_name), n_trials=50)
 
     trial = study.best_trial
-    print(f'Best validation accuracy: {trial.value:.4f}')
-    print(f'Best params:')
+    best_val_acc = trial.value
     best_params = trial.params
+
+    print(f'Best validation accuracy: {best_val_acc:.4f}')
+    print(f'Best params:')
     for key, value in best_params.items():
         print(f"\t{key}: {value}")
 
