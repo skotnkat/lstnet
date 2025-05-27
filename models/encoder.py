@@ -6,7 +6,7 @@ from models.extended_layers import Conv2dExtended
 
 class Encoder(LstnetComponent):
     def __init__(self, input_size, in_channels_num, params):
-        self.negative_slope = params[-1]
+        self.negative_slope = params[-1]["leaky_relu_neg_slope"]
 
         super().__init__(input_size, in_channels_num, params[:-1])
 
