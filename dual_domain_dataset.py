@@ -60,9 +60,6 @@ class DualDomainSupervisedDataset(DualDomainDataset):  # first dataset should be
             self.label_usage_counts[label] = {idx: 0 for idx in indices}
             self.weights[label] = {idx: 1 for idx in indices}
 
-    def __len__(self):
-        return self.max_size
-
     def __getitem__(self, idx):
         first_idx = idx % self.first_size
         first_img, first_label = self.first_data[first_idx]
