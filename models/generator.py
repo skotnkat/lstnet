@@ -5,10 +5,15 @@ from models.extended_layers import ConvTranspose2dExtended
 
 
 class Generator(LstnetComponent):
-    def __init__(self, input_size, in_channels_num, params):
-        self.negative_slope = params[-1]
+    def __init__(self, input_size, in_channels_num, params,
+                 negative_slope=0.01, momentum=0.1, epsilon=1e-5):
+
         # pass all the params apart the ones for the last layer
         super().__init__(input_size, in_channels_num, params[:-1], skip_last_layer=True)
+
+        self.leaky_relu_negative_slope = negative_slope
+        self.batch_norm_momentum = momentum
+        self.batch_norm_epsilon = epsilon
 
         last_output_size = self.get_last_layer_output_size()
         last_out_channels_num = self.get_last_layer_out_channels()
@@ -19,8 +24,8 @@ class Generator(LstnetComponent):
     def _create_stand_layer(self, params, in_channels, input_size=None):
         layer = nn.Sequential(
             ConvTranspose2dExtended(in_channels, **params),
-            nn.BatchNorm2d(params["out_channels"], momentum=0.01, eps=0.001),
-            nn.LeakyReLU(negative_slope=0.3)
+            nn.BatchNorm2d(params["out_channels"], momentum=self.batch_norm_momentum, eps=self.batch_norm_epsilon),
+            nn.LeakyReLU(negative_slope=self.leaky_relu_negative_slope)
         )
     
         return layer

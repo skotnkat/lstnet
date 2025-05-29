@@ -45,6 +45,11 @@ class LSTNET(nn.Module):
         if self.params is None:
             self.params = utils.get_networks_params()
 
+        self.global_params = {**params["leaky_relu"], **params["batch_norm"]}
+
+        del self.params["leaky_relu"]
+        del self.params["batch_norm"]
+
         self.initialize_encoders()
 
         self.initialize_generators()
@@ -69,35 +74,35 @@ class LSTNET(nn.Module):
         print('LSTNET model initialized')
 
     def initialize_encoders(self):
-        self.first_encoder = Encoder(self.first_input_size, self.first_in_channels_num, self.params["first_encoder"])
-        self.second_encoder = Encoder(self.second_input_size, self.second_in_channels_num, self.params["second_encoder"])
+
+        self.first_encoder = Encoder(self.first_input_size, self.first_in_channels_num, self.params["first_encoder"], **self.global_params)
+        self.second_encoder = Encoder(self.second_input_size, self.second_in_channels_num, self.params["second_encoder"], **self.global_params)
 
         input_size_shared = self.first_encoder.get_last_layer_output_size()
         in_channels_num_shared = self.first_encoder.get_last_layer_out_channels()
-        self.shared_encoder = Encoder(input_size_shared, in_channels_num_shared, params=self.params["shared_encoder"])
+        self.shared_encoder = Encoder(input_size_shared, in_channels_num_shared, params=self.params["shared_encoder"], **self.global_params)
 
     def initialize_generators(self):
         input_size_shared = self.shared_encoder.get_last_layer_output_size()
         out_channels_shared = self.shared_encoder.get_last_layer_out_channels()
 
-        self.shared_generator = Generator(input_size_shared, out_channels_shared, self.params["shared_generator"])
+        self.shared_generator = Generator(input_size_shared, out_channels_shared, self.params["shared_generator"], **self.global_params)
 
         input_size = self.shared_generator.get_last_layer_output_size()
 
         out_channels = self.shared_generator.get_last_layer_out_channels()
 
-        self.first_generator = Generator(input_size, out_channels, self.params["first_generator"])
-        self.second_generator = Generator(input_size, out_channels, self.params["second_generator"])
+        self.first_generator = Generator(input_size, out_channels, self.params["first_generator"], **self.global_params)
+        self.second_generator = Generator(input_size, out_channels, self.params["second_generator"], **self.global_params)
 
     def initialize_discriminators(self):
-        self.first_discriminator = Discriminator(self.first_input_size, self.first_in_channels_num, self.params["first_discriminator"])
-        self.second_discriminator = Discriminator(self.second_input_size, self.second_in_channels_num,
-                                                  self.params["second_discriminator"])
+        self.first_discriminator = Discriminator(self.first_input_size, self.first_in_channels_num, self.params["first_discriminator"], **self.global_params)
+        self.second_discriminator = Discriminator(self.second_input_size, self.second_in_channels_num, self.params["second_discriminator"], **self.global_params)
 
         input_size_shared = self.shared_encoder.get_last_layer_output_size()
         out_channels_shared = self.shared_encoder.get_last_layer_out_channels()
         self.latent_discriminator = Discriminator(input_size_shared, out_channels_shared,
-                                                  self.params["latent_discriminator"])
+                                                  self.params["latent_discriminator"], **self.global_params)
 
     def map_first_to_latent(self, x_first):
         x_latent = self.first_encoder.forward(x_first)
@@ -156,11 +161,13 @@ class LSTNET(nn.Module):
             self.second_domain_name = name
 
     def save_model(self, output_path):
+        self.params["leaky_relu"] = {"negative_slope": self.global_params["negative_slope"]}
+        self.params["batch_norm"] = {"momentum": self.global_params["momentum"], "epsilon": self.global_params["epsilon"]}
         attr_dict = {
             'domain_name': [self.first_domain_name, self.second_domain_name],
             'input_shape': [self.first_input_size, self.second_input_size],
             'in_channels_num': [self.first_in_channels_num, self.second_in_channels_num],
-            'params' : self.params
+            'params': self.params
         }
 
         dict_to_save = {
