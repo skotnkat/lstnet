@@ -5,16 +5,19 @@ from models.extended_layers import Conv2dExtended
 
 
 class Encoder(LstnetComponent):
-    def __init__(self, input_size, in_channels_num, params):
-        self.negative_slope = params[-1]["leaky_relu_neg_slope"]
-
+    def __init__(self, input_size, in_channels_num, params,
+                 negative_slope=0.01, momentum=0.1, epsilon=1e-5):
         super().__init__(input_size, in_channels_num, params[:-1])
+
+        self.leaky_relu_negative_slope = negative_slope
+        self.batch_norm_momentum = momentum
+        self.batch_norm_epsilon = epsilon
 
     def _create_stand_layer(self, params, in_channels, input_size):
         layer = nn.Sequential(
             Conv2dExtended(in_channels, input_size=input_size, **params),
-            nn.BatchNorm2d(params["out_channels"], momentum=0.01, eps=0.001),
-            nn.LeakyReLU(negative_slope=self.negative_slope)
+            nn.BatchNorm2d(params["out_channels"], momentum=self.batch_norm_momentum, epsilon=self.batch_norm_epsilon),
+            nn.LeakyReLU(negative_slope=self.leaky_relu_negative_slope)
         )
     
         return layer

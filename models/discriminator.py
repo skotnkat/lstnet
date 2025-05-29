@@ -8,14 +8,14 @@ EPSILON = 1e-8
 
 
 class Discriminator(LstnetComponent):
-    def __init__(self, input_size, in_channels_num, params):
-        self.dense_layer_params = params[-2]
-        self.negative_slope = params[-1]["leaky_relu_neg_slope"]
+    def __init__(self, input_size, in_channels_num, params, negative_slope=0.01):
+        self.dense_layer_params = params[-1]
+        self.leaky_relu_neg_slope = negative_slope
 
         self.last_layer_idx = 2
 
         # pass all the params apart from leaky relu and last layer
-        super().__init__(input_size, in_channels_num, params[:-2])
+        super().__init__(input_size, in_channels_num, params[:-1])
 
         last_output_size = self.get_last_layer_output_size()  
         last_layer_out_channels = self.get_last_layer_out_channels()
@@ -34,7 +34,7 @@ class Discriminator(LstnetComponent):
     def _create_stand_layer(self, params, in_channels, input_size):
         conv_params, pool_params = params
         conv = Conv2dExtended(in_channels, input_size=input_size, **conv_params)  
-        relu = nn.LeakyReLU(negative_slope=self.negative_slope)
+        relu = nn.LeakyReLU(negative_slope=self.leaky_relu_neg_slope)
 
         output_size = conv.compute_output_size(input_size)
 
