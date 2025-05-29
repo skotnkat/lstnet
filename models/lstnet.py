@@ -41,19 +41,18 @@ class LSTNET(nn.Module):
         self.first_in_channels_num = utils.FIRST_IN_CHANNELS_NUM
         self.second_in_channels_num = utils.SECOND_IN_CHANNELS_NUM
 
-        self.params = params
-        if self.params is None:
-            self.params = utils.get_networks_params()
+        if params is None:
+            params = utils.get_networks_params()
 
         self.global_params = {**params["leaky_relu"], **params["batch_norm"]}
 
-        del self.params["leaky_relu"]
-        del self.params["batch_norm"]
+        del params["leaky_relu"]
+        del params["batch_norm"]
+
+        self.params = params
 
         self.initialize_encoders()
-
         self.initialize_generators()
-
         self.initialize_discriminators()
 
         self.disc_params = list(self.first_discriminator.parameters()) \
@@ -75,29 +74,36 @@ class LSTNET(nn.Module):
 
     def initialize_encoders(self):
 
-        self.first_encoder = Encoder(self.first_input_size, self.first_in_channels_num, self.params["first_encoder"], **self.global_params)
-        self.second_encoder = Encoder(self.second_input_size, self.second_in_channels_num, self.params["second_encoder"], **self.global_params)
+        self.first_encoder = Encoder(self.first_input_size, self.first_in_channels_num, self.params["first_encoder"],
+                                     **self.global_params)
+        self.second_encoder = Encoder(self.second_input_size, self.second_in_channels_num,
+                                      self.params["second_encoder"], **self.global_params)
 
         input_size_shared = self.first_encoder.get_last_layer_output_size()
         in_channels_num_shared = self.first_encoder.get_last_layer_out_channels()
-        self.shared_encoder = Encoder(input_size_shared, in_channels_num_shared, params=self.params["shared_encoder"], **self.global_params)
+        self.shared_encoder = Encoder(input_size_shared, in_channels_num_shared, params=self.params["shared_encoder"],
+                                      **self.global_params)
 
     def initialize_generators(self):
         input_size_shared = self.shared_encoder.get_last_layer_output_size()
         out_channels_shared = self.shared_encoder.get_last_layer_out_channels()
 
-        self.shared_generator = Generator(input_size_shared, out_channels_shared, self.params["shared_generator"], **self.global_params)
+        self.shared_generator = Generator(input_size_shared, out_channels_shared, self.params["shared_generator"],
+                                          **self.global_params)
 
         input_size = self.shared_generator.get_last_layer_output_size()
 
         out_channels = self.shared_generator.get_last_layer_out_channels()
 
         self.first_generator = Generator(input_size, out_channels, self.params["first_generator"], **self.global_params)
-        self.second_generator = Generator(input_size, out_channels, self.params["second_generator"], **self.global_params)
+        self.second_generator = Generator(input_size, out_channels, self.params["second_generator"],
+                                          **self.global_params)
 
     def initialize_discriminators(self):
-        self.first_discriminator = Discriminator(self.first_input_size, self.first_in_channels_num, self.params["first_discriminator"], **self.global_params)
-        self.second_discriminator = Discriminator(self.second_input_size, self.second_in_channels_num, self.params["second_discriminator"], **self.global_params)
+        self.first_discriminator = Discriminator(self.first_input_size, self.first_in_channels_num,
+                                                 self.params["first_discriminator"], **self.global_params)
+        self.second_discriminator = Discriminator(self.second_input_size, self.second_in_channels_num,
+                                                  self.params["second_discriminator"], **self.global_params)
 
         input_size_shared = self.shared_encoder.get_last_layer_output_size()
         out_channels_shared = self.shared_encoder.get_last_layer_out_channels()
@@ -162,7 +168,8 @@ class LSTNET(nn.Module):
 
     def save_model(self, output_path):
         self.params["leaky_relu"] = {"negative_slope": self.global_params["negative_slope"]}
-        self.params["batch_norm"] = {"momentum": self.global_params["momentum"], "epsilon": self.global_params["epsilon"]}
+        self.params["batch_norm"] = {"momentum": self.global_params["momentum"],
+                                     "epsilon": self.global_params["epsilon"]}
         attr_dict = {
             'domain_name': [self.first_domain_name, self.second_domain_name],
             'input_shape': [self.first_input_size, self.second_input_size],
@@ -193,7 +200,9 @@ class LSTNET(nn.Module):
         utils.FIRST_INPUT_SHAPE, utils.SECOND_INPUT_SHAPE = attr_dict['input_shape']
         utils.FIRST_IN_CHANNELS_NUM, utils.SECOND_IN_CHANNELS_NUM = attr_dict['in_channels_num']
 
-        model = LSTNET(first_domain_name, second_domain_name, params=attr_dict['params'])
+        params = attr_dict['params']
+
+        model = LSTNET(first_domain_name, second_domain_name, params=params)
         model.load_state_dict(state_dict)
 
         return model
@@ -230,11 +239,13 @@ class LSTNET(nn.Module):
         cc_loss_tensors = loss_functions.compute_cc_loss(first_real, second_real, *imgs_cc)
         enc_gen_loss_tensors = loss_functions.compute_enc_gen_loss(self, *imgs_mapping)
 
-        total_enc_gen_loss = functools.reduce(operator.add, cc_loss_tensors) + functools.reduce(operator.add, enc_gen_loss_tensors)
+        total_enc_gen_loss = functools.reduce(operator.add, cc_loss_tensors) + functools.reduce(operator.add,
+                                                                                                enc_gen_loss_tensors)
 
         # only for obtaining all losses, no update
         with torch.no_grad():
-            disc_loss_tuple = loss_functions.compute_discriminator_loss(self, first_real, second_real, *imgs_mapping, return_grad=False)
+            disc_loss_tuple = loss_functions.compute_discriminator_loss(self, first_real, second_real, *imgs_mapping,
+                                                                        return_grad=False)
 
         total_enc_gen_loss.backward()
         self.enc_gen_optim.step()
@@ -249,7 +260,8 @@ class LSTNET(nn.Module):
             imgs_mapping = self.run_networks(first_real, second_real)
             imgs_cc = self.get_cc_components(*imgs_mapping)
 
-            disc_loss_tuple = loss_functions.compute_discriminator_loss(self, first_real, second_real, *imgs_mapping, return_grad=False)
+            disc_loss_tuple = loss_functions.compute_discriminator_loss(self, first_real, second_real, *imgs_mapping,
+                                                                        return_grad=False)
             cc_loss_tuple = loss_functions.compute_cc_loss(first_real, second_real, *imgs_cc, return_grad=False)
             enc_gen_loss_tuple = loss_functions.compute_enc_gen_loss(self, *imgs_mapping, return_grad=False)
 

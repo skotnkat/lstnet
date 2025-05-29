@@ -8,7 +8,7 @@ EPSILON = 1e-8
 
 
 class Discriminator(LstnetComponent):
-    def __init__(self, input_size, in_channels_num, params, negative_slope=0.01):
+    def __init__(self, input_size, in_channels_num, params, negative_slope=0.01, **kwargs):
         self.dense_layer_params = params[-1]
         self.leaky_relu_neg_slope = negative_slope
 

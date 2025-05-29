@@ -51,6 +51,7 @@ def add_eval_args(parser):
     parser.add_argument("clf_model", type=str, help="Name of the model to classify the data.")
     parser.add_argument("--dataset_path", default="", type=str, help="Name of file to load the dataset from")
     parser.add_argument("--output_results_file", default="results_json", type=str)
+    parser.add_argument("--log_name", default="test_acc", type=str)
 
 
 def add_end_to_end_parser(parser):
@@ -156,12 +157,12 @@ def run_translation(args, domain, model=None, return_data=False, save_trans_data
         return translated_data
 
 
-def run_evaluation(clf_name, domain_name, data_path=""):
+def run_evaluation(clf_name, domain_name, log_name, data_path=""):
     model = torch.load(clf_name, weights_only=False, map_location=utils.DEVICE)
     test_acc = domain_adaptation.evaluate(model, domain_name, data_path)
 
-    with open(f'{utils.OUTPUT_FOLDER}{domain_name}_eval_results.json', 'w') as file:
-        json.dump({f'test_acc': test_acc}, file, indent=2)
+    with open(f'{utils.OUTPUT_FOLDER}{domain_name}_eval_results.json', 'a') as file:
+        json.dump({f'{log_name}': test_acc}, file, indent=2)
 
 
 def run_end_to_end(args):
@@ -170,8 +171,8 @@ def run_end_to_end(args):
     run_translation(args, args.first_domain, model, args.save_trans_data)  # might be better to return data and immediately use them in eval
     run_translation(args, args.second_domain, model, args.save_trans_data)
 
-    run_evaluation(args.clf_second_domain, args.first_domain)
-    run_evaluation(args.clf_first_domain, args.second_domain)
+    run_evaluation(args.clf_second_domain, args.first_domain, args.log_name)
+    run_evaluation(args.clf_first_domain, args.second_domain, args.log_name)
 
 
 if __name__ == "__main__":
@@ -185,7 +186,7 @@ if __name__ == "__main__":
         run_translation(args, args.domain, save_trans_data=True)
 
     elif args.operation == 'eval':
-        run_evaluation(args.clf_model, args.domain, args.dataset_path)
+        run_evaluation(args.clf_model, args.domain, args.log_name, args.dataset_path)
 
     else:
         run_end_to_end(args)
