@@ -3,21 +3,18 @@
         {"out_channels" : 64, "kernel_size" : 7 , "stride" :  1, "padding" :  "same"},
         {"out_channels" : 128, "kernel_size" : 5 , "stride" :  2, "padding" :  "same"},
         {"out_channels" : 256, "kernel_size" : 3 , "stride" :  2, "padding" :  "same"},
-        {"out_channels" : 512, "kernel_size" : 3 , "stride" :  1, "padding" :  "same"},
-        {"leaky_relu_neg_slope" : 0.3}
+        {"out_channels" : 512, "kernel_size" : 3 , "stride" :  1, "padding" :  "same"}
     ],
     "second_encoder" : [
         {"out_channels" : 64, "kernel_size" : 7 , "stride" :  1, "padding" :  "same"},
         {"out_channels" : 128, "kernel_size" : 5 , "stride" :  1, "padding" :  "same"},
         {"out_channels" : 256, "kernel_size" : 3 , "stride" :  2, "padding" :  "same"},
-        {"out_channels" : 512, "kernel_size" : 2 , "stride" :  1, "padding" :  "valid"},
-        {"leaky_relu_neg_slope" : 0.3}
+        {"out_channels" : 512, "kernel_size" : 2 , "stride" :  1, "padding" :  "valid"}
 
     ],
     "shared_encoder" : [
         {"out_channels" : 256, "kernel_size" : 3 , "stride" :  1, "padding" :  "same"},
-        {"out_channels" : 128, "kernel_size" : 3 , "stride" :  1, "padding" :  "same"},
-        {"leaky_relu_neg_slope" : 0.3}
+        {"out_channels" : 128, "kernel_size" : 3 , "stride" :  1, "padding" :  "same"}
     ],
 
     "first_generator" : [
@@ -25,8 +22,7 @@
         {"out_channels" : 256, "kernel_size" : 3 , "stride" :  2, "padding" :  "same"},
         {"out_channels" : 128, "kernel_size" : 5 , "stride" :  2, "padding" :  "same"},
         {"out_channels" : 64, "kernel_size" : 7 , "stride" :  1, "padding" :  "same"},
-        {"out_channels" :  1, "kernel_size" :  1, "stride" :  1, "padding" :  "valid"},
-        {"leaky_relu_neg_slope" : 0.3}
+        {"out_channels" :  1, "kernel_size" :  1, "stride" :  1, "padding" :  "valid"}
     ],
 
     "second_generator" : [
@@ -34,14 +30,12 @@
         {"out_channels" : 256, "kernel_size" : 3 , "stride" :  2, "padding" :  "same"},
         {"out_channels" : 128, "kernel_size" : 5 , "stride" :  1, "padding" :  "same"},
         {"out_channels" : 64, "kernel_size" : 7 , "stride" :  1, "padding" :  "same"},
-        {"out_channels" :  1, "kernel_size" :  1, "stride" :  1, "padding" :  "valid"},
-        {"leaky_relu_neg_slope" : 0.3}
+        {"out_channels" :  1, "kernel_size" :  1, "stride" :  1, "padding" :  "valid"}
     ],
 
     "shared_generator" : [
         {"out_channels" : 128, "kernel_size" : 3 , "stride" :  1, "padding" :  "same"},
-        {"out_channels" : 256, "kernel_size" : 3 , "stride" :  1, "padding" :  "same"},
-        {"leaky_relu_neg_slope" : 0.3}
+        {"out_channels" : 256, "kernel_size" : 3 , "stride" :  1, "padding" :  "same"}
     ],
 
     "first_discriminator" : [
@@ -49,8 +43,7 @@
         [{"out_channels" : 128, "kernel_size" : 3 , "stride" :  1, "padding" :  "same"}, {"kernel_size" :  2, "stride" :  2, "padding" :  "same"}],
         [{"out_channels" : 256, "kernel_size" : 5 , "stride" :  1, "padding" :  "same"}, {"kernel_size" :  2, "stride" :  2, "padding" :  "same"}],
         [{"out_channels" : 512, "kernel_size" : 3 , "stride" :  1, "padding" :  "same"}, {"kernel_size" :  2, "stride" :  2, "padding" :  "same"}],
-        {"out_features" : 1},
-        {"leaky_relu_neg_slope" : 0.3}
+        {"out_features" : 1}
     ],
 
     "second_discriminator" :  [
@@ -58,15 +51,15 @@
         [{"out_channels" : 128, "kernel_size" : 3 , "stride" :  1, "padding" :  "same"}, {"kernel_size" :  2, "stride" :  1, "padding" :  "same"}],
         [{"out_channels" : 256, "kernel_size" : 5 , "stride" :  1, "padding" :  "same"}, {"kernel_size" :  2, "stride" :  2, "padding" :  "same"}],
         [{"out_channels" : 512, "kernel_size" : 2 , "stride" :  1, "padding" :  "valid"}, {"kernel_size" :  2, "stride" :  2, "padding" :  "same"}],
-        {"out_features" : 1},
-        {"leaky_relu_neg_slope" : 0.3}
+        {"out_features" : 1}
     ],
 
     "latent_discriminator" : [
         [{"out_channels" : 256, "kernel_size" : 3 , "stride" :  1, "padding" :  "same"}, {"kernel_size" :  2, "stride" :  1, "padding" :  "same"}],
         [{"out_channels" : 512, "kernel_size" : 3 , "stride" :  1, "padding" :  "same"}, {"kernel_size" :  2, "stride" :  2, "padding" :  "same"}],
         [{"out_channels" : 256, "kernel_size" : 3 , "stride" :  1, "padding" :  "same"}, {"kernel_size" :  2, "stride" :  1, "padding" :  "same"}],
-        {"out_features" : 1},
-        {"leaky_relu_neg_slope" : 0.3}
-    ]
+        {"out_features" : 1}
+    ],
+    "leaky_relu" : {"negative_slope":  0.3},
+    "batch_norm" : {"momentum": 0.01, "epsilon": 0.001}
 }
