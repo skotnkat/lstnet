@@ -8,8 +8,9 @@ NETWORK_NAMES = {"first_encoder", "second_encoder", "shared_encoder", "first_gen
 
 OUTPUT_FOLDER = None
 BATCH_SIZE = None
-ADAM_LR = None
-ADAM_DECAY = None
+OPTIM_LR = None
+OPTIM_BETAS = None
+OPTIM_WEIGHT_DECAY = None
 DELTA_LOSS = None
 MANUAL_SEED = None
 VAL_SIZE = None
@@ -155,16 +156,16 @@ def set_input_dimensions(dataset):
     SECOND_IN_CHANNELS_NUM = second_img.shape[0]
 
 
-def init_optimizer(optim_name, model_params, lr):
+def init_optimizer(optim_name, model_params, lr, betas=(0.8, 0.999), weight_decay=0.01):
     optim = None
     if optim_name == "Adam":
-        optim = torch.optim.Adam(model_params, lr)
+        optim = torch.optim.Adam(model_params, lr, betas=betas, weight_decay=weight_decay, amsgrad=True)
 
     elif optim_name == "AdamW":
-        optim = torch.optim.AdamW(model_params, lr)
+        optim = torch.optim.AdamW(model_params, lr, betas=betas, weight_decay=weight_decay, amsgrad=True)
 
     elif optim_name == "Lion":
-        optim = Lion(model_params, lr)
+        optim = Lion(model_params, lr, betas=betas, weight_decay=weight_decay)
 
     else:
         err_msg = f"Given optimizer name {optim_name} is not internally implemented yet"

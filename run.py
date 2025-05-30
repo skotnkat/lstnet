@@ -31,8 +31,10 @@ def add_train_args(parser):
                         help="Run supervised domain adaptation. If not set, unsupervised domain adaptation is run.")
 
     parser.add_argument("--learning_rate", type=float, default=1e-4, help="Learning rate used in Adam optimizer.")
-    parser.add_argument("--decay", type=float, nargs=2, default=(0.8, 0.999),
+    parser.add_argument("--betas", type=float, nargs=2, default=(0.8, 0.999),
                         help="Two float values for Adam optimizer decay (beta1, beta2)")
+    parser.add_argument("--weight_decay", type=float, default=1e-2)
+
     parser.add_argument("--full_training_only", action="store_true",
                         help="If after train and validate another round of training should be run with full training set.")
 
@@ -116,8 +118,9 @@ def initialize(args):
     utils.PARAMS_FILE_PATH = "mnist_usps_params.json"
     if args.operation in ['train', 'all']:
         utils.PARAMS_FILE_PATH = args.params_file #  svae params in architecture
-        utils.ADAM_LR = args.learning_rate
-        utils.ADAM_DECAY = args.decay
+        utils.OPTIM_LR = args.learning_rate
+        utils.OPTIM_BETAS = args.betas
+        utils.OPTIM_WEIGHT_DECAY = args.weight_decay
         utils.VAL_SIZE = args.val_size
         train.MAX_PATIENCE = args.epoch_num  # by default no early stopping (number of epochs)
 
