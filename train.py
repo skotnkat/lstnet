@@ -6,6 +6,7 @@ from models.lstnet import LSTNET
 from data_preparation import get_training_loader
 import utils
 import time
+import optuna
 
 MAX_PATIENCE = None
 
@@ -40,7 +41,7 @@ def run_loop(model, loader, val_op=False):
     return epoch_loss
 
 
-def train_and_validate(model, train_loader, max_epoch_num, val_loader=None, return_last_model=False):
+def train_and_validate(model, train_loader, max_epoch_num, val_loader=None, return_last_model=False, run_optuna=False, trial=None):
     """
         First phase of training. Without knowledge of the labels (will be ignoring the labels).
         Validate only if val_loader is passed.
@@ -60,7 +61,7 @@ def train_and_validate(model, train_loader, max_epoch_num, val_loader=None, retu
         utils.init_epoch_loss()
         epoch_loss = run_loop(model, train_loader)
         train_loss_list.append(epoch_loss)
-        print(f'\tTrain loss: {epoch_loss}')
+        # print(f'\tTrain loss: {epoch_loss}')
 
         if val_loader is not None:  # if validation is being run then the decision loss is validation, otherwise train  `
             epoch_loss = run_loop(model, val_loader, val_op=True)
@@ -85,6 +86,11 @@ def train_and_validate(model, train_loader, max_epoch_num, val_loader=None, retu
         print(f'\tEpoch took: {(end_time - start_time) / 60:.2f} min')
         print(f'\tPatience: {cur_patience}')
 
+        if run_optuna:
+            trial.report(epoch_loss, epoch_idx)
+            if trial.should_prune():
+                raise optuna.exceptions.TrialPruned()
+
     if not return_last_model:  # return best one
         utils.LOSS_LOGS['best_epoch_idx'] = best_epoch_idx
         model = best_model
@@ -95,7 +101,7 @@ def train_and_validate(model, train_loader, max_epoch_num, val_loader=None, retu
         json.dump(utils.LOSS_LOGS, file, indent=2)
 
     model.to("cpu")
-    return model
+    return model, best_loss
 
 
 def run_full_training(first_domain_name, second_domain_name, supervised, epoch_num):
