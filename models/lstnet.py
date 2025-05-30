@@ -13,7 +13,7 @@ import loss_functions
 
 
 class LSTNET(nn.Module):
-    def __init__(self, first_domain_name="", second_domain_name="", params=None):
+    def __init__(self, first_domain_name="", second_domain_name="", params=None, optim_name="Adam"):
         super().__init__()
 
         self.first_domain_name = first_domain_name
@@ -66,9 +66,8 @@ class LSTNET(nn.Module):
                               + list(self.second_generator.parameters()) \
                               + list(self.shared_generator.parameters())
 
-        if utils.ADAM_LR is not None and utils.ADAM_DECAY is not None:
-            self.disc_optim = Adam(self.disc_params, lr=utils.ADAM_LR, betas=utils.ADAM_DECAY, amsgrad=True)
-            self.enc_gen_optim = Adam(self.enc_gen_params, lr=utils.ADAM_LR, betas=utils.ADAM_DECAY, amsgrad=True)
+        self.disc_optim = utils.init_optimizer(optim_name, self.disc_params, utils.OPTIM_LR, utils.OPTIM_BETAS, utils.OPTIM_WEIGHT_DECAY)
+        self.enc_gen_optim = utils.init_optimizer(optim_name, self.enc_gen_params, utils.OPTIM_LR, utils.OPTIM_BETAS, utils.OPTIM_WEIGHT_DECAY)
 
         print('LSTNET model initialized')
 
