@@ -118,7 +118,7 @@ def update_enc_gen_params(trial, orig_layer_params):
     kernel_size = trial.suggest_categorical("enc_gen_shared_kernel_size", [3, 5])
 
     last_out_channels = new_layer_params["first_encoder"][-1]["out_channels"]
-    out_channels = trial.suggest_categorical("enc_gen_shared_base_out_channels", [last_out_channels, last_out_channels/2, last_out_channels/4])
+    out_channels = trial.suggest_categorical("enc_gen_shared_base_out_channels", [last_out_channels, last_out_channels // 2, last_out_channels // 4])
 
     shared_encoder = []
     shared_generator = []
