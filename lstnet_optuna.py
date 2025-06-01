@@ -123,7 +123,7 @@ def update_enc_gen_params(trial, orig_layer_params):
     shared_encoder = []
     shared_generator = []
     for enc_idx in range(shared_layers_num):
-        layer = get_stand_conv_params(base, kernel_size)
+        layer = get_stand_conv_params(out_channels, kernel_size)
         shared_encoder.append(layer)
         shared_generator.insert(0, layer)
 
