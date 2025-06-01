@@ -59,9 +59,10 @@ def update_disc_params(trial, orig_layer_params):
     if extra_layer:
         kernel_size = trial.suggest_categorical("stand_disc_extra_layer_kernel_size", [2, 3, 5])
         extra_conv = get_stand_conv_params(base, kernel_size)
+        max_pool_params = get_stand_max_pool_params(kernel_size)
 
-        new_layer_params["first_discriminator"].append(extra_conv)
-        new_layer_params["second_discriminator"].append(extra_conv)
+        new_layer_params["first_discriminator"].append([extra_conv, max_pool_params])
+        new_layer_params["second_discriminator"].append([extra_conv, max_pool_params])
 
     shared_layers_num = trial.suggest_int("enc_gen_shared_layers_num", 3, 5)
     kernel_size = trial.suggest_categorical("enc_gen_shared_kernel_size", [3, 5])
@@ -137,7 +138,7 @@ def update_enc_gen_params(trial, orig_layer_params):
 def objective(trial, first_domain, second_domain, orig_layer_params, val_loader, train_loader):
     updated_layer_params = update_enc_gen_params(trial, orig_layer_params)
     fin_layer_params = update_disc_params(trial, updated_layer_params)
-    print(fin_layer_params)
+
     leaky_relu_neg_slope = trial.suggest_float("negative_slope", 0.01, 0.3)
     batch_norm_momentum = trial.suggest_float("momentum", 0.01, 0.3, step=0.01)
     fin_layer_params["leaky_relu"] = {"negative_slope": leaky_relu_neg_slope}
@@ -165,7 +166,6 @@ def objective(trial, first_domain, second_domain, orig_layer_params, val_loader,
     utils.OPTIM_WEIGHT_DECAY = weight_decay
 
     model = LSTNET(first_domain, second_domain, params=fin_layer_params, optim_name=optimizer_name)
-    print(model)
 
     train.MAX_PATIENCE = patience
     trained_model, val_loss = train.train_and_validate(model, train_loader, epochs, val_loader, run_optuna=True, trial=trial)
