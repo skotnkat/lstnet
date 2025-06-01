@@ -131,7 +131,10 @@ def update_enc_gen_params(trial, orig_layer_params):
 
     new_layer_params["shared_encoder"] = shared_encoder
     new_layer_params["shared_generator"] = shared_generator
-    
+
+    gen_last_layer = {"out_channels":  1, "kernel_size":  1, "stride":  1, "padding":  "valid"}
+    new_layer_params["first_generator"].append(gen_last_layer)
+    new_layer_params["second_generator"].append(gen_last_layer)
     return new_layer_params
 
 
