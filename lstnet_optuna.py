@@ -188,9 +188,9 @@ if __name__ == "__main__":
     utils.PARAMS_FILE_PATH = args.params_file
     orig_layer_params = utils.get_networks_params()
     
-    # sampler = optuna.samplers.TPESampler(n_startup_trials=1, multivariate=True, group=True)
+    sampler = optuna.samplers.TPESampler(n_startup_trials=20, multivariate=True, group=True)
     study = optuna.create_study(direction="minimize")
-    study.optimize(lambda trial: objective(trial, args.first_domain, args.second_domain, orig_layer_params, val_loader, train_loader), n_trials=1)
+    study.optimize(lambda trial: objective(trial, args.first_domain, args.second_domain, orig_layer_params, val_loader, train_loader), n_trials=100)
 
     trial = study.best_trial
     best_val_loss = trial.value
