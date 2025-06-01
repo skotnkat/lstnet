@@ -61,8 +61,8 @@ def update_disc_params(trial, orig_layer_params):
         extra_conv = get_stand_conv_params(base, kernel_size)
         max_pool_params = get_stand_max_pool_params(kernel_size)
 
-        new_layer_params["first_discriminator"].append([extra_conv, max_pool_params])
-        new_layer_params["second_discriminator"].append([extra_conv, max_pool_params])
+        new_layer_params["first_discriminator"].insert(-1, [extra_conv, max_pool_params])
+        new_layer_params["second_discriminator"].insert(-1, [extra_conv, max_pool_params])
 
     shared_layers_num = trial.suggest_int("enc_gen_shared_layers_num", 3, 5)
     kernel_size = trial.suggest_categorical("enc_gen_shared_kernel_size", [3, 5])
