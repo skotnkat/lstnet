@@ -143,7 +143,7 @@ if __name__ == "__main__":
         params = json.load(file)
 
     train_loader, val_loader = load_data(args.domain_name)
-    clf = clf_utils.select_classifier(domain_name, params)
+    clf = clf_utils.select_classifier(args.domain_name, params)
     
     clf, val_acc, results = train(clf, train_loader, val_loader)
 
