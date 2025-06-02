@@ -7,6 +7,7 @@ from data_preparation import get_training_loader
 import utils
 import time
 import optuna
+import loss_functions
 
 MAX_PATIENCE = None
 
@@ -37,6 +38,9 @@ def run_loop(model, loader, val_op=False):
     scale = len(loader)
     #utils.normalize_epoch_loss(scale, op)
     epoch_loss /= scale
+
+    # normalize loss by weights
+    epoch_loss /= (loss_functions.W_1 + loss_functions.W_2 + loss_functions.W_3 + loss_functions.W_4 + loss_functions.W_5 + loss_functions.W_6 + loss_functions.W_l) 
 
     return epoch_loss
 
@@ -103,6 +107,7 @@ def train_and_validate(model, train_loader, max_epoch_num, val_loader=None, retu
         json.dump(utils.LOSS_LOGS, file, indent=2)
 
     model.to("cpu")
+    # normalize loss by weights
     return model, best_loss
 
 
