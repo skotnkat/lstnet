@@ -14,6 +14,7 @@ from models.lstnet import LSTNET
 import torch
 import loss_functions
 import pickle
+import time
 
 
 def parse_args():
@@ -119,6 +120,7 @@ def update_enc_gen_params(trial, orig_layer_params):
 
 
 def objective(trial, first_domain, second_domain, orig_layer_params, val_loader, train_loader, max_epochs):
+    start_time = time.time()
     updated_layer_params = update_enc_gen_params(trial, orig_layer_params)
     fin_layer_params = update_disc_params(trial, updated_layer_params)
 
@@ -170,6 +172,10 @@ def objective(trial, first_domain, second_domain, orig_layer_params, val_loader,
 
     del model, trained_model
     torch.cuda.empty_cache()
+
+    end_time = time.time()
+
+    print(f'Trial took: {(end_time-start_time)/3600} hours')
     
     return val_loss
 
