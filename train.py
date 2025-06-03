@@ -33,14 +33,13 @@ def run_loop(model, loader, val_op=False):
             disc_loss_tuple, enc_gen_loss_tuple, cc_loss_tuple = model.update_enc_gen(first_real, second_real)
 
         epoch_loss += sum(disc_loss_tuple) + sum(cc_loss_tuple)
+
+        
         #utils.log_epoch_loss(disc_loss_tuple, enc_gen_loss_tuple, cc_loss_tuple, op)
 
     scale = len(loader)
     #utils.normalize_epoch_loss(scale, op)
     epoch_loss /= scale
-
-    # normalize loss by weights
-    epoch_loss /= (loss_functions.W_1 + loss_functions.W_2 + loss_functions.W_3 + loss_functions.W_4 + loss_functions.W_5 + loss_functions.W_6 + loss_functions.W_l) 
 
     return epoch_loss
 

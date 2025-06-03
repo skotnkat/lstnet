@@ -147,12 +147,21 @@ def objective(trial, first_domain, second_domain, orig_layer_params, val_loader,
     fin_layer_params["leaky_relu"] = {"negative_slope": leaky_relu_neg_slope}
     fin_layer_params["batch_norm"] = {"momentum": batch_norm_momentum}
 
-    loss_functions.W1 = trial.suggest_int("w1", 20, 100, step=10)
-    loss_functions.W2 = trial.suggest_int("w2", 20, 100, step=10)
-    loss_functions.W3 = trial.suggest_int("w3", 20, 100, step=10)
-    loss_functions.W4 = trial.suggest_int("w4", 20, 100, step=10)
-    loss_functions.W5 = trial.suggest_int("w5", 20, 100, step=10)
-    loss_functions.W6 = trial.suggest_int("w6", 20, 100, step=10)
+    weights_num = 7
+
+    w_raw = [trial.suggest_int(f'w_{i}', 20, 100, step=10) for i in range(1, weights_num+1)]
+    w_sum = sum(w_raw)
+    # normalize weights for comparison
+    weights = [w / w_sum * 100 for w in w_raw]
+
+    loss_functions.W_1 = weights[0]
+    loss_functions.W_2 = weights[1]
+    loss_functions.W_3 = weights[2]
+    loss_functions.W_4 = weights[3]
+    loss_functions.W_5 = weights[4]
+    loss_functions.W_6 = weights[5]
+    loss_functions.W_l = weights[6]
+    
 
     epochs = trial.suggest_int("epochs", 50, 150, step=50)
     patience = trial.suggest_int("patience", 5, 20, step=5)
