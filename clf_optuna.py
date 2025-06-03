@@ -15,6 +15,9 @@ def parse_args():
     parser = argparse.ArgumentParser()
 
     parser.add_argument('domain_name', type=str.upper)
+    parser.add_argument('--custom_clf', action="store_true")
+    parser.add_argument("--input_size", type=int, nargs=2, default=(28, 28))
+    parser.add_argument("--in_channels", type=int, default=1)
 
     return parser.parse_args()
 
@@ -26,17 +29,18 @@ def generate_conv_pool_params(trial, num_layers):
     layers = []
     for i in range(num_layers):
         conv_params = {
-            "out_channels": trial.suggest_categorical(f"neurons_layer_{i}", [64, 128, 256]),
+            "out_channels": trial.suggest_categorical(f"neurons_layer_{i}", [64, 128, 256, 512]),
             "kernel_size": 3,
             "stride": 1,
             "padding": "same"
         }
 
         is_stride2_layer = (i in stride2_layers)
+        padding_value = 0 if is_stride2_layer else "same"
         pool_params = {
             "kernel_size": 2,
             "stride": is_stride2_layer + 1,
-            "padding": 0 if is_stride2_layer else "same"
+            "padding": padding_value
         }
 
         layers.append([conv_params, pool_params])
@@ -44,7 +48,7 @@ def generate_conv_pool_params(trial, num_layers):
     return layers
 
 
-def objective(trial, domain_name):
+def objective(trial, domain_name, input_size, in_channels, max_epochs, custom_clf):
     # --- Sample hyperparameters ---
     num_layers = trial.suggest_int("num_layers", 4, 8)
     conv_layers_params = generate_conv_pool_params(trial, num_layers)
@@ -57,18 +61,17 @@ def objective(trial, domain_name):
         "dropout_p": dropout
     }
 
-    model_params = conv_layers_params + [dense_layer_params] + [{"leaky_relu_neg_slope": leaky_relu}]
+    model_params = conv_layers_params + [dense_layer_params]
 
-    clf = clf_utils.select_classifier(domain_name, model_params)
+    clf = clf_utils.select_classifier(domain_name, input_size, in_channels, model_params, custom_clf, leaky_relu)
 
     # optimizer + training
     lr = trial.suggest_float("lr", 1e-5, 1e-2, log=True)
     optimizer_name = trial.suggest_categorical("optimizer", ["Adam", "AdamW", "Lion"])
-    epochs = trial.suggest_int("epochs", 10, 100, step=10)
     patience = trial.suggest_int("patience", 5, 20, step=5)
 
     clf.optimizer = utils.init_optimizer(optimizer_name, clf.parameters(), lr)
-    clf.epochs = epochs
+    clf.epochs = max_epochs
     clf.patience = patience
 
     trained_clf, val_acc, results = train_eval_clf.train(clf, train_loader, val_loader, run_optuna=True, trial=trial)
@@ -83,9 +86,18 @@ if __name__ == "__main__":
 
     train_loader, val_loader = train_eval_clf.load_data(args.domain_name)
 
-    sampler = optuna.samplers.TPESampler(n_startup_trials=10, multivariate=True, group=True)
-    study = optuna.create_study(direction="maximize")
-    study.optimize(lambda trial: objective(trial, args.domain_name), n_trials=50)
+    max_epochs = 100
+    pruner = optuna.pruners.HyperbandPruner(
+        min_resource=10,
+        max_resource=max_epochs,
+        reduction_factor=3
+    )
+
+    sampler = optuna.samplers.TPESampler(n_startup_trials=20, multivariate=True, group=True)
+    study = optuna.create_study(direction="maximize", sampler=sampler, pruner=pruner,
+                                storage=f"sqlite:///optuna_{args.domain_name}.db",
+                                study_name=args.domain_name, load_if_exists=True)
+    study.optimize(lambda trial: objective(trial, args.domain_name, args.input_size, args.in_channels, max_epochs, args.custom_clf), n_trials=100)
 
     trial = study.best_trial
     best_val_acc = trial.value
@@ -109,12 +121,12 @@ if __name__ == "__main__":
         # visualize importances and accuracies
     fig1 = plot_param_importances(study).figure
     fig1.savefig(f"{output_dir}/param_importances.png")
-    plt.closefig(fig1)
+    plt.close(fig1)
     
     fig2 = plot_optimization_history(study).figure
     fig2.savefig(f"{output_dir}/optimization_history.png")
-    plt.closefig(fig2)
+    plt.close(fig2)
     
     fig3 = plot_parallel_coordinate(study).figure
     fig3.savefig(f"{output_dir}/parallel_coordinate.png")
-    plt.closefig(fig3)
+    plt.close(fig3)
