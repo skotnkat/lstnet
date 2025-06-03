@@ -25,6 +25,9 @@ def parse_args():
 
     parser.add_argument('domain_name', type=str.upper)
     parser.add_argument('params_file', type=str)
+    parser.add_argument('--custom_clf', action="store_true")
+    parser.add_argument("--input_size", type=int, nargs=2, default=(28, 28))
+    parser.add_argument("--in_channels", type=int, default=1)
 
     return parser.parse_args()
 
@@ -143,8 +146,9 @@ if __name__ == "__main__":
         params = json.load(file)
 
     train_loader, val_loader = load_data(args.domain_name)
-    clf = clf_utils.select_classifier(domain_name, params)
-    
+
+    clf = clf_utils.select_classifier(args.domain_name, params, args.custom_clf)
+
     clf, val_acc, results = train(clf, train_loader, val_loader)
 
     with open(f'{MODEL_FOLDER}/results.json', 'w') as file:
