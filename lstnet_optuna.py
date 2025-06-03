@@ -13,6 +13,7 @@ import train
 from models.lstnet import LSTNET
 import torch
 import loss_functions
+import pickle
 
 
 def parse_args():
@@ -22,6 +23,7 @@ def parse_args():
     parser.add_argument('second_domain', type=str.upper)
     parser.add_argument("params_file", type=str, help="Path to the file with stored parameters of model.")
     parser.add_argument("--supervised", action="store_true")
+    parser.add_argument("--study_name", type=str, default="lstnet_db")
 
     return parser.parse_args()
 
@@ -116,7 +118,7 @@ def update_enc_gen_params(trial, orig_layer_params):
     return new_layer_params
 
 
-def objective(trial, first_domain, second_domain, orig_layer_params, val_loader, train_loader):
+def objective(trial, first_domain, second_domain, orig_layer_params, val_loader, train_loader, max_epochs):
     updated_layer_params = update_enc_gen_params(trial, orig_layer_params)
     fin_layer_params = update_disc_params(trial, updated_layer_params)
 
@@ -141,7 +143,6 @@ def objective(trial, first_domain, second_domain, orig_layer_params, val_loader,
     loss_functions.W_l = weights[6]
     
 
-    epochs = trial.suggest_int("epochs", 50, 150, step=50)
     patience = trial.suggest_int("patience", 5, 20, step=5)
 
     lr = trial.suggest_float("lr", 1e-5, 1e-2, log=True)
@@ -158,7 +159,7 @@ def objective(trial, first_domain, second_domain, orig_layer_params, val_loader,
     model = LSTNET(first_domain, second_domain, params=fin_layer_params, optim_name=optimizer_name)
 
     train.MAX_PATIENCE = patience
-    trained_model, val_loss = train.train_and_validate(model, train_loader, epochs, val_loader, run_optuna=True, trial=trial)
+    trained_model, val_loss = train.train_and_validate(model, train_loader, max_epochs, val_loader, run_optuna=True, trial=trial)
 
     model.to("cpu")
     trained_model.to("cpu")
@@ -186,10 +187,20 @@ if __name__ == "__main__":
     train_loader, val_loader = data_preparation.get_training_loader(args.first_domain, args.second_domain, args.supervised, split_data=True)
     utils.PARAMS_FILE_PATH = args.params_file
     orig_layer_params = utils.get_networks_params()
+
+    output_dir = "optuna_lstnet"
+    os.makedirs(f"{output_dir}", exist_ok=True)
+
+    max_epochs = 150
+    pruner = optuna.pruners.HyperbandPruner(
+        min_resource=10,
+        max_resource=max_epochs,
+        reduction_factor=3
+    )
     
-    sampler = optuna.samplers.TPESampler(n_startup_trials=20, multivariate=True, group=True)
-    study = optuna.create_study(direction="minimize")
-    study.optimize(lambda trial: objective(trial, args.first_domain, args.second_domain, orig_layer_params, val_loader, train_loader), n_trials=100)
+    sampler = optuna.samplers.TPESampler(n_startup_trials=50, multivariate=True, group=True)
+    study = optuna.create_study(direction="minimize", study_name=args.study_name, load_if_exists=True, storage=f"sqlite::///{args.study_name}.db", sampler=sampler)
+    study.optimize(lambda trial: objective(trial, args.first_domain, args.second_domain, orig_layer_params, val_loader, train_loader, max_epochs), n_trials=100, show_progress_bar=True, gc_after_trial=True, pruner=pruner)
 
     trial = study.best_trial
     best_val_loss = trial.value
