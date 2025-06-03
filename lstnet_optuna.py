@@ -205,8 +205,14 @@ if __name__ == "__main__":
     )
     
     sampler = optuna.samplers.TPESampler(n_startup_trials=50, multivariate=True, group=True)
-    study = optuna.create_study(direction="minimize", study_name=args.study_name, load_if_exists=True, storage=f"sqlite::///{args.study_name}.db", sampler=sampler)
-    study.optimize(lambda trial: objective(trial, args.first_domain, args.second_domain, orig_layer_params, val_loader, train_loader, max_epochs), n_trials=100, show_progress_bar=True, gc_after_trial=True, pruner=pruner)
+    study = optuna.create_study(direction="minimize", 
+                                study_name=args.study_name, load_if_exists=True, storage=f"sqlite:///{args.study_name}.db", 
+                                sampler=sampler, pruner=pruner)
+    
+    study.optimize(lambda trial: objective(trial, args.first_domain, args.second_domain, orig_layer_params, val_loader, train_loader, max_epochs),
+                   n_trials=100,
+                   show_progress_bar=True, 
+                   gc_after_trial=True)
 
     trial = study.best_trial
     best_val_loss = trial.value
