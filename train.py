@@ -8,6 +8,7 @@ import utils
 import time
 import optuna
 import loss_functions
+import torch
 
 MAX_PATIENCE = None
 
