@@ -97,16 +97,17 @@ def train_and_validate(model, train_loader, max_epoch_num, val_loader=None, retu
                 raise optuna.exceptions.TrialPruned()
 
     if not return_last_model:  # return best one
-        utils.LOSS_LOGS['best_epoch_idx'] = best_epoch_idx
+        # utils.LOSS_LOGS['best_epoch_idx'] = best_epoch_idx
         model = best_model
 
-    utils.LOSS_LOGS['train_loss'] = train_loss_list
+    # utils.LOSS_LOGS['train_loss'] = train_loss_list
 
-    with open(f'{utils.OUTPUT_FOLDER}{LOSS_FILE}', 'w') as file:
-        json.dump(utils.LOSS_LOGS, file, indent=2)
+    # with open(f'{utils.OUTPUT_FOLDER}{LOSS_FILE}', 'w') as file:
+    #     json.dump(utils.LOSS_LOGS, file, indent=2)
 
     model.to("cpu")
-    # normalize loss by weights
+    print(f'Best model reached in epoch: {best_epoch_idx}')
+    
     return model, best_loss
 
 
