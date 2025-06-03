@@ -45,27 +45,18 @@ def get_stand_max_pool_params(kernel_size, stride=1, padding="same"):
 def update_disc_params(trial, orig_layer_params):
     new_layer_params = copy.deepcopy(orig_layer_params)
 
-    base = trial.suggest_categorical("stand_disc_base_base_out_channels", [32, 64, 128])
-    extra_layer = trial.suggest_categorical("stand_disc_extra_layer", [True, False])
-
-    stand_layers_num = len(new_layer_params["first_discriminator"])
-
-    for i in range(stand_layers_num-1):
-        new_layer_params["first_discriminator"][i][0]["out_channels"] = base
-        new_layer_params["second_discriminator"][i][0]["out_channels"] = base
-
-        base *= 2
-
+    extra_layer = trial.suggest_categorical("d_extra_layer", [True, False])
+    base = 1024
     if extra_layer:
-        kernel_size = trial.suggest_categorical("stand_disc_extra_layer_kernel_size", [2, 3, 5])
+        kernel_size = trial.suggest_categorical("d_extra_layer_kernel_size", [2, 3, 5])
         extra_conv = get_stand_conv_params(base, kernel_size)
         max_pool_params = get_stand_max_pool_params(kernel_size)
 
         new_layer_params["first_discriminator"].insert(-1, [extra_conv, max_pool_params])
         new_layer_params["second_discriminator"].insert(-1, [extra_conv, max_pool_params])
 
-    shared_layers_num = trial.suggest_int("enc_gen_shared_layers_num", 3, 5)
-    kernel_size = trial.suggest_categorical("enc_gen_shared_kernel_size", [3, 5])
+    shared_layers_num = trial.suggest_int("d_shared_layers_num", 3, 5)
+    kernel_size = trial.suggest_categorical("d_shared_kernel_size", [3, 5])
 
     latent_disc_params = []
     for i in range(shared_layers_num):
@@ -85,26 +76,14 @@ def update_disc_params(trial, orig_layer_params):
 
 # update to be able to introduce asymetry (new function)
 def update_enc_gen_params(trial, orig_layer_params):
-    base = trial.suggest_categorical("stand_enc_gen_base_base_out_channels", [32, 64, 128])
-
-    extra_layer = trial.suggest_categorical("stand_enc_gen_extra_layer", [True, False])
+    extra_layer = trial.suggest_categorical("eg_extra_layer", [True, False])
 
     new_layer_params = copy.deepcopy(orig_layer_params)
-    stand_layers_num = len(new_layer_params["first_encoder"])
-
-    for enc_idx in range(stand_layers_num):
-        new_layer_params["first_encoder"][enc_idx]["out_channels"] = base
-        new_layer_params["second_encoder"][enc_idx]["out_channels"] = base
-
-        gen_idx = -enc_idx - 1
-        new_layer_params["first_generator"][gen_idx]["out_channels"] = base
-        new_layer_params["second_generator"][gen_idx]["out_channels"] = base
-
-        base *= 2
 
     if extra_layer:
-        kernel_size = trial.suggest_categorical("stand_enc_gen_extra_layer_kernel_size", [3, 5, 7])
-        extra_conv = get_stand_conv_params(base, kernel_size)
+        out_channels = new_layer_params["first_encoder"][-1]["out_channels"] * 2
+        kernel_size = trial.suggest_categorical("eg_extra_layer_kernel_size", [3, 5, 7])
+        extra_conv = get_stand_conv_params(out_channels, kernel_size)
 
         new_layer_params["first_encoder"].append(extra_conv)
         new_layer_params["second_encoder"].append(extra_conv)
@@ -114,11 +93,10 @@ def update_enc_gen_params(trial, orig_layer_params):
 
 
     # shared encoder generator
-    shared_layers_num = trial.suggest_int("enc_gen_shared_layers_num", 2, 4)
-    kernel_size = trial.suggest_categorical("enc_gen_shared_kernel_size", [3, 5])
+    shared_layers_num = trial.suggest_int("eg_shared_layers_num", 3, 5)
+    kernel_size = trial.suggest_categorical("eg_shared_kernel_size", [3, 5])
 
-    last_out_channels = new_layer_params["first_encoder"][-1]["out_channels"]
-    out_channels = trial.suggest_categorical("enc_gen_shared_base_out_channels", [last_out_channels, last_out_channels // 2, last_out_channels // 4])
+    base = trial.suggest_categorical("eg_shared_base_out_channels", [256, 512])
 
     shared_encoder = []
     shared_generator = []
@@ -132,9 +110,9 @@ def update_enc_gen_params(trial, orig_layer_params):
     new_layer_params["shared_encoder"] = shared_encoder
     new_layer_params["shared_generator"] = shared_generator
 
-    gen_last_layer = {"out_channels":  1, "kernel_size":  1, "stride":  1, "padding":  "valid"}
-    new_layer_params["first_generator"].append(gen_last_layer)
-    new_layer_params["second_generator"].append(gen_last_layer)
+    # gen_last_layer = {"out_channels":  1, "kernel_size":  1, "stride":  1, "padding":  "valid"}
+    # new_layer_params["first_generator"].append(gen_last_layer)
+    # new_layer_params["second_generator"].append(gen_last_layer)
     return new_layer_params
 
 
