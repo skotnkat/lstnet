@@ -17,6 +17,16 @@ class BaseClf(Discriminator):
         self.optimizer = optimizer
         self.epochs = epochs
         self.patience = patience
+        
+    def _create_last_layer(self):
+        last_layer = nn.Sequential(
+            nn.Flatten(),
+            nn.Dropout(self.dense_layer_params["dropout_p"]),
+            nn.Linear(in_features=self.dense_layer_params["in_features"],
+                      out_features=self.dense_layer_params["out_features"])
+        )
+
+        return last_layer
 
 
 class MnistClf(Discriminator):

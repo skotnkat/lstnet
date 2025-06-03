@@ -63,7 +63,7 @@ def objective(trial, domain_name, input_size, in_channels, max_epochs, custom_cl
 
     model_params = conv_layers_params + [dense_layer_params]
 
-    clf = clf_utils.select_classifier(domain_name, input_size, in_channels, model_params, custom_clf, leaky_relu)
+    clf = clf_utils.select_classifier(domain_name, input_size, in_channels, model_params, leaky_relu, custom_clf)
 
     # optimizer + training
     lr = trial.suggest_float("lr", 1e-5, 1e-2, log=True)
