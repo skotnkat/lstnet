@@ -96,6 +96,9 @@ def train_and_validate(model, train_loader, max_epoch_num, val_loader=None, retu
             if trial.should_prune():
                 raise optuna.exceptions.TrialPruned()
 
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
+
     if not return_last_model:  # return best one
         # utils.LOSS_LOGS['best_epoch_idx'] = best_epoch_idx
         model = best_model

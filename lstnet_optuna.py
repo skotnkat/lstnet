@@ -182,7 +182,16 @@ def objective(trial, first_domain, second_domain, orig_layer_params, val_loader,
     train.MAX_PATIENCE = patience
     trained_model, val_loss = train.train_and_validate(model, train_loader, epochs, val_loader, run_optuna=True, trial=trial)
 
-    trial.set_user_attr("best_model", trained_model)
+    model.to("cpu")
+    trained_model.to("cpu")
+    
+    model_path = f"optuna_lstnet/model_trial_{trial.number}.pth"
+    trained_model.save_model(model_path)
+    trial.set_user_attr("model_path", model_path)
+
+    del model, trained_model
+    torch.cuda.empty_cache()
+    
     return val_loss
 
 
@@ -213,17 +222,33 @@ if __name__ == "__main__":
     for key, value in best_params.items():
         print(f"\t{key}: {value}")
 
-    output_dir = "optuna_lstnet/"
-    os.makedirs(output_dir, exist_ok=True)
-
-    best_model = study.best_trial.user_attrs["best_model"]
-    torch.save(best_model, f"{output_dir}/model.pth")
-
     best_params["best_val_loss"] = best_val_loss
     with open(f"{output_dir}/params.json", "w") as file:
         json.dump(best_params, file, indent=2)
+        
+    best_model_path = study.best_trial.user_attrs["model_path"]
 
-        # visualize importances and accuracies
+    
+    with open(f"optuna_lstnet/{args.study_name}.pkl", "wb") as f:
+        pickle.dump(study, f)
+
+    for filename in os.listdir(output_dir):
+        file_path = os.path.join(output_dir, filename)
+        
+        # Skip if it's the best model
+        if os.path.abspath(file_path) == os.path.abspath(best_model_path):
+            continue
+
+        # Remove only .pth files
+        if file_path.endswith(".pth") and os.path.isfile(file_path):
+            try:
+                os.remove(file_path)
+                print(f"Deleted: {file_path}")
+            except OSError as e:
+                print(f"Error deleting {file_path}: {e}")
+
+
+    # visualize importances and accuracies
     fig1 = plot_param_importances(study).figure
     fig1.savefig(f"{output_dir}/param_importances.png")
     plt.close(fig1)
