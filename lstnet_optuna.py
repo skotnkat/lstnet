@@ -122,7 +122,7 @@ def update_enc_gen_params(trial, orig_layer_params):
     return new_layer_params
 
 
-def objective(trial, first_domain, second_domain, orig_layer_params, val_loader, train_loader, max_epochs):
+def objective(trial, first_domain, second_domain, orig_layer_params, val_loader, train_loader):
     start_time = time.time()
     updated_layer_params = update_enc_gen_params(trial, orig_layer_params)
     fin_layer_params = update_disc_params(trial, updated_layer_params)
@@ -211,7 +211,6 @@ if __name__ == "__main__":
     output_dir = "optuna_lstnet"
     os.makedirs(f"{output_dir}", exist_ok=True)
 
-    max_epochs = 150
     pruner = optuna.pruners.MedianPruner(n_startup_trials=10, interval_steps=1)
     
     sampler = optuna.samplers.TPESampler(n_startup_trials=50, multivariate=True, group=True)
@@ -219,7 +218,7 @@ if __name__ == "__main__":
                                 study_name=args.study_name, load_if_exists=True, storage=f"sqlite:///{args.study_name}.db", 
                                 sampler=sampler, pruner=pruner)
     
-    study.optimize(lambda trial: objective(trial, args.first_domain, args.second_domain, orig_layer_params, val_loader, train_loader, max_epochs),
+    study.optimize(lambda trial: objective(trial, args.first_domain, args.second_domain, orig_layer_params, val_loader, train_loader),
                    n_trials=200,
                    show_progress_bar=True, 
                    gc_after_trial=True)
