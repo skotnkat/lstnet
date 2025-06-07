@@ -48,7 +48,13 @@ def generate_conv_pool_params(trial, num_layers):
     return layers
 
 
-def objective(trial, domain_name, input_size, in_channels, custom_clf, train_laoder, val_loader):
+def objective(trial, domain_name, input_size, in_channels, custom_clf):
+    rotation = trial.suggest_int("augm_rotation", 10, 30, step=5)
+    zoom = trial.suggest_float("augm_zoom", 0.1, 0.3, step=0.05)
+    shift = trial.suggest_int("augm_shift", 2, 5)  # in pixels
+
+    train_loader, val_loader = train_eval_clf.load_data(args.domain_name, rotation=rotation, zoom=zoom, shift=shift)
+
     # --- Sample hyperparameters ---
     num_layers = trial.suggest_int("num_layers", 4, 8)
     conv_layers_params = generate_conv_pool_params(trial, num_layers)
@@ -84,17 +90,14 @@ if __name__ == "__main__":
     utils.assign_device()
     args = parse_args()
 
-    train_loader, val_loader = train_eval_clf.load_data(args.domain_name)
-
     pruner = optuna.pruners.MedianPruner(n_startup_trials=10, interval_steps=1)
 
     sampler = optuna.samplers.TPESampler(n_startup_trials=20, multivariate=True, group=True)
     study = optuna.create_study(direction="maximize", sampler=sampler, pruner=pruner,
                                 storage=f"sqlite:///optuna_clf_{args.domain_name}.db",
                                 study_name=args.domain_name, load_if_exists=True)
-    study.optimize(lambda trial: objective(trial, args.domain_name, args.input_size, args.in_channels, args.custom_clf,
-                                           train_loader, val_loader)
-                   , n_trials=100)
+    study.optimize(lambda trial: objective(trial, args.domain_name, args.input_size, args.in_channels, args.custom_clf),
+                   n_trials=50)
 
     trial = study.best_trial
     best_val_acc = trial.value
