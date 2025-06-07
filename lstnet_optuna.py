@@ -13,6 +13,8 @@ import train
 from models.lstnet import LSTNET
 import torch
 import loss_functions
+import pickle
+import time
 
 
 def parse_args():
@@ -22,6 +24,7 @@ def parse_args():
     parser.add_argument('second_domain', type=str.upper)
     parser.add_argument("params_file", type=str, help="Path to the file with stored parameters of model.")
     parser.add_argument("--supervised", action="store_true")
+    parser.add_argument("--study_name", type=str, default="lstnet_db")
 
     return parser.parse_args()
 
@@ -45,27 +48,18 @@ def get_stand_max_pool_params(kernel_size, stride=1, padding="same"):
 def update_disc_params(trial, orig_layer_params):
     new_layer_params = copy.deepcopy(orig_layer_params)
 
-    base = trial.suggest_categorical("stand_disc_base_base_out_channels", [32, 64, 128])
-    extra_layer = trial.suggest_categorical("stand_disc_extra_layer", [True, False])
-
-    stand_layers_num = len(new_layer_params["first_discriminator"])
-
-    for i in range(stand_layers_num-1):
-        new_layer_params["first_discriminator"][i][0]["out_channels"] = base
-        new_layer_params["second_discriminator"][i][0]["out_channels"] = base
-
-        base *= 2
-
+    extra_layer = trial.suggest_categorical("d_extra_layer", [True, False])
+    base = 1024
     if extra_layer:
-        kernel_size = trial.suggest_categorical("stand_disc_extra_layer_kernel_size", [2, 3, 5])
+        kernel_size = trial.suggest_categorical("d_extra_layer_kernel_size", [2, 3, 5])
         extra_conv = get_stand_conv_params(base, kernel_size)
         max_pool_params = get_stand_max_pool_params(kernel_size)
 
         new_layer_params["first_discriminator"].insert(-1, [extra_conv, max_pool_params])
         new_layer_params["second_discriminator"].insert(-1, [extra_conv, max_pool_params])
 
-    shared_layers_num = trial.suggest_int("enc_gen_shared_layers_num", 3, 5)
-    kernel_size = trial.suggest_categorical("enc_gen_shared_kernel_size", [3, 5])
+    shared_layers_num = trial.suggest_int("d_shared_layers_num", 3, 5)
+    kernel_size = trial.suggest_categorical("d_shared_kernel_size", [3, 5])
 
     latent_disc_params = []
     for i in range(shared_layers_num):
@@ -85,26 +79,14 @@ def update_disc_params(trial, orig_layer_params):
 
 # update to be able to introduce asymetry (new function)
 def update_enc_gen_params(trial, orig_layer_params):
-    base = trial.suggest_categorical("stand_enc_gen_base_base_out_channels", [32, 64, 128])
-
-    extra_layer = trial.suggest_categorical("stand_enc_gen_extra_layer", [True, False])
+    extra_layer = trial.suggest_categorical("eg_extra_layer", [True, False])
 
     new_layer_params = copy.deepcopy(orig_layer_params)
-    stand_layers_num = len(new_layer_params["first_encoder"])
-
-    for enc_idx in range(stand_layers_num):
-        new_layer_params["first_encoder"][enc_idx]["out_channels"] = base
-        new_layer_params["second_encoder"][enc_idx]["out_channels"] = base
-
-        gen_idx = -enc_idx - 1
-        new_layer_params["first_generator"][gen_idx]["out_channels"] = base
-        new_layer_params["second_generator"][gen_idx]["out_channels"] = base
-
-        base *= 2
 
     if extra_layer:
-        kernel_size = trial.suggest_categorical("stand_enc_gen_extra_layer_kernel_size", [3, 5, 7])
-        extra_conv = get_stand_conv_params(base, kernel_size)
+        out_channels = new_layer_params["first_encoder"][-1]["out_channels"] * 2
+        kernel_size = trial.suggest_categorical("eg_extra_layer_kernel_size", [3, 5, 7])
+        extra_conv = get_stand_conv_params(out_channels, kernel_size)
 
         new_layer_params["first_encoder"].append(extra_conv)
         new_layer_params["second_encoder"].append(extra_conv)
@@ -114,16 +96,15 @@ def update_enc_gen_params(trial, orig_layer_params):
 
 
     # shared encoder generator
-    shared_layers_num = trial.suggest_int("enc_gen_shared_layers_num", 2, 4)
-    kernel_size = trial.suggest_categorical("enc_gen_shared_kernel_size", [3, 5])
+    shared_layers_num = trial.suggest_int("eg_shared_layers_num", 3, 5)
+    kernel_size = trial.suggest_categorical("eg_shared_kernel_size", [3, 5])
 
-    last_out_channels = new_layer_params["first_encoder"][-1]["out_channels"]
-    out_channels = trial.suggest_categorical("enc_gen_shared_base_out_channels", [last_out_channels, last_out_channels // 2, last_out_channels // 4])
+    base = trial.suggest_categorical("eg_shared_base_out_channels", [256, 512])
 
     shared_encoder = []
     shared_generator = []
     for enc_idx in range(shared_layers_num):
-        layer = get_stand_conv_params(out_channels, kernel_size)
+        layer = get_stand_conv_params(base, kernel_size)
         shared_encoder.append(layer)
         shared_generator.insert(0, layer)
 
@@ -132,13 +113,14 @@ def update_enc_gen_params(trial, orig_layer_params):
     new_layer_params["shared_encoder"] = shared_encoder
     new_layer_params["shared_generator"] = shared_generator
 
-    gen_last_layer = {"out_channels":  1, "kernel_size":  1, "stride":  1, "padding":  "valid"}
-    new_layer_params["first_generator"].append(gen_last_layer)
-    new_layer_params["second_generator"].append(gen_last_layer)
+    # gen_last_layer = {"out_channels":  1, "kernel_size":  1, "stride":  1, "padding":  "valid"}
+    # new_layer_params["first_generator"].append(gen_last_layer)
+    # new_layer_params["second_generator"].append(gen_last_layer)
     return new_layer_params
 
 
-def objective(trial, first_domain, second_domain, orig_layer_params, val_loader, train_loader):
+def objective(trial, first_domain, second_domain, orig_layer_params, val_loader, train_loader, max_epochs):
+    start_time = time.time()
     updated_layer_params = update_enc_gen_params(trial, orig_layer_params)
     fin_layer_params = update_disc_params(trial, updated_layer_params)
 
@@ -147,14 +129,22 @@ def objective(trial, first_domain, second_domain, orig_layer_params, val_loader,
     fin_layer_params["leaky_relu"] = {"negative_slope": leaky_relu_neg_slope}
     fin_layer_params["batch_norm"] = {"momentum": batch_norm_momentum}
 
-    loss_functions.W1 = trial.suggest_int("w1", 20, 100, step=10)
-    loss_functions.W2 = trial.suggest_int("w2", 20, 100, step=10)
-    loss_functions.W3 = trial.suggest_int("w3", 20, 100, step=10)
-    loss_functions.W4 = trial.suggest_int("w4", 20, 100, step=10)
-    loss_functions.W5 = trial.suggest_int("w5", 20, 100, step=10)
-    loss_functions.W6 = trial.suggest_int("w6", 20, 100, step=10)
+    weights_num = 7
 
-    epochs = trial.suggest_int("epochs", 50, 150, step=50)
+    w_raw = [trial.suggest_int(f'w_{i}', 20, 100, step=10) for i in range(1, weights_num+1)]
+    w_sum = sum(w_raw)
+    # normalize weights for comparison
+    weights = [w / w_sum * 100 for w in w_raw]
+
+    loss_functions.W_1 = weights[0]
+    loss_functions.W_2 = weights[1]
+    loss_functions.W_3 = weights[2]
+    loss_functions.W_4 = weights[3]
+    loss_functions.W_5 = weights[4]
+    loss_functions.W_6 = weights[5]
+    loss_functions.W_l = weights[6]
+    
+
     patience = trial.suggest_int("patience", 5, 20, step=5)
 
     lr = trial.suggest_float("lr", 1e-5, 1e-2, log=True)
@@ -171,9 +161,22 @@ def objective(trial, first_domain, second_domain, orig_layer_params, val_loader,
     model = LSTNET(first_domain, second_domain, params=fin_layer_params, optim_name=optimizer_name)
 
     train.MAX_PATIENCE = patience
-    trained_model, val_loss = train.train_and_validate(model, train_loader, epochs, val_loader, run_optuna=True, trial=trial)
+    trained_model, val_loss = train.train_and_validate(model, train_loader, max_epochs, val_loader, run_optuna=True, trial=trial)
 
-    trial.set_user_attr("best_model", trained_model)
+    model.to("cpu")
+    trained_model.to("cpu")
+    
+    model_path = f"optuna_lstnet/model_trial_{trial.number}.pth"
+    trained_model.save_model(model_path)
+    trial.set_user_attr("model_path", model_path)
+
+    del model, trained_model
+    torch.cuda.empty_cache()
+
+    end_time = time.time()
+
+    print(f'Trial took: {(end_time-start_time)/3600} hours')
+    
     return val_loss
 
 
@@ -190,10 +193,26 @@ if __name__ == "__main__":
     train_loader, val_loader = data_preparation.get_training_loader(args.first_domain, args.second_domain, args.supervised, split_data=True)
     utils.PARAMS_FILE_PATH = args.params_file
     orig_layer_params = utils.get_networks_params()
+
+    output_dir = "optuna_lstnet"
+    os.makedirs(f"{output_dir}", exist_ok=True)
+
+    max_epochs = 150
+    pruner = optuna.pruners.HyperbandPruner(
+        min_resource=10,
+        max_resource=max_epochs,
+        reduction_factor=3
+    )
     
-    sampler = optuna.samplers.TPESampler(n_startup_trials=20, multivariate=True, group=True)
-    study = optuna.create_study(direction="minimize")
-    study.optimize(lambda trial: objective(trial, args.first_domain, args.second_domain, orig_layer_params, val_loader, train_loader), n_trials=100)
+    sampler = optuna.samplers.TPESampler(n_startup_trials=50, multivariate=True, group=True)
+    study = optuna.create_study(direction="minimize", 
+                                study_name=args.study_name, load_if_exists=True, storage=f"sqlite:///{args.study_name}.db", 
+                                sampler=sampler, pruner=pruner)
+    
+    study.optimize(lambda trial: objective(trial, args.first_domain, args.second_domain, orig_layer_params, val_loader, train_loader, max_epochs),
+                   n_trials=100,
+                   show_progress_bar=True, 
+                   gc_after_trial=True)
 
     trial = study.best_trial
     best_val_loss = trial.value
@@ -204,17 +223,33 @@ if __name__ == "__main__":
     for key, value in best_params.items():
         print(f"\t{key}: {value}")
 
-    output_dir = "optuna_lstnet/"
-    os.makedirs(output_dir, exist_ok=True)
-
-    best_model = study.best_trial.user_attrs["best_model"]
-    torch.save(best_model, f"{output_dir}/model.pth")
-
     best_params["best_val_loss"] = best_val_loss
     with open(f"{output_dir}/params.json", "w") as file:
         json.dump(best_params, file, indent=2)
+        
+    best_model_path = study.best_trial.user_attrs["model_path"]
 
-        # visualize importances and accuracies
+    
+    with open(f"optuna_lstnet/{args.study_name}.pkl", "wb") as f:
+        pickle.dump(study, f)
+
+    for filename in os.listdir(output_dir):
+        file_path = os.path.join(output_dir, filename)
+        
+        # Skip if it's the best model
+        if os.path.abspath(file_path) == os.path.abspath(best_model_path):
+            continue
+
+        # Remove only .pth files
+        if file_path.endswith(".pth") and os.path.isfile(file_path):
+            try:
+                os.remove(file_path)
+                print(f"Deleted: {file_path}")
+            except OSError as e:
+                print(f"Error deleting {file_path}: {e}")
+
+
+    # visualize importances and accuracies
     fig1 = plot_param_importances(study).figure
     fig1.savefig(f"{output_dir}/param_importances.png")
     plt.close(fig1)
