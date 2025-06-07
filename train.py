@@ -7,6 +7,8 @@ from data_preparation import get_training_loader
 import utils
 import time
 import optuna
+import loss_functions
+import torch
 
 MAX_PATIENCE = None
 
@@ -32,10 +34,12 @@ def run_loop(model, loader, val_op=False):
             disc_loss_tuple, enc_gen_loss_tuple, cc_loss_tuple = model.update_enc_gen(first_real, second_real)
 
         epoch_loss += sum(disc_loss_tuple) + sum(cc_loss_tuple)
-        utils.log_epoch_loss(disc_loss_tuple, enc_gen_loss_tuple, cc_loss_tuple, op)
+
+        
+        #utils.log_epoch_loss(disc_loss_tuple, enc_gen_loss_tuple, cc_loss_tuple, op)
 
     scale = len(loader)
-    utils.normalize_epoch_loss(scale, op)
+    #utils.normalize_epoch_loss(scale, op)
     epoch_loss /= scale
 
     return epoch_loss
@@ -43,7 +47,9 @@ def run_loop(model, loader, val_op=False):
 
 def train_and_validate(model, train_loader, max_epoch_num, val_loader=None, return_last_model=False, run_optuna=False, trial=None):
     """
-        First phase of training. Without knowledge of the labels (will be ignoring the labels).
+        First phYou're an ML or data scientist expert. Given the structure and parameters to tune.
+1) What is the optimal number of study trials and normal trials to optimize hyperparameters using optuna and tpse sampler?
+2) If it's too much, what changes could be done to reduce the search space? ase of training. Without knowledge of the labels (will be ignoring the labels).
         Validate only if val_loader is passed.
     """
 
@@ -56,9 +62,9 @@ def train_and_validate(model, train_loader, max_epoch_num, val_loader=None, retu
 
     model.to(utils.DEVICE)
     for epoch_idx in range(max_epoch_num):
-        print(f'Running epoch {epoch_idx}')
+        #print(f'Running epoch {epoch_idx}')
         start_time = time.time()
-        utils.init_epoch_loss()
+        #utils.init_epoch_loss()
         epoch_loss = run_loop(model, train_loader)
         train_loss_list.append(epoch_loss)
         # print(f'\tTrain loss: {epoch_loss}')
@@ -66,7 +72,7 @@ def train_and_validate(model, train_loader, max_epoch_num, val_loader=None, retu
         if val_loader is not None:  # if validation is being run then the decision loss is validation, otherwise train  `
             epoch_loss = run_loop(model, val_loader, val_op=True)
             val_loss_list.append(epoch_loss)
-            print(f'\tVal loss: {epoch_loss}')
+            #print(f'\tVal loss: {epoch_loss}')
 
         if epoch_loss < best_loss:
             best_model = copy.deepcopy(model)
@@ -78,29 +84,34 @@ def train_and_validate(model, train_loader, max_epoch_num, val_loader=None, retu
             cur_patience += 1
 
             if cur_patience >= MAX_PATIENCE:
-                print(f'max patience reached')
+                #print(f'max patience reached')
                 break
 
         end_time = time.time()
 
-        print(f'\tEpoch took: {(end_time - start_time) / 60:.2f} min')
-        print(f'\tPatience: {cur_patience}')
+        #print(f'\tEpoch took: {(end_time - start_time) / 60:.2f} min')
+        #print(f'\tPatience: {cur_patience}')
 
         if run_optuna:
             trial.report(epoch_loss, epoch_idx)
             if trial.should_prune():
                 raise optuna.exceptions.TrialPruned()
 
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
+
     if not return_last_model:  # return best one
-        utils.LOSS_LOGS['best_epoch_idx'] = best_epoch_idx
+        # utils.LOSS_LOGS['best_epoch_idx'] = best_epoch_idx
         model = best_model
 
-    utils.LOSS_LOGS['train_loss'] = train_loss_list
+    # utils.LOSS_LOGS['train_loss'] = train_loss_list
 
-    with open(f'{utils.OUTPUT_FOLDER}{LOSS_FILE}', 'w') as file:
-        json.dump(utils.LOSS_LOGS, file, indent=2)
+    # with open(f'{utils.OUTPUT_FOLDER}{LOSS_FILE}', 'w') as file:
+    #     json.dump(utils.LOSS_LOGS, file, indent=2)
 
     model.to("cpu")
+    print(f'Best model reached in epoch: {best_epoch_idx}')
+    
     return model, best_loss
 
 
@@ -108,7 +119,7 @@ def run_full_training(first_domain_name, second_domain_name, supervised, epoch_n
     loader = get_training_loader(first_domain_name, second_domain_name, supervised, split_data=False)
     print(f'Number of data in training dataset: {len(loader.dataset)}')
     model = LSTNET(first_domain_name, second_domain_name)
-    utils.init_logs(['train'])
+    #utils.init_logs(['train'])
 
     print('Starting full training')
     model = train_and_validate(model, loader, epoch_num)

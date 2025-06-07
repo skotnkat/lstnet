@@ -167,8 +167,7 @@ class LSTNET(nn.Module):
 
     def save_model(self, output_path):
         self.params["leaky_relu"] = {"negative_slope": self.global_params["negative_slope"]}
-        self.params["batch_norm"] = {"momentum": self.global_params["momentum"],
-                                     "epsilon": self.global_params["epsilon"]}
+        self.params["batch_norm"] = {"momentum": self.global_params["momentum"]}
         attr_dict = {
             'domain_name': [self.first_domain_name, self.second_domain_name],
             'input_shape': [self.first_input_size, self.second_input_size],
