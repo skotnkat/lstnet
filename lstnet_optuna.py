@@ -58,7 +58,7 @@ def update_disc_params(trial, orig_layer_params):
         new_layer_params["first_discriminator"].insert(-1, [extra_conv, max_pool_params])
         new_layer_params["second_discriminator"].insert(-1, [extra_conv, max_pool_params])
 
-    shared_layers_num = trial.suggest_categorical("d_shared_layers_num", [3, 5])
+    shared_layers_num = trial.suggest_int("d_shared_layers_num", [3, 5])
     kernel_size = trial.suggest_categorical("d_shared_kernel_size", [3, 5])
 
     latent_disc_params = []
@@ -67,7 +67,7 @@ def update_disc_params(trial, orig_layer_params):
     up_channels = [base * (2**i) for i in range(half)]
     down_channels = list(reversed(up_channels[:-1]))  # drop repetition peak
 
-    channels_sequence = up_channels + up_channels[-1] + down_channels
+    channels_sequence = up_channels + down_channels
 
     for out_channels in channels_sequence:
         conv_params = get_stand_conv_params(out_channels, kernel_size)
