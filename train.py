@@ -84,7 +84,7 @@ def train_and_validate(model, train_loader, max_epoch_num, val_loader=None, retu
             cur_patience += 1
 
             if cur_patience >= MAX_PATIENCE:
-                #print(f'max patience reached')
+                print(f'Max patience reached')
                 break
 
         end_time = time.time()
@@ -111,8 +111,9 @@ def train_and_validate(model, train_loader, max_epoch_num, val_loader=None, retu
 
     model.to("cpu")
     print(f'Best model reached in epoch: {best_epoch_idx}')
+    print(f'Training ended after: {epoch_idx} epochs')
     
-    return model, best_loss
+    return model, best_loss, best_epoch_idx, epoch_idx
 
 
 def run_full_training(first_domain_name, second_domain_name, supervised, epoch_num):
