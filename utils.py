@@ -183,3 +183,13 @@ def assign_device():
 
     DEVICE = get_device()
     print(f'Using device: {DEVICE}')
+
+
+def detect_mode_collapse(images, var_threshold=0.01):
+    var = torch.var(images).item()  # variance across the whole batch (flattened)
+
+    return var < var_threshold
+
+
+class ModeCollapseDetected(Exception):
+    pass
