@@ -58,8 +58,8 @@ def run_loop(clf, loader, train=True):
     return loss_total, acc_total
 
 
-def load_data(domain_name):
-    train_data, val_data = load_augmented_dataset(domain_name, split_data=True)
+def load_data(domain_name, rotation=10, zoom=0.1, shift=2):
+    train_data, val_data = load_augmented_dataset(domain_name, split_data=True, rotation=rotation, zoom=zoom, shift=shift)
     train_loader = DataLoader(train_data, batch_size=64, shuffle=True, num_workers=8)
     val_loader = DataLoader(val_data, batch_size=64, shuffle=False, num_workers=8)
 
