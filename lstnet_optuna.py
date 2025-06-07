@@ -58,7 +58,7 @@ def update_disc_params(trial, orig_layer_params):
         new_layer_params["first_discriminator"].insert(-1, [extra_conv, max_pool_params])
         new_layer_params["second_discriminator"].insert(-1, [extra_conv, max_pool_params])
 
-    shared_layers_num = trial.suggest_int("d_shared_layers_num", [3, 5])
+    shared_layers_num = trial.suggest_categorical("d_shared_layers_num", [3, 5])
     kernel_size = trial.suggest_categorical("d_shared_kernel_size", [3, 5])
 
     latent_disc_params = []
