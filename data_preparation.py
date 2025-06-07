@@ -13,14 +13,14 @@ BASIC_TRANSFORMATION = Compose([
 ])
 
 
-def create_augmentation_steps(img_size):
-    dy_translation = dx_translation = 2 / img_size
+def create_augmentation_steps(img_size, rotation=10, zoom=0.1, shift=2):
+    dy_translation = dx_translation = shift / img_size
     return Compose([
         ToImage(),
         RandomAffine(
-            degrees=(-10, 10),
+            degrees=(-rotation, rotation),
             translate=(dx_translation, dy_translation),
-            scale=(0.9, 1.1)
+            scale=(1-zoom, 1+zoom)
         ),
         ToDtype(torch.float32, scale=True),
         Normalize(mean=[0.5], std=[0.5]),
@@ -69,12 +69,12 @@ def get_dataset_img_size(dataset):
     return single_img.shape[1]  # size to use for resize
 
 
-def load_augmented_dataset(dataset_name, train_op=True, download=True, split_data=False):
+def load_augmented_dataset(dataset_name, train_op=True, download=True, split_data=False, rotation=10, zoom=0.1, shift=2):
     print(f'Loading dataset: {dataset_name}')
     original_data = load_dataset(dataset_name, train_op=train_op, download=download, split_data=split_data)
 
     img_size = get_dataset_img_size(original_data)
-    transform_steps = create_augmentation_steps(img_size)
+    transform_steps = create_augmentation_steps(img_size, rotation, zoom, shift)
 
     # use transformations also on original data -> improve robustness
     # original_data = load_dataset(dataset_name, train_op=train_op, download=False, transform_steps=transform_steps,
@@ -93,9 +93,9 @@ def load_augmented_dataset(dataset_name, train_op=True, download=True, split_dat
 
 
 
-def get_train_val_loaders(first_domain_name, second_domain_name, supervised):
-    first_train, first_val = load_augmented_dataset(first_domain_name, train_op=True, split_data=True)
-    second_train, second_val = load_augmented_dataset(second_domain_name, train_op=True, split_data=True)
+def get_train_val_loaders(first_domain_name, second_domain_name, supervised, rotation=10, zoom=0.1, shift=2):
+    first_train, first_val = load_augmented_dataset(first_domain_name, train_op=True, split_data=True, rotation=rotation, zoom=zoom, shift=shift)
+    second_train, second_val = load_augmented_dataset(second_domain_name, train_op=True, split_data=True, rotation=rotation, zoom=zoom, shift=shift)
 
     val_data = get_dual_domain_dataset(first_val, second_val, supervised=False)
     train_data = get_dual_domain_dataset(first_train, second_train, supervised)
@@ -111,12 +111,12 @@ def get_train_val_loaders(first_domain_name, second_domain_name, supervised):
 
     return train_loader, val_loader
 
-def get_training_loader(first_domain_name, second_domain_name, supervised=True, split_data=False):
+def get_training_loader(first_domain_name, second_domain_name, supervised=True, split_data=False, rotation=10, zoom=0.1, shift=2):
     if split_data:
         return get_train_val_loaders(first_domain_name, second_domain_name, supervised)
 
-    first_data = load_augmented_dataset(first_domain_name, train_op=True)
-    second_data = load_augmented_dataset(second_domain_name, train_op=True)
+    first_data = load_augmented_dataset(first_domain_name, train_op=True, rotation=rotation, zoom=zoom, shift=shift)
+    second_data = load_augmented_dataset(second_domain_name, train_op=True, rotation=rotation, zoom=zoom, shift=shift)
     dual_data = get_dual_domain_dataset(first_data, second_data, supervised)
 
     utils.set_input_dimensions(dual_data)
