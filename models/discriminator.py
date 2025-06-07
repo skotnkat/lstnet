@@ -12,7 +12,7 @@ class Discriminator(LstnetComponent):
         self.dense_layer_params = params[-1]
         self.leaky_relu_neg_slope = negative_slope
 
-        self.last_layer_idx = 2
+        self.last_layer_idx = 2  # is it used somewhere?
 
         # pass all the params apart from leaky relu and last layer
         super().__init__(input_size, in_channels_num, params[:-1])
@@ -33,6 +33,7 @@ class Discriminator(LstnetComponent):
 
     def _create_stand_layer(self, params, in_channels, input_size):
         conv_params, pool_params = params
+
         conv = Conv2dExtended(in_channels, input_size=input_size, **conv_params)  
         relu = nn.LeakyReLU(negative_slope=self.leaky_relu_neg_slope)
 
