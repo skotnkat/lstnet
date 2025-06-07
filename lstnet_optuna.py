@@ -58,12 +58,18 @@ def update_disc_params(trial, orig_layer_params):
         new_layer_params["first_discriminator"].insert(-1, [extra_conv, max_pool_params])
         new_layer_params["second_discriminator"].insert(-1, [extra_conv, max_pool_params])
 
-    shared_layers_num = trial.suggest_int("d_shared_layers_num", 3, 5)
+    shared_layers_num = trial.suggest_categorical("d_shared_layers_num", [3, 5])
     kernel_size = trial.suggest_categorical("d_shared_kernel_size", [3, 5])
 
     latent_disc_params = []
-    for i in range(shared_layers_num):
-        out_channels = trial.suggest_categorical(f"shared_disc_out_channels_{i}", [128, 256, 512])
+    base = trial.suggest_categorical(f"shared_disc_base", [128, 256])
+    half = shared_layers_num // 2
+    up_channels = [base * (2**i) for i in range(half)]
+    down_channels = list(reversed(up_channels[:-1]))  # drop repetition peak
+
+    channels_sequence = up_channels + up_channels[-1] + down_channels
+
+    for out_channels in channels_sequence:
         conv_params = get_stand_conv_params(out_channels, kernel_size)
         max_pool_params = get_stand_max_pool_params(kernel_size)
 
@@ -113,9 +119,6 @@ def update_enc_gen_params(trial, orig_layer_params):
     new_layer_params["shared_encoder"] = shared_encoder
     new_layer_params["shared_generator"] = shared_generator
 
-    # gen_last_layer = {"out_channels":  1, "kernel_size":  1, "stride":  1, "padding":  "valid"}
-    # new_layer_params["first_generator"].append(gen_last_layer)
-    # new_layer_params["second_generator"].append(gen_last_layer)
     return new_layer_params
 
 
@@ -125,13 +128,22 @@ def objective(trial, first_domain, second_domain, orig_layer_params, val_loader,
     fin_layer_params = update_disc_params(trial, updated_layer_params)
 
     leaky_relu_neg_slope = trial.suggest_float("negative_slope", 0.01, 0.3)
-    batch_norm_momentum = trial.suggest_float("momentum", 0.01, 0.3, step=0.01)
+    batch_norm_momentum = trial.suggest_float("momentum", 0.01, 0.3)
     fin_layer_params["leaky_relu"] = {"negative_slope": leaky_relu_neg_slope}
     fin_layer_params["batch_norm"] = {"momentum": batch_norm_momentum}
 
-    weights_num = 7
+    tie_weights = trial.suggest_categorical("tie_sharing_domain_weights", [True, False])
+    if tie_weights:
+        an_weights = trial.suggest_int("w_an", 20, 100, step=20)  # w1, w2
+        w_l = trial.suggest_int("w_l", 20, 100, step=20)  # wl
+        w_cc = trial.suggest_int("w_cc", 20, 100, step=20)  # w_3, w_4
+        w_full_cc = trial.suggest_int("w_full_cc", 20, 100, step=20)  # w_4, w_5
 
-    w_raw = [trial.suggest_int(f'w_{i}', 20, 100, step=10) for i in range(1, weights_num+1)]
+        w_raw = [an_weights, an_weights, w_cc, w_cc, w_full_cc, w_full_cc, w_l]
+    else:
+        weights_num = 7
+        w_raw = [trial.suggest_int(f'w_{i}', 20, 100, step=20) for i in range(1, weights_num+1)]
+
     w_sum = sum(w_raw)
     # normalize weights for comparison
     weights = [w / w_sum * 100 for w in w_raw]
@@ -144,7 +156,7 @@ def objective(trial, first_domain, second_domain, orig_layer_params, val_loader,
     loss_functions.W_6 = weights[5]
     loss_functions.W_l = weights[6]
     
-
+    epoch_num = trial.suggest_int("epoch_num", 25, 150, step=25)
     patience = trial.suggest_int("patience", 5, 20, step=5)
 
     lr = trial.suggest_float("lr", 1e-5, 1e-2, log=True)
@@ -152,7 +164,7 @@ def objective(trial, first_domain, second_domain, orig_layer_params, val_loader,
 
     beta1 = trial.suggest_float("beta1", 0.85, 0.95)
     beta2 = trial.suggest_float("beta2", 0.98, 0.999)
-    weight_decay = trial.suggest_float("weight_decay", 0.0, 0.01)
+    weight_decay = trial.suggest_categorical("weight_decay", [0, 1e-4, 1e-2])
 
     utils.OPTIM_LR = lr
     utils.OPTIM_BETAS = (beta1, beta2)
@@ -161,7 +173,7 @@ def objective(trial, first_domain, second_domain, orig_layer_params, val_loader,
     model = LSTNET(first_domain, second_domain, params=fin_layer_params, optim_name=optimizer_name)
 
     train.MAX_PATIENCE = patience
-    trained_model, val_loss = train.train_and_validate(model, train_loader, max_epochs, val_loader, run_optuna=True, trial=trial)
+    trained_model, val_loss, best_epoch_idx, last_epoch_idx = train.train_and_validate(model, train_loader, epoch_num, val_loader, run_optuna=True, trial=trial)
 
     model.to("cpu")
     trained_model.to("cpu")
@@ -169,6 +181,8 @@ def objective(trial, first_domain, second_domain, orig_layer_params, val_loader,
     model_path = f"optuna_lstnet/model_trial_{trial.number}.pth"
     trained_model.save_model(model_path)
     trial.set_user_attr("model_path", model_path)
+    trial.set_user_attr("best_epoch_idx", best_epoch_idx)
+    trial.set_user_attr("last_run_epoch_idx", last_epoch_idx)
 
     del model, trained_model
     torch.cuda.empty_cache()
@@ -198,11 +212,7 @@ if __name__ == "__main__":
     os.makedirs(f"{output_dir}", exist_ok=True)
 
     max_epochs = 150
-    pruner = optuna.pruners.HyperbandPruner(
-        min_resource=10,
-        max_resource=max_epochs,
-        reduction_factor=3
-    )
+    pruner = optuna.pruners.MedianPruner(n_startup_trials=10, interval_steps=1)
     
     sampler = optuna.samplers.TPESampler(n_startup_trials=50, multivariate=True, group=True)
     study = optuna.create_study(direction="minimize", 
@@ -210,7 +220,7 @@ if __name__ == "__main__":
                                 sampler=sampler, pruner=pruner)
     
     study.optimize(lambda trial: objective(trial, args.first_domain, args.second_domain, orig_layer_params, val_loader, train_loader, max_epochs),
-                   n_trials=100,
+                   n_trials=200,
                    show_progress_bar=True, 
                    gc_after_trial=True)
 
