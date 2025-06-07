@@ -122,8 +122,16 @@ def update_enc_gen_params(trial, orig_layer_params):
     return new_layer_params
 
 
-def objective(trial, first_domain, second_domain, orig_layer_params, val_loader, train_loader):
+def objective(trial, first_domain, second_domain, supervised, orig_layer_params):
     start_time = time.time()
+
+    rotation = trial.suggest_int("augm_rotation", 10, 30, step=5)
+    zoom = trial.suggest_float("augm_zoom", 0.1, 0.3, step=0.05)
+    shift = trial.suggest_int("augm_shift", 2, 5)  # in pixels
+
+    train_loader, val_loader = data_preparation.get_training_loader(first_domain, second_domain, supervised, split_data=True,
+                                                                    rotation=rotation, zoom=zoom, shift=shift)
+
     updated_layer_params = update_enc_gen_params(trial, orig_layer_params)
     fin_layer_params = update_disc_params(trial, updated_layer_params)
 
@@ -204,7 +212,7 @@ if __name__ == "__main__":
     utils.VAL_SIZE = 0.25
     args = parse_args()
     
-    train_loader, val_loader = data_preparation.get_training_loader(args.first_domain, args.second_domain, args.supervised, split_data=True)
+
     utils.PARAMS_FILE_PATH = args.params_file
     orig_layer_params = utils.get_networks_params()
 
@@ -218,7 +226,7 @@ if __name__ == "__main__":
                                 study_name=args.study_name, load_if_exists=True, storage=f"sqlite:///{args.study_name}.db", 
                                 sampler=sampler, pruner=pruner)
     
-    study.optimize(lambda trial: objective(trial, args.first_domain, args.second_domain, orig_layer_params, val_loader, train_loader),
+    study.optimize(lambda trial: objective(trial, args.first_domain, args.second_domain, args.supervised, orig_layer_params),
                    n_trials=200,
                    show_progress_bar=True, 
                    gc_after_trial=True)
@@ -237,7 +245,6 @@ if __name__ == "__main__":
         json.dump(best_params, file, indent=2)
         
     best_model_path = study.best_trial.user_attrs["model_path"]
-
     
     with open(f"optuna_lstnet/{args.study_name}.pkl", "wb") as f:
         pickle.dump(study, f)
