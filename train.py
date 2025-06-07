@@ -5,6 +5,7 @@ import copy
 from models.lstnet import LSTNET
 from data_preparation import get_training_loader
 import utils
+from utils import ModeCollapseDetected
 import time
 import optuna
 import loss_functions
@@ -65,8 +66,13 @@ def train_and_validate(model, train_loader, max_epoch_num, val_loader=None, retu
         #print(f'Running epoch {epoch_idx}')
         start_time = time.time()
         #utils.init_epoch_loss()
-        epoch_loss = run_loop(model, train_loader)
-        train_loss_list.append(epoch_loss)
+        try:
+            epoch_loss = run_loop(model, train_loader)
+        except ModeCollapseDetected:
+            print(f"Mode Collapse Detected in epoch {epoch_idx}")
+            trial.report(float("inf"))
+        train_loss_list.append(epoch_loss, epoch_idx)
+        raise optuna.exceptions.TrialPruned()
         # print(f'\tTrain loss: {epoch_loss}')
 
         if val_loader is not None:  # if validation is being run then the decision loss is validation, otherwise train  `
