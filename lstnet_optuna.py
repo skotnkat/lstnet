@@ -257,17 +257,3 @@ if __name__ == "__main__":
                 print(f"Deleted: {file_path}")
             except OSError as e:
                 print(f"Error deleting {file_path}: {e}")
-
-
-    # visualize importances and accuracies
-    fig1 = plot_param_importances(study).figure
-    fig1.savefig(f"{output_dir}/param_importances.png")
-    plt.close(fig1)
-
-    fig2 = plot_optimization_history(study).figure
-    fig2.savefig(f"{output_dir}/optimization_history.png")
-    plt.close(fig2)
-
-    fig3 = plot_parallel_coordinate(study).figure
-    fig3.savefig(f"{output_dir}/parallel_coordinate.png")
-    plt.close(fig3)
