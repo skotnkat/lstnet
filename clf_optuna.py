@@ -98,14 +98,14 @@ if __name__ == "__main__":
     output_dir = f"optuna_results/{args.domain_name}"
     os.makedirs(output_dir, exist_ok=True)
 
-    pruner = optuna.pruners.MedianPruner(n_startup_trials=10, interval_steps=1)
+    pruner = optuna.pruners.MedianPruner(n_startup_trials=30, interval_steps=1)
 
     sampler = optuna.samplers.TPESampler(n_startup_trials=20, multivariate=True, group=True)
     study = optuna.create_study(direction="maximize", sampler=sampler, pruner=pruner,
                                 storage=f"sqlite:///optuna_clf_{args.domain_name}.db",
                                 study_name=args.domain_name, load_if_exists=True)
     study.optimize(lambda trial: objective(trial, args.domain_name, args.input_size, args.in_channels, args.custom_clf),
-                   n_trials=50)
+                   n_trials=100)
 
     best_trial = study.best_trial
     best_val_acc = best_trial.value
