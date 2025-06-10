@@ -9,11 +9,12 @@ from torch.optim import Adam
 import functools
 import operator
 
+
 import loss_functions
 
 
 class LSTNET(nn.Module):
-    def __init__(self, first_domain_name="", second_domain_name="", params=None, optim_name="Adam"):
+    def __init__(self, first_domain_name="", second_domain_name="", params=None, optim_name=None):
         super().__init__()
 
         self.first_domain_name = first_domain_name
@@ -66,10 +67,16 @@ class LSTNET(nn.Module):
                               + list(self.second_generator.parameters()) \
                               + list(self.shared_generator.parameters())
 
+        self.disc_optim = None
+        self.enc_gen_optim = None
+
+        if optim_name is not None:
+            self.set_optimizers(optim_name)
+        print('LSTNET model initialized')
+
+    def set_optimizers(self, optim_name):
         self.disc_optim = utils.init_optimizer(optim_name, self.disc_params, utils.OPTIM_LR, utils.OPTIM_BETAS, utils.OPTIM_WEIGHT_DECAY)
         self.enc_gen_optim = utils.init_optimizer(optim_name, self.enc_gen_params, utils.OPTIM_LR, utils.OPTIM_BETAS, utils.OPTIM_WEIGHT_DECAY)
-
-        print('LSTNET model initialized')
 
     def initialize_encoders(self):
 
