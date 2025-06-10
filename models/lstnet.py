@@ -2,7 +2,7 @@ from models.encoder import Encoder
 from models.generator import Generator
 from models.discriminator import Discriminator
 import utils
-
+from utils import ModeCollapseDetected
 import torch.nn as nn
 import torch
 from torch.optim import Adam
@@ -269,5 +269,8 @@ class LSTNET(nn.Module):
                                                                         return_grad=False)
             cc_loss_tuple = loss_functions.compute_cc_loss(first_real, second_real, *imgs_cc, return_grad=False)
             enc_gen_loss_tuple = loss_functions.compute_enc_gen_loss(self, *imgs_mapping, return_grad=False)
+
+            if utils.detect_mode_collapse(imgs_mapping[0]) or utils.detect_mode_collapse(imgs_mapping[1]): # first_gen or second gen
+                raise ModeCollapseDetected("Mode Collapse Detected: The pixel variation was below threshold in at least one of the domains for the whole batch.")
 
         return disc_loss_tuple, enc_gen_loss_tuple, cc_loss_tuple
