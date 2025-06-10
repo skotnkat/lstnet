@@ -219,9 +219,9 @@ if __name__ == "__main__":
     output_dir = "optuna_lstnet"
     os.makedirs(f"{output_dir}", exist_ok=True)
 
-    pruner = optuna.pruners.MedianPruner(n_startup_trials=10, interval_steps=1)
+    pruner = optuna.pruners.MedianPruner(n_startup_trials=30, interval_steps=1)
     
-    sampler = optuna.samplers.TPESampler(n_startup_trials=50, multivariate=True, group=True)
+    sampler = optuna.samplers.TPESampler(n_startup_trials=30, multivariate=True, group=True)
     study = optuna.create_study(direction="minimize", 
                                 study_name=args.study_name, load_if_exists=True, storage=f"sqlite:///{args.study_name}.db", 
                                 sampler=sampler, pruner=pruner)
