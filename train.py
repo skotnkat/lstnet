@@ -74,19 +74,19 @@ def train_and_validate(model, train_loader, max_epoch_num, val_loader=None, retu
         # print(f'\tTrain loss: {epoch_loss}')
 
         if val_loader is not None:  # if validation is being run then the decision loss is validation, otherwise train  `
-        try:
-            epoch_loss = run_loop(model, val_loader, val_op=True)
-            
-        except ModeCollapseDetected as e:
-            if epoch_idx < warmup_epochs:
-                continue
-            
-            print(f"Mode Collapse Detected in epoch {epoch_idx}")
-            trial.report(float("inf"))
-            raise optuna.exceptions.TrialPruned()
-            
-            val_loss_list.append(epoch_loss)
-            #print(f'\tVal loss: {epoch_loss}')
+            try:
+                epoch_loss = run_loop(model, val_loader, val_op=True)
+                
+            except ModeCollapseDetected as e:
+                if epoch_idx < warmup_epochs:
+                    continue
+                
+                print(f"Mode Collapse Detected in epoch {epoch_idx}")
+                trial.report(float("inf"))
+                raise optuna.exceptions.TrialPruned()
+                
+                val_loss_list.append(epoch_loss)
+                #print(f'\tVal loss: {epoch_loss}')
 
         if epoch_loss < best_loss:
             best_model = copy.deepcopy(model)
