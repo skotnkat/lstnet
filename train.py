@@ -60,25 +60,31 @@ def train_and_validate(model, train_loader, max_epoch_num, val_loader=None, retu
     train_loss_list = []
     val_loss_list = []
     cur_patience = 0
+    warmup_epochs = 10
 
     model.to(utils.DEVICE)
     for epoch_idx in range(max_epoch_num):
+        
         #print(f'Running epoch {epoch_idx}')
         start_time = time.time()
         #utils.init_epoch_loss()
-        try:
-            epoch_loss = run_loop(model, train_loader)
-        except ModeCollapseDetected:
-            print(f"Mode Collapse Detected in epoch {epoch_idx}")
-            trial.report(float("inf"))
-            raise optuna.exceptions.TrialPruned()
-
+        epoch_loss = run_loop(model, train_loader)
         train_loss_list.append(epoch_loss)
         
         # print(f'\tTrain loss: {epoch_loss}')
 
         if val_loader is not None:  # if validation is being run then the decision loss is validation, otherwise train  `
+        try:
             epoch_loss = run_loop(model, val_loader, val_op=True)
+            
+        except ModeCollapseDetected as e:
+            if epoch_idx < warmup_epochs:
+                continue
+            
+            print(f"Mode Collapse Detected in epoch {epoch_idx}")
+            trial.report(float("inf"))
+            raise optuna.exceptions.TrialPruned()
+            
             val_loss_list.append(epoch_loss)
             #print(f'\tVal loss: {epoch_loss}')
 
