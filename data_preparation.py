@@ -104,9 +104,9 @@ def get_train_val_loaders(first_domain_name, second_domain_name, supervised, rot
 
     pin_memory = utils.DEVICE != "cpu"  # locking in physical RAM, higher data transfer with gpu
     train_loader = DataLoader(train_data, batch_size=utils.BATCH_SIZE, shuffle=True, collate_fn=custom_collate_fn,
-                             pin_memory=pin_memory, num_workers=utils.NUM_WORKERS, persistent_workers=True)
+                             pin_memory=pin_memory, num_workers=utils.NUM_WORKERS, persistent_workers=False)
     val_loader = DataLoader(val_data, batch_size=utils.BATCH_SIZE, shuffle=True, collate_fn=custom_collate_fn,
-                             pin_memory=pin_memory, num_workers=utils.NUM_WORKERS, persistent_workers=True)
+                             pin_memory=pin_memory, num_workers=utils.NUM_WORKERS, persistent_workers=False)
     print(f'Obtained Data Loader for both training and validation')
 
     return train_loader, val_loader
