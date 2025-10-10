@@ -61,5 +61,5 @@
         {"out_features" : 1}
     ],
     "leaky_relu" : {"negative_slope":  0.3},
-    "batch_norm" : {"momentum": 0.01, "epsilon": 0.001}
+    "batch_norm" : {"momentum": 0.01}
 }
