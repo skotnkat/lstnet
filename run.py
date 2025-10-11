@@ -89,7 +89,11 @@ def add_train_args(parser: argparse.ArgumentParser):
     _ = parser.add_argument("--zoom", type=float, default=0.1)
     _ = parser.add_argument("--shift", type=int, default=2)
     _ = parser.add_argument(
-        "--weights", type=float, nargs=7, help="List of 7 float weights"
+        "--weights",
+        type=float,
+        nargs=7,
+        default=[20, 20, 30, 100, 100, 100, 100],
+        help="List of 7 float weights",
     )
 
 
