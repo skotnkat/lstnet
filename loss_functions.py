@@ -155,16 +155,19 @@ def compute_discriminator_loss(
         weights (List[float]): The weights for each domain.
         first_real_img (Tensor): The first real images.
         second_real_img (Tensor): The second real images.
-        first_gen_img (Tensor): The first generated images.
-        second_gen_img (Tensor): The second generated images.
-        first_latent_img (Tensor): The first latent images.
-        second_latent_img (Tensor): The second latent images.
+        first_gen_img (Tensor): Images from second domain mapped to the first domain.
+        second_gen_img (Tensor): Images from first domain mapped to the second domain.
+        first_latent_img (Tensor): Images from first domain mapped to latent.
+        second_latent_img (Tensor): Images from second domain mapped to latent.
         return_grad (bool, optional): Whether to return gradients.
         Defaults to True.
 
     Returns:
         Union[TensorTriplet, FloatTriplet]: The computed discriminator loss.
     """
+    print(f"First Real: {first_real_img.shape}")
+    print(f"First Gen: {first_gen_img.shape}")
+    print("-" * 40)
     first_real_disc = model.first_discriminator.forward(first_real_img)
     first_gen_disc = model.first_discriminator.forward(first_gen_img)
     first_disc_loss = network_adversarial_loss(first_real_disc, first_gen_disc)

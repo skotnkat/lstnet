@@ -168,17 +168,19 @@ class LstnetTrainer:
         }
 
     def _update_disc(
-        self, first_real_img_img: Tensor, second_real_img_img: Tensor
+        self, first_real_img: Tensor, second_real_img: Tensor
     ) -> Tuple[FloatTriplet, FloatTriplet, FloatQuad]:
         self.disc_optim.zero_grad()
 
         with torch.no_grad():
-            first_gen_img, first_latent_img = self.model(
-                first_real_img_img, first_to_second=True, return_latent=True
+            # second_gen_img are images from first domain mapped to second domain
+            second_gen_img, first_latent_img = self.model.map_first_to_second(
+                first_real_img, return_latent=True
             )
 
-            second_gen_img, second_latent_img = self.model(
-                second_real_img_img, first_to_second=False, return_latent=True
+            # first_gen_img are images from the second domain mapped to first domain
+            first_gen_img, second_latent_img = self.model.map_second_to_first(
+                second_real_img, return_latent=True
             )
             imgs_mapping = (
                 first_gen_img,
