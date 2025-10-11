@@ -165,9 +165,7 @@ def compute_discriminator_loss(
     Returns:
         Union[TensorTriplet, FloatTriplet]: The computed discriminator loss.
     """
-    print(f"First Real: {first_real_img.shape}")
-    print(f"First Gen: {first_gen_img.shape}")
-    print("-" * 40)
+
     first_real_disc = model.first_discriminator.forward(first_real_img)
     first_gen_disc = model.first_discriminator.forward(first_gen_img)
     first_disc_loss = network_adversarial_loss(first_real_disc, first_gen_disc)
