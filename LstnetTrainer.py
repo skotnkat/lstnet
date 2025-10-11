@@ -192,8 +192,8 @@ class LstnetTrainer:
         disc_loss_tensors = loss_functions.compute_discriminator_loss(
             self.model,
             self.weights,
-            first_real_img_img,
-            second_real_img_img,
+            first_real_img,
+            second_real_img,
             *imgs_mapping,
         )
 
@@ -204,8 +204,8 @@ class LstnetTrainer:
             imgs_cc = self.model.get_cc_components(*imgs_mapping)
             cc_loss_tuple = loss_functions.compute_cc_loss(
                 self.weights,
-                first_real_img_img,
-                second_real_img_img,
+                first_real_img,
+                second_real_img,
                 *imgs_cc,
                 return_grad=False,
             )
@@ -227,10 +227,10 @@ class LstnetTrainer:
         self.enc_gen_optim.zero_grad()
 
         # Generate images from first domain to second and vice versa
-        first_gen_img, first_latent_img = self.model.map_first_to_second(
+        second_gen_img, first_latent_img = self.model.map_first_to_second(
             first_real_img, return_latent=True
         )
-        second_gen_img, second_latent_img = self.model.map_second_to_first(
+        first_gen_img, second_latent_img = self.model.map_second_to_first(
             second_real_img, return_latent=True
         )
         imgs_mapping = (
@@ -279,10 +279,10 @@ class LstnetTrainer:
     ) -> Tuple[FloatTriplet, FloatTriplet, FloatQuad]:
         with torch.no_grad():
             # Generate images from first domain to second and vice versa
-            first_gen_img, first_latent_img = self.model.map_first_to_second(
+            second_gen_img, first_latent_img = self.model.map_first_to_second(
                 first_real_img, return_latent=True
             )
-            second_gen_img, second_latent_img = self.model.map_second_to_first(
+            first_gen_img, second_latent_img = self.model.map_second_to_first(
                 second_real_img, return_latent=True
             )
             imgs_mapping = (
