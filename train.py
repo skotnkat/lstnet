@@ -120,6 +120,7 @@ def run(
     trainer_info["first_domain"] = first_domain_name
     trainer_info["second_domain"] = second_domain_name
     trainer_info["supervised"] = supervised
+    trainer_info["augmentation_ops"] = augm_ops.__dict__
 
     utils.LOSS_LOGS["trainer_info"] = trainer_info
 
