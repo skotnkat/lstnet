@@ -299,7 +299,7 @@ def run_translation(
 
     if cmd_args.load_model:
         model = LSTNET.load_lstnet_model(
-            f"{cmd_args.output_folder}{cmd_args.model_name}"
+            f"{cmd_args.output_folder}/{cmd_args.model_name}"
         )
 
     translated_data = domain_adaptation.adapt_domain(
@@ -308,7 +308,7 @@ def run_translation(
 
     if save_trans_data:
         file_name = f"{domain}_translated_data.pt"
-        torch.save(translated_data, f"{cmd_args.output_folder}{file_name}")
+        torch.save(translated_data, f"{cmd_args.output_folder}/{file_name}")
 
     if return_data:
         return translated_data
@@ -347,7 +347,8 @@ def run_evaluation(
         translated_data=translated_data,
     )
 
-    results_file = f"{cmd_args.output_folder}{domain_name}_eval_results.json"
+    results_file = f"{cmd_args.output_folder}/{domain_name}_eval_results.json"
+    print(f'Results saved to "{results_file}"')
     with open(results_file, "a", encoding="utf-8") as file:
         json.dump({f"{log_name}": test_acc}, file, indent=2)
 
