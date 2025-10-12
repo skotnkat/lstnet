@@ -411,7 +411,7 @@ class LstnetTrainer:
 
             end_time = time.time()
 
-            print(f"\tEpoch took: {(end_time - start_time) / 60:.2f} min")
+            print(f"\tEpoch {epoch_idx} took: {(end_time - start_time) / 60:.2f} min")
             print(f"\tPatience: {self.cur_patience}")
 
             if torch.cuda.is_available():
