@@ -51,9 +51,11 @@ if __name__ == "__main__":
     utils.init_device()
 
     if args.run_optuna:
+        print(f"Running Optuna for classifier on {args.domain_name}")
         trained_clf, logs = clf_optuna.run_optuna_clf(args)
 
     else:
+        print(f"Training basic classifier on {args.domain_name}")
         train_loader, val_loader = clf_utils.prepare_clf_data(
             args.domain_name,
             val_size_data=args.val_size,
