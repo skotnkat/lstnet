@@ -1,5 +1,4 @@
 import optuna
-import torch
 
 import clf_utils
 
@@ -70,6 +69,18 @@ def rerun_with_best_params(best_params, cmd_args):
 
     print(f"Final best accuracy after retraining: {best_acc:.4f}")
 
+    # Add Optuna information to trainer_info
+    trainer_info["optuna_best_params"] = best_params
+    trainer_info["optuna_config"] = {
+        "study_name": cmd_args.study_name,
+        "n_trials": cmd_args.n_trials,
+        "optuna_sampler_start_trials": cmd_args.optuna_sampler_start_trials,
+        "min_resource": cmd_args.min_resource,
+        "max_resource": cmd_args.max_resource,
+        "reduction_factor": cmd_args.reduction_factor,
+        "final_best_accuracy": best_acc,
+    }
+
     return trained_clf, trainer_info
 
 
@@ -103,4 +114,16 @@ def run_optuna_clf(cmd_args):
     for key, value in study.best_trial.params.items():
         print(f"\t{key}: {value}")
 
-    return rerun_with_best_params(study.best_trial.params, cmd_args)
+    trained_clf, trainer_info = rerun_with_best_params(
+        study.best_trial.params, cmd_args
+    )
+
+    # Add study information to trainer_info
+    trainer_info["optuna_study_info"] = {
+        "best_trial_number": study.best_trial.number,
+        "best_trial_value": study.best_trial.value,
+        "total_trials_completed": len(study.trials),
+        "database_file": f"optuna_clf_{cmd_args.study_name}.db",
+    }
+
+    return trained_clf, trainer_info
