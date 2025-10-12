@@ -3,12 +3,10 @@ import argparse
 import json
 import os
 
-from eval_models.clf_models import select_classifier, ClfTrainer
-from data_preparation import load_augmented_dataset, AugmentOps
-from torch.utils.data import DataLoader
 
-
+import clf_utils
 import utils
+import clf_optuna
 
 
 def parse_args() -> argparse.Namespace:
@@ -37,6 +35,14 @@ def parse_args() -> argparse.Namespace:
     _ = parser.add_argument("--weight_decay", type=float, default=0.0)
     _ = parser.add_argument("--betas", type=float, nargs=2, default=(0.9, 0.999))
 
+    _ = parser.add_argument("--run_optuna", action="store_true")
+    _ = parser.add_argument("--study_name", type=str, default="clf_study")
+    _ = parser.add_argument("--n_trials", type=int, default=50)
+    _ = parser.add_argument("--optuna_sampler_start_trial", type=int, default=20)
+    _ = parser.add_argument("--min_resource", type=int, default=5)
+    _ = parser.add_argument("--max_resource", type=int, default=20)
+    _ = parser.add_argument("--reduction_factor", type=int, default=2)
+
     return parser.parse_args()
 
 
@@ -44,63 +50,42 @@ if __name__ == "__main__":
     args = parse_args()
     utils.init_device()
 
-    # Load Trainining and Validation Data
-    aug_ops = AugmentOps(
-        rotation=args.aug_rotation, zoom=args.aug_zoom, shift=args.aug_shift
-    )
+    if args.run_optuna:
+        trained_clf, logs = clf_optuna.run_optuna_clf(args)
 
-    ds_name: str = args.domain_name.upper()
-    val_size: float = args.val_size
-    manual_seed: int = args.manual_seed
-    train_data, val_data = load_augmented_dataset(
-        ds_name,
-        split_data=True,
-        train_op=True,
-        val_data_size=val_size,
-        manual_seed=manual_seed,
-        augment_ops=aug_ops,
-    )
-    train_loader = DataLoader(
-        train_data,
-        batch_size=args.batch_size,
-        shuffle=True,
-        num_workers=args.num_workers,
-    )
-    val_loader = DataLoader(
-        val_data,
-        batch_size=args.batch_size,
-        shuffle=False,
-        num_workers=args.num_workers,
-    )
+    else:
+        train_loader, val_loader = clf_utils.prepare_clf_data(
+            args.domain_name,
+            val_size_data=args.val_size,
+            seed=args.manual_seed,
+            batch_size=args.batch_size,
+            num_workers=args.num_workers,
+            rotation=args.aug_rotation,
+            zoom=args.aug_zoom,
+            shift=args.aug_shift,
+        )
 
-    # Load Parameters File
-    with open(f"{args.params_file}", "r", encoding="utf-8") as file:
-        params = json.load(file)
+        clf = clf_utils.get_clf(args.domain_name, args.params_file)
 
-    clf = select_classifier(args.domain_name.upper(), params=params)
-    trainer = ClfTrainer(
-        clf,
-        optimizer=args.optimizer,
-        epochs=args.epoch_num,
-        patience=args.patience,
-        lr=args.learning_rate,
-        betas=tuple(args.betas),
-        weight_decay=args.weight_decay,
-    )
-
-    clf = trainer.train(clf, train_loader, val_loader)
+        trained_clf, _, logs = clf_utils.train_clf(
+            clf,
+            train_loader,
+            val_loader,
+            optim=args.optimizer,
+            epoch_num=args.epoch_num,
+            patience=args.patience,
+            lr=args.learning_rate,
+            betas=args.betas,
+            weight_decay=args.weight_decay,
+        )
 
     if not os.path.exists(f"{args.output_folder}"):
         os.makedirs(f"{args.output_folder}")
 
-    trainer_info = trainer.get_trainer_info()
-
     with open(f"{args.output_folder}/logs.json", "w", encoding="utf-8") as file:
-        json.dump(trainer_info, file, indent=2)
+        json.dump(logs, file, indent=2)
 
-    print(f"Best validation accuracy: {trainer.best_acc}")
-
-    torch.save(clf, f"{args.output_folder}/{args.domain_name}_clf_model.pth")
+    torch.save(trained_clf, f"{args.output_folder}/{args.domain_name}_clf_model.pth")
     print(
         f"Classifier model saved at: {args.output_folder}/{args.domain_name}_clf_model.pth"
     )

@@ -1,7 +1,7 @@
 from typing import Tuple, Sequence, Any, Optional, List
 import time
 import numpy as np
-
+import copy
 
 import torch.nn as nn
 import torch
@@ -172,13 +172,15 @@ class ClfTrainer:
 
     def train(
         self,
-        clf: BaseClf,
         train_loader: DataLoader[Any],
         val_loader: DataLoader[Any],
         *,
         run_optuna: bool = False,
         trial: Optional[optuna.Trial] = None,
     ):
+        if run_optuna and trial is None:
+            raise ValueError("If run_optuna is True, trial must be provided.")
+
         best_clf_state_dict: Optional[dict] = None
         best_val_acc = -np.inf
         patience_cnt: int = 0
@@ -187,13 +189,13 @@ class ClfTrainer:
             start_time = time.time()
 
             # Training Phase
-            _ = clf.train()
+            _ = self.clf.train()
             train_loss, train_acc = self.run_loop(train_loader)
             self.train_loss.append(train_loss)
             self.train_acc.append(train_acc)
 
             # Validation Phase
-            _ = clf.eval()
+            _ = self.clf.eval()
             with torch.no_grad():
                 val_loss, val_acc = self.run_loop(val_loader, train=False)
 
@@ -204,7 +206,7 @@ class ClfTrainer:
 
             if val_acc > best_val_acc:
                 best_val_acc = val_acc
-                best_clf_state_dict = clf.state_dict()
+                best_clf_state_dict = copy.deepcopy(self.clf.state_dict())
                 patience_cnt = 0
 
             else:
@@ -214,17 +216,17 @@ class ClfTrainer:
                     print(f"Patience {patience_cnt} reached its limit {self.patience}.")
                     break
 
-            # print output only when not doing hyperparameter tuning
-            # if run_optuna:
-            #     trial.report(val_acc, epoch)
-            #     if trial.should_prune():
-            #         raise optuna.exceptions.TrialPruned()
+            if run_optuna:
+                trial.report(val_acc, epoch)  # type: ignore
+                if trial.should_prune():  # type: ignore
+                    raise optuna.exceptions.TrialPruned()
 
-            print(f"Epoch {epoch}:")
-            print(f"\tTrain loss: {train_loss:.6f}, Train acc: {train_acc:.6f}")
-            print(f"\tVal loss: {val_loss:.6f}, Val acc: {val_acc:.6f}")
-            print(f"\tTook: {(end_time - start_time) / 60:.2f} min")
-            print(f"\tPatience: {patience_cnt}")
+            else:
+                print(f"Epoch {epoch}:")
+                print(f"\tTrain loss: {train_loss:.6f}, Train acc: {train_acc:.6f}")
+                print(f"\tVal loss: {val_loss:.6f}, Val acc: {val_acc:.6f}")
+                print(f"\tTook: {(end_time - start_time) / 60:.2f} min")
+                print(f"\tPatience: {patience_cnt}")
 
         if best_clf_state_dict is not None:
             _ = self.clf.load_state_dict(best_clf_state_dict)
