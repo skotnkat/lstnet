@@ -81,16 +81,16 @@ class LstnetTrainer:
         self.disc_optim = utils.init_optimizer(
             self.optim_name,
             self.model.disc_params,
-            self.lr,
-            self.betas,
-            self.weight_decay,
+            lr=self.lr,
+            betas=self.betas,
+            weight_decay=self.weight_decay,
         )
         self.enc_gen_optim = utils.init_optimizer(
             self.optim_name,
             self.model.enc_gen_params,
-            self.lr,
-            self.betas,
-            self.weight_decay,
+            lr=self.lr,
+            betas=self.betas,
+            weight_decay=self.weight_decay,
         )
 
         self.train_loader = train_loader
