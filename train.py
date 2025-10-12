@@ -129,7 +129,7 @@ def run(
     model_path = f"{output_folder}{model_file_name}"
     trained_model.save_model(model_path)
 
-    with open(f"{output_folder}{logs_file}", "w", encoding="utf-8") as f:
+    with open(f"{output_folder}/{logs_file}", "w", encoding="utf-8") as f:
         json.dump(utils.LOSS_LOGS, f, indent=2)
 
     return trained_model
