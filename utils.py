@@ -221,6 +221,7 @@ def check_file_ending(file, ending):
 def init_optimizer(
     optim_name: str,
     model_params: List[torch.nn.Parameter],
+    *,
     lr: float,
     betas: Tuple[float, float],
     weight_decay: float,
