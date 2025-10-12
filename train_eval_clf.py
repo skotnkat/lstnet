@@ -38,7 +38,7 @@ def parse_args() -> argparse.Namespace:
     _ = parser.add_argument("--run_optuna", action="store_true")
     _ = parser.add_argument("--study_name", type=str, default="clf_study")
     _ = parser.add_argument("--n_trials", type=int, default=50)
-    _ = parser.add_argument("--optuna_sampler_start_trial", type=int, default=20)
+    _ = parser.add_argument("--optuna_sampler_start_trials", type=int, default=20)
     _ = parser.add_argument("--min_resource", type=int, default=5)
     _ = parser.add_argument("--max_resource", type=int, default=20)
     _ = parser.add_argument("--reduction_factor", type=int, default=2)

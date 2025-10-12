@@ -1,4 +1,6 @@
 import optuna
+import torch
+
 import clf_utils
 
 
@@ -40,6 +42,37 @@ def objective(trial, cmd_args):
     return best_acc
 
 
+def rerun_with_best_params(best_params, cmd_args):
+    train_loader, val_loader = clf_utils.prepare_clf_data(
+        cmd_args.domain_name,
+        val_size_data=cmd_args.val_size,
+        seed=cmd_args.manual_seed,
+        batch_size=cmd_args.batch_size,
+        num_workers=cmd_args.num_workers,
+        rotation=best_params["augm_rotation"],
+        zoom=best_params["augm_zoom"],
+        shift=best_params["augm_shift"],
+    )
+
+    clf = clf_utils.get_clf(cmd_args.domain_name, cmd_args.params_file)
+
+    trained_clf, best_acc, trainer_info = clf_utils.train_clf(
+        clf,
+        train_loader,
+        val_loader,
+        optim=cmd_args.optimizer,
+        epoch_num=cmd_args.max_resource * 2,  # Train longer
+        patience=cmd_args.epoch_num,
+        lr=best_params["lr"],
+        betas=(best_params["beta1"], best_params["beta2"]),
+        weight_decay=best_params["weight_decay"],
+    )
+
+    print(f"Final best accuracy after retraining: {best_acc:.4f}")
+
+    return trained_clf, trainer_info
+
+
 def run_optuna_clf(cmd_args):
     sampler = optuna.samplers.TPESampler(
         n_startup_trials=cmd_args.optuna_sampler_start_trials,
@@ -70,5 +103,4 @@ def run_optuna_clf(cmd_args):
     for key, value in study.best_trial.params.items():
         print(f"\t{key}: {value}")
 
-    logs = {}  # Get Logs from Optuna
-    return study.best_trial.params, logs
+    return rerun_with_best_params(study.best_trial.params, cmd_args)
