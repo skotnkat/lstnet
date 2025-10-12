@@ -1,160 +1,106 @@
-import copy
 import torch
 import argparse
 import json
 import os
-from time import time
-import numpy as np
-import optuna
 
-import clf_utils
-from data_preparation import load_augmented_dataset
+from eval_models.clf_models import select_classifier, ClfTrainer
+from data_preparation import load_augmented_dataset, AugmentOps
 from torch.utils.data import DataLoader
 
 
 import utils
 
-EVAL_FOLDER = 'eval_models/'
-MODEL_FOLDER = None
-utils.MANUAL_SEED = 42
-utils.VAL_SIZE = 0.25
 
-
-def parse_args():
+def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
 
-    parser.add_argument('domain_name', type=str.upper)
-    parser.add_argument('params_file', type=str)
-    parser.add_argument('--custom_clf', action="store_true")
-    parser.add_argument("--input_size", type=int, nargs=2, default=(28, 28))
-    parser.add_argument("--in_channels", type=int, default=1)
+    _ = parser.add_argument("domain_name", type=str.upper)
+    _ = parser.add_argument("params_file", type=str)
+    _ = parser.add_argument("--output_folder", type=str, default="eval_models/")
+    # _ = parser.add_argument("--custom_clf", action="store_true")
+
+    _ = parser.add_argument("--manual_seed", type=int, default=42)
+    _ = parser.add_argument("--val_size", type=float, default=0.25)
+
+    _ = parser.add_argument("--aug_rotation", type=int, default=10)
+    _ = parser.add_argument("--aug_zoom", type=float, default=0.1)
+    _ = parser.add_argument("--aug_shift", type=int, default=2)
+
+    _ = parser.add_argument("--batch_size", type=int, default=64)
+    _ = parser.add_argument("--num_workers", type=int, default=8)
+
+    _ = parser.add_argument("--epoch_num", type=int, default=50)
+    _ = parser.add_argument("--patience", type=int, default=5)
+    _ = parser.add_argument("--optimizer", type=str, default="Adam")
+
+    _ = parser.add_argument("--learning_rate", type=float, default=0.001)
+    _ = parser.add_argument("--weight_decay", type=float, default=0.0)
+    _ = parser.add_argument("--betas", type=float, nargs=2, default=(0.9, 0.999))
 
     return parser.parse_args()
 
 
-def run_loop(clf, loader, train=True):
-    loss_total = 0
-    acc_total = 0
-    for x, y in loader:
-        x = x.to(utils.DEVICE)
-        y = y.to(utils.DEVICE)
-        clf.optimizer.zero_grad()
-        outputs = clf.forward(x)
-
-        loss = clf.criterion(outputs, y)
-        if train:
-            loss.backward()
-            clf.optimizer.step()
-
-        loss_total += loss.item()  # reduction='sum' -> already returns sum of the losses
-
-        preds = outputs.argmax(dim=1)
-        acc = (preds == y).sum()
-        acc_total += acc.item()
-
-    loss_total /= len(loader)
-    acc_total /= len(loader)
-
-    return loss_total, acc_total
-
-
-def load_data(domain_name, rotation=10, zoom=0.1, shift=2):
-    train_data, val_data = load_augmented_dataset(domain_name, split_data=True, rotation=rotation, zoom=zoom, shift=shift)
-    train_loader = DataLoader(train_data, batch_size=64, shuffle=True, num_workers=8)
-    val_loader = DataLoader(val_data, batch_size=64, shuffle=False, num_workers=8)
-
-    return train_loader, val_loader
-
-
-def train(clf, train_loader, val_loader, run_optuna=False, trial=None):
-    best_clf = None
-    best_val_acc = -np.inf
-
-    train_loss_list = []
-    train_acc_list = []
-    val_loss_list = []
-    val_acc_list = []
-    patience_cnt = 0
-
-    for epoch in range(clf.epochs):
-        start_time = time()
-        ######################################################
-        clf.train()
-        train_loss, train_acc = run_loop(clf, train_loader)
-        train_loss_list.append(train_loss)
-        train_acc_list.append(train_acc)
-
-        ######################################################
-        clf.eval()
-        with torch.no_grad():
-            val_loss, val_acc = run_loop(clf, val_loader, train=False)
-
-        val_loss_list.append(val_loss)
-        val_acc_list.append(val_acc)
-
-        ######################################################
-        end_time = time()
-
-        if val_acc > best_val_acc:
-            best_val_acc = val_acc
-            best_clf = copy.deepcopy(clf)
-            patience_cnt = 0
-
-        else:
-            patience_cnt += 1
-
-            if patience_cnt >= clf.patience:
-                print(f'Patience {patience_cnt} reached its limit {clf.patience}.')
-                break
-        
-        # print output only when not doing hyperparameter tuning
-        if run_optuna:
-            trial.report(val_acc, epoch)
-            if trial.should_prune():
-                raise optuna.exceptions.TrialPruned()
-
-        else:
-            print(f'Epoch {epoch}:')
-            print(f'\tTrain loss: {train_loss:.6f}, Train acc: {train_acc:.6f}')
-            print(f'\tVal loss: {val_loss:.6f}, Val acc: {val_acc:.6f}')
-            print(f'\tTook: {(end_time - start_time) / 60:.2f} min')
-            print(f'\tPatience: {patience_cnt}')
-
-        ######################################################
-
-    results = {'train_loss': train_loss_list, 'train_acc': train_acc_list,
-               'val_loss': val_loss_list, 'val_acc': val_acc_list}
-
-    return best_clf, best_val_acc, results
-
-
 if __name__ == "__main__":
     args = parse_args()
-    utils.assign_device()
+    utils.init_device()
 
-    # obtain the dataset size
-    args.domain_name = args.domain_name.upper()
-    MODEL_FOLDER = EVAL_FOLDER + args.domain_name
+    # Load Trainining and Validation Data
+    aug_ops = AugmentOps(
+        rotation=args.aug_rotation, zoom=args.aug_zoom, shift=args.aug_shift
+    )
 
-    if not os.path.exists(f'{MODEL_FOLDER}'):
-        os.makedirs(f'{MODEL_FOLDER}')
+    ds_name: str = args.domain_name.upper()
+    val_size: float = args.val_size
+    manual_seed: int = args.manual_seed
+    train_data, val_data = load_augmented_dataset(
+        ds_name,
+        split_data=True,
+        train_op=True,
+        val_data_size=val_size,
+        manual_seed=manual_seed,
+        augment_ops=aug_ops,
+    )
+    train_loader = DataLoader(
+        train_data,
+        batch_size=args.batch_size,
+        shuffle=True,
+        num_workers=args.num_workers,
+    )
+    val_loader = DataLoader(
+        val_data,
+        batch_size=args.batch_size,
+        shuffle=False,
+        num_workers=args.num_workers,
+    )
 
-    if not args.params_file.endswith('.json'):
-        raise ValueError("The parameter 'params_file' must end with .json")
-
-    with open(f'{EVAL_FOLDER}{args.params_file}', 'r') as file:
+    # Load Parameters File
+    with open(f"{args.params_file}", "r", encoding="utf-8") as file:
         params = json.load(file)
 
-    train_loader, val_loader = load_data(args.domain_name)
+    clf = select_classifier(args.domain_name.upper(), params=params)
+    trainer = ClfTrainer(
+        clf,
+        optimizer=args.optimizer,
+        epochs=args.epoch_num,
+        patience=args.patience,
+        lr=args.learning_rate,
+        betas=tuple(args.betas),
+        weight_decay=args.weight_decay,
+    )
 
-    clf = clf_utils.select_classifier(args.domain_name, params, args.custom_clf)
+    clf = trainer.train(clf, train_loader, val_loader)
 
-    clf, val_acc, results = train(clf, train_loader, val_loader)
+    if not os.path.exists(f"{args.output_folder}"):
+        os.makedirs(f"{args.output_folder}")
 
-    with open(f'{MODEL_FOLDER}/results.json', 'w') as file:
-        json.dump(results, file, indent=2)
+    trainer_info = trainer.get_trainer_info()
 
-    print(f'Best validation loss: {val_acc}')
+    with open(f"{args.output_folder}/logs.json", "w", encoding="utf-8") as file:
+        json.dump(trainer_info, file, indent=2)
 
-    torch.save(clf, f"{MODEL_FOLDER}/{args.domain_name}_model.pth")
+    print(f"Best validation accuracy: {trainer.best_acc}")
 
+    torch.save(clf, f"{args.output_folder}/{args.domain_name}_clf_model.pth")
+    print(
+        f"Classifier model saved at: {args.output_folder}/{args.domain_name}_clf_model.pth"
+    )
