@@ -7,7 +7,8 @@ from typing import Dict, Any, List, Tuple, Union, Optional, TypeAlias
 import json
 import torch
 from torch import Tensor
-from lion_pytorch import Lion
+
+# from lion_pytorch import Lion
 
 PARAMS_FILE_PATH = None
 NETWORK_NAMES = {
@@ -150,6 +151,13 @@ def init_epoch_loss(op: str = "train"):
     op_logs["cc_loss"]["second_full_cycle_loss"].append(0)
 
 
+def make_loss_json_serializable(loss_val):
+    if isinstance(loss_val, torch.Tensor):
+        return loss_val.item()
+
+    return loss_val
+
+
 def log_epoch_loss(
     disc_loss: FloatTriplet, enc_gen_loss: FloatTriplet, cc_loss: FloatQuad, op: str
 ):
@@ -170,18 +178,38 @@ def log_epoch_loss(
     op_logs = LOSS_LOGS[op]
     cur_epoch = len(op_logs["disc_loss"]["first_loss"]) - 1  # last epoch
 
-    op_logs["disc_loss"]["first_loss"][cur_epoch] += disc_loss[0]
-    op_logs["disc_loss"]["second_loss"][cur_epoch] += disc_loss[1]
-    op_logs["disc_loss"]["latent_loss"][cur_epoch] += disc_loss[2]
+    op_logs["disc_loss"]["first_loss"][cur_epoch] += make_loss_json_serializable(
+        disc_loss[0]
+    )
+    op_logs["disc_loss"]["second_loss"][cur_epoch] += make_loss_json_serializable(
+        disc_loss[1]
+    )
+    op_logs["disc_loss"]["latent_loss"][cur_epoch] += make_loss_json_serializable(
+        disc_loss[2]
+    )
 
-    op_logs["enc_gen_loss"]["first_loss"][cur_epoch] += enc_gen_loss[0]
-    op_logs["enc_gen_loss"]["second_loss"][cur_epoch] += enc_gen_loss[1]
-    op_logs["enc_gen_loss"]["latent_loss"][cur_epoch] += enc_gen_loss[2]
+    op_logs["enc_gen_loss"]["first_loss"][cur_epoch] += make_loss_json_serializable(
+        enc_gen_loss[0]
+    )
+    op_logs["enc_gen_loss"]["second_loss"][cur_epoch] += make_loss_json_serializable(
+        enc_gen_loss[1]
+    )
+    op_logs["enc_gen_loss"]["latent_loss"][cur_epoch] += make_loss_json_serializable(
+        enc_gen_loss[2]
+    )
 
-    op_logs["cc_loss"]["first_cycle_loss"][cur_epoch] += cc_loss[0]
-    op_logs["cc_loss"]["second_cycle_loss"][cur_epoch] += cc_loss[1]
-    op_logs["cc_loss"]["first_full_cycle_loss"][cur_epoch] += cc_loss[2]
-    op_logs["cc_loss"]["second_full_cycle_loss"][cur_epoch] += cc_loss[3]
+    op_logs["cc_loss"]["first_cycle_loss"][cur_epoch] += make_loss_json_serializable(
+        cc_loss[0]
+    )
+    op_logs["cc_loss"]["second_cycle_loss"][cur_epoch] += make_loss_json_serializable(
+        cc_loss[1]
+    )
+    op_logs["cc_loss"]["first_full_cycle_loss"][
+        cur_epoch
+    ] += make_loss_json_serializable(cc_loss[2])
+    op_logs["cc_loss"]["second_full_cycle_loss"][
+        cur_epoch
+    ] += make_loss_json_serializable(cc_loss[3])
 
 
 def normalize_epoch_loss(scale, op):
@@ -254,8 +282,8 @@ def init_optimizer(
             model_params, lr, betas=betas, weight_decay=weight_decay, amsgrad=True
         )
 
-    elif optim_name == "Lion":
-        optim = Lion(model_params, lr, betas=betas, weight_decay=weight_decay)
+    # elif optim_name == "Lion":
+    #     optim = Lion(model_params, lr, betas=betas, weight_decay=weight_decay)
 
     else:
         err_msg = f"Given optimizer name {optim_name} is not internally implemented yet"
