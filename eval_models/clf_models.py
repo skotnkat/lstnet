@@ -146,8 +146,8 @@ class ClfTrainer:
         loss_total = 0
         acc_total = 0
         for x, y in loader:
-            _ = x.to(utils.DEVICE)
-            _ = y.to(utils.DEVICE)
+            x = x.to(utils.DEVICE)
+            y = y.to(utils.DEVICE)
 
             self.optimizer.zero_grad()
             outputs = self.clf.forward(x)
