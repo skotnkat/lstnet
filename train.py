@@ -127,7 +127,7 @@ def run(
     # Ensure output folder exists
     os.makedirs(output_folder, exist_ok=True)
 
-    model_path = f"{output_folder}{model_file_name}"
+    model_path = f"{output_folder}/{model_file_name}"
     trained_model.save_model(model_path)
 
     with open(f"{output_folder}/{logs_file}", "w", encoding="utf-8") as f:
