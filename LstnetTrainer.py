@@ -420,7 +420,7 @@ class LstnetTrainer:
         _ = self.model.to("cpu")
 
         print(f"Best model reached in epoch: {self.best_epoch_idx}")
-        print(f"Training ended after: {epoch_idx} epochs")
+        print(f"Training ended after: {epoch_idx+1} epochs")
 
         _ = self.model.load_state_dict(self.best_state_dict)
 
