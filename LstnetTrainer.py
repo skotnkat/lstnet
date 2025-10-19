@@ -390,11 +390,11 @@ class LstnetTrainer:
             start_time = time.time()
             utils.init_epoch_loss()
             epoch_loss = self._run_epoch(val_op=False)
-            self.train_loss_list.append(utils.make_loss_json_serializable(epoch_loss))
+            self.train_loss_list.append(epoch_loss)
 
             if self.run_validation:
                 epoch_loss = self._run_epoch(val_op=True)
-                self.val_loss_list.append(utils.make_loss_json_serializable(epoch_loss))
+                self.val_loss_list.append(epoch_loss)
 
             if epoch_loss < self.best_loss:
                 self.best_state_dict = self.model.state_dict()
