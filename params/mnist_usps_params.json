@@ -59,5 +59,7 @@
         [{"out_channels" : 512, "kernel_size" : 3 , "stride" :  1, "padding" :  "same"}, {"kernel_size" :  2, "stride" :  2, "padding" :  "same"}],
         [{"out_channels" : 256, "kernel_size" : 3 , "stride" :  1, "padding" :  "same"}, {"kernel_size" :  2, "stride" :  1, "padding" :  "same"}],
         {"out_features" : 1}
-    ]
+    ],
+    "leaky_relu" : {"negative_slope":  0.3},
+    "batch_norm" : {"momentum": 0.01}
 }

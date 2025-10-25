@@ -1,0 +1,5 @@
+scikit-learn
+matplotlib
+optuna
+lion_pytorch
+plotly  # for visualizations in optuna

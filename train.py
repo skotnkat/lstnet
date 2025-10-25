@@ -1,128 +1,136 @@
-import numpy as np
+"""
+Module is implementing the training procedure of LSTNET model from start to finish.
+It includes data loading, model initialization, training, validation,
+and saving the trained model along with training logs.
+"""
+
+from typing import List, Dict, Any, Optional, cast
 import json
-import copy
 
+import os
+import torch
+from torch.utils.data import DataLoader
+
+from dual_domain_dataset import DualDomainDataset
 from models.lstnet import LSTNET
-from data_preparation import get_training_loader
+from data_preparation import get_training_loader, AugmentOps
+from LstnetTrainer import LstnetTrainer, TrainParams
 import utils
-import time
-
-MAX_PATIENCE = None
-
-MODEL_PATH = "lstnet.pth"
-LOSS_FILE = "loss_logs.json"
 
 
-def run_loop(model, loader, val_op=False):
-    epoch_loss = 0
-    op = 'train'
-    if val_op:
-        op = 'val'
+def run(
+    first_domain_name: str,
+    second_domain_name: str,
+    *,
+    supervised: bool,
+    params: Dict[str, Any],
+    weights: List[float],
+    run_validation: bool = True,
+    output_folder: str = "results/",
+    model_file_name: str = "lstnet.pth",
+    logs_file: str = "loss_logs.json",
+    manual_seed: int = 42,
+    val_data_size: float = 0.4,
+    batch_size: int = 64,
+    num_workers: int = 8,
+    augm_ops: AugmentOps = AugmentOps(),
+    train_params: TrainParams = TrainParams(),
+) -> LSTNET:
+    """Train the LSTNET model.
 
-    for batch_idx, (first_real, _, second_real, _) in enumerate(loader):
-        first_real = first_real.to(utils.DEVICE)
-        second_real = second_real.to(utils.DEVICE)
+    Args:
+        first_domain_name (str): Name of the first domain.
+        second_domain_name (str): Name of the second domain.
+        supervised (bool): Whether to use supervised training.
+        params (Dict[str, Any]): Model parameters.
+        weights (List[float]): Loss weights.
+        run_validation (bool, optional): Whether to run validation. Defaults to True.
+        output_folder (str, optional): Folder to save the results. Defaults to "results/".
+        model_file_name (str, optional): File name for the saved model. Defaults to "lstnet.pth".
+        logs_file (str, optional): _description_. Defaults to "loss_logs.json".
+        manual_seed (int, optional): _description_. Defaults to 42.
+        val_data_size (float, optional): _description_. Defaults to 0.4.
+        batch_size (int, optional): Batch size for training. Defaults to 32.
+        num_workers (int, optional): Number of workers for data loading. Defaults to 8.
+        augm_ops (AugmentOps, optional): Data augmentation operations. Defaults to AugmentOps().
+        train_params (TrainParams, optional): Training hyperparameters. Defaults to TrainParams().
 
-        if val_op:
-            disc_loss_tuple, enc_gen_loss_tuple, cc_loss_tuple = model.run_eval_loop(first_real, second_real)
-        elif batch_idx % 2 == 0:
-            disc_loss_tuple, enc_gen_loss_tuple, cc_loss_tuple = model.update_disc(first_real, second_real)
-        else:
-            disc_loss_tuple, enc_gen_loss_tuple, cc_loss_tuple = model.update_enc_gen(first_real, second_real)
-
-        epoch_loss += sum(disc_loss_tuple) + sum(cc_loss_tuple)
-        utils.log_epoch_loss(disc_loss_tuple, enc_gen_loss_tuple, cc_loss_tuple, op)
-
-    scale = len(loader)
-    utils.normalize_epoch_loss(scale, op)
-    epoch_loss /= scale
-
-    return epoch_loss
-
-
-def train_and_validate(model, train_loader, max_epoch_num, val_loader=None, return_last_model=False):
+    Returns:
+        LSTNET: The trained LSTNET model.
     """
-        First phase of training. Without knowledge of the labels (will be ignoring the labels).
-        Validate only if val_loader is passed.
-    """
 
-    best_model = None
-    best_loss = np.inf
-    best_epoch_idx = None
-    train_loss_list = []
-    val_loss_list = []
-    cur_patience = 0
+    train_loader: DataLoader[DualDomainDataset]
+    val_loader: Optional[DataLoader[DualDomainDataset]] = None
 
-    model.to(utils.DEVICE)
-    for epoch_idx in range(max_epoch_num):
-        print(f'Running epoch {epoch_idx}')
-        start_time = time.time()
-        utils.init_epoch_loss()
-        epoch_loss = run_loop(model, train_loader)
-        train_loss_list.append(epoch_loss)
-        print(f'\tTrain loss: {epoch_loss}')
+    pin_memory = True if torch.cuda.is_available() else False
 
-        if val_loader is not None:  # if validation is being run then the decision loss is validation, otherwise train  `
-            epoch_loss = run_loop(model, val_loader, val_op=True)
-            val_loss_list.append(epoch_loss)
-            print(f'\tVal loss: {epoch_loss}')
+    if run_validation:
+        train_loader, val_loader = get_training_loader(
+            first_domain_name,
+            second_domain_name,
+            supervised,
+            split_data=True,
+            manual_seed=manual_seed,
+            val_data_size=val_data_size,
+            batch_size=batch_size,
+            num_workers=num_workers,
+            pin_memory=pin_memory,
+            augment_ops=augm_ops,
+        )
+    else:
+        train_loader = get_training_loader(
+            first_domain_name,
+            second_domain_name,
+            supervised,
+            split_data=False,
+            manual_seed=manual_seed,
+            val_data_size=val_data_size,
+            batch_size=batch_size,
+            num_workers=num_workers,
+            pin_memory=pin_memory,
+            augment_ops=augm_ops,
+        )
 
-        if epoch_loss < best_loss:
-            best_model = copy.deepcopy(model)
-            best_loss = epoch_loss
-            best_epoch_idx = epoch_idx
-            cur_patience = 0
+        val_loader = None
 
-        else:
-            cur_patience += 1
+    # Cast access to DualDomainDataset specific methods
+    dds = cast(DualDomainDataset, train_loader.dataset)
+    (first_channels, first_h, first_w), (second_channels, second_h, second_w) = (
+        dds.get_input_dims()
+    )
 
-            if cur_patience >= MAX_PATIENCE:
-                print(f'max patience reached')
-                break
+    model = LSTNET(
+        first_domain_name,
+        second_domain_name,
+        params,
+        first_input_size=(first_h, first_w),
+        second_input_size=(second_h, second_w),
+        first_in_channels_num=first_channels,
+        second_in_channels_num=second_channels,
+    )
 
-        end_time = time.time()
+    utils.init_logs(["train", "val"])
+    trainer = LstnetTrainer(
+        model, weights, train_loader, val_loader=val_loader, train_params=train_params
+    )
+    print("Starting train and validate")
+    trained_model = trainer.fit()
 
-        print(f'\tEpoch took: {(end_time - start_time) / 60:.2f} min')
-        print(f'\tPatience: {cur_patience}')
+    trainer_info = trainer.get_trainer_info()
+    trainer_info["first_domain"] = first_domain_name
+    trainer_info["second_domain"] = second_domain_name
+    trainer_info["supervised"] = supervised
+    trainer_info["augmentation_ops"] = str(augm_ops)
 
-    if not return_last_model:  # return best one
-        utils.LOSS_LOGS['best_epoch_idx'] = best_epoch_idx
-        model = best_model
+    utils.LOSS_LOGS["trainer_info"] = trainer_info
 
-    utils.LOSS_LOGS['train_loss'] = train_loss_list
+    # Ensure output folder exists
+    os.makedirs(output_folder, exist_ok=True)
 
-    with open(f'{utils.OUTPUT_FOLDER}{LOSS_FILE}', 'w') as file:
-        json.dump(utils.LOSS_LOGS, file, indent=2)
+    model_path = f"{output_folder}/{model_file_name}"
+    trained_model.save_model(model_path)
 
-    model.to("cpu")
-    return model
+    with open(f"{output_folder}/{logs_file}", "w", encoding="utf-8") as f:
+        json.dump(utils.LOSS_LOGS, f, indent=2)
 
-
-def run_full_training(first_domain_name, second_domain_name, supervised, epoch_num):
-    loader = get_training_loader(first_domain_name, second_domain_name, supervised, split_data=False)
-    print(f'Number of data in training dataset: {len(loader.dataset)}')
-    model = LSTNET(first_domain_name, second_domain_name)
-    utils.init_logs(['train'])
-
-    print('Starting full training')
-    model = train_and_validate(model, loader, epoch_num)
-    print('Model trained on full train dataset.')
-    model_path = f'{utils.OUTPUT_FOLDER}{MODEL_PATH}'
-    model.save_model(model_path)
-
-    return model
-
-
-def run(first_domain_name, second_domain_name, supervised, epoch_num):
-    train_loader, val_loader = get_training_loader(first_domain_name, second_domain_name, supervised, split_data=True)
-    model = LSTNET(first_domain_name, second_domain_name)
-    utils.init_logs(['train', 'val'])
-
-    print('Starting train and validate')
-    model = train_and_validate(model, train_loader, val_loader, epoch_num)  # pass both loaders at once
-    print('Model trained trained and validated.')
-
-    model_path = f'{utils.OUTPUT_FOLDER}{MODEL_PATH}'
-    model.save_model(model_path)
-
-    return model
+    return trained_model
