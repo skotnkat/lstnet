@@ -1,159 +1,93 @@
-import copy
 import torch
 import argparse
 import json
 import os
-from time import time
-import numpy as np
-
-from data_preparation import load_dataset, create_augmentation_steps
-from torch.utils.data import DataLoader, random_split
-from eval_models.clf_models import MnistClf, UspsClf, SvhnClf
-
-EVAL_FOLDER = 'eval_models/'
-MODEL_FOLDER = None
 
 
-def parse_args():
+import clf_utils
+import utils
+import clf_optuna
+
+
+def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
 
-    parser.add_argument('domain_name', type=str.upper)
-    parser.add_argument('params_file', type=str)
+    _ = parser.add_argument("domain_name", type=str.upper)
+    _ = parser.add_argument("params_file", type=str)
+    _ = parser.add_argument("--output_folder", type=str, default="eval_models/")
+    # _ = parser.add_argument("--custom_clf", action="store_true")
+
+    _ = parser.add_argument("--manual_seed", type=int, default=42)
+    _ = parser.add_argument("--val_size", type=float, default=0.25)
+
+    _ = parser.add_argument("--aug_rotation", type=int, default=10)
+    _ = parser.add_argument("--aug_zoom", type=float, default=0.1)
+    _ = parser.add_argument("--aug_shift", type=int, default=2)
+
+    _ = parser.add_argument("--batch_size", type=int, default=64)
+    _ = parser.add_argument("--num_workers", type=int, default=8)
+
+    _ = parser.add_argument("--epoch_num", type=int, default=50)
+    _ = parser.add_argument("--patience", type=int, default=5)
+    _ = parser.add_argument("--optimizer", type=str, default="Adam")
+
+    _ = parser.add_argument("--learning_rate", type=float, default=0.001)
+    _ = parser.add_argument("--weight_decay", type=float, default=0.0)
+    _ = parser.add_argument("--betas", type=float, nargs=2, default=(0.9, 0.999))
+
+    _ = parser.add_argument("--run_optuna", action="store_true")
+    _ = parser.add_argument("--study_name", type=str, default="clf_study")
+    _ = parser.add_argument("--n_trials", type=int, default=50)
+    _ = parser.add_argument("--optuna_sampler_start_trials", type=int, default=20)
+    _ = parser.add_argument("--min_resource", type=int, default=5)
+    _ = parser.add_argument("--max_resource", type=int, default=20)
+    _ = parser.add_argument("--reduction_factor", type=int, default=2)
 
     return parser.parse_args()
 
 
-def run_loop(clf, loader, train=True):
-    loss_total = 0
-    acc_total = 0
-    for x, y in loader:
-        x = x.to(device)
-        y = y.to(device)
-        clf.optimizer.zero_grad()
-        outputs = clf.forward(x)
-
-        loss = clf.criterion(outputs, y)
-        if train:
-            loss.backward()
-            clf.optimizer.step()
-
-        loss_total += loss.item()  # reduction='sum' -> already returns sum of the losses
-
-        preds = outputs.argmax(dim=1)
-        acc = (preds == y).sum()
-        acc_total += acc.item()
-
-        x = x.to('cpu')
-        y = y.to('cpu')
-
-    loss_total /= len(loader)
-    acc_total /= len(loader)
-
-    return loss_total, acc_total
-
-
 if __name__ == "__main__":
     args = parse_args()
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    print(f'Using device: {device}')
+    utils.init_device()
 
-    # obtain the dataset size
-    args.domain_name = args.domain_name.upper()
-    MODEL_FOLDER = EVAL_FOLDER + args.domain_name
+    if args.run_optuna:
+        print(f"Running Optuna for classifier on {args.domain_name}")
+        trained_clf, logs = clf_optuna.run_optuna_clf(args)
 
-    if not os.path.exists(f'{MODEL_FOLDER}'):
-        os.makedirs(f'{MODEL_FOLDER}')
+    else:
+        print(f"Training basic classifier on {args.domain_name}")
+        train_loader, val_loader = clf_utils.prepare_clf_data(
+            args.domain_name,
+            val_size_data=args.val_size,
+            seed=args.manual_seed,
+            batch_size=args.batch_size,
+            num_workers=args.num_workers,
+            rotation=args.aug_rotation,
+            zoom=args.aug_zoom,
+            shift=args.aug_shift,
+        )
 
-    train_data = load_dataset(args.domain_name, train_op=True)
-    img_size = train_data[0][0].shape[1]
+        clf = clf_utils.get_clf(args.domain_name, args.params_file)
 
-    transform_steps = create_augmentation_steps(img_size)
-    train_data = load_dataset(args.domain_name, train_op=True, download=False, transform_steps=transform_steps)
+        trained_clf, _, logs = clf_utils.train_clf(
+            clf,
+            train_loader,
+            val_loader,
+            optim=args.optimizer,
+            epoch_num=args.epoch_num,
+            patience=args.patience,
+            lr=args.learning_rate,
+            betas=args.betas,
+            weight_decay=args.weight_decay,
+        )
 
-    train_size = int(len(train_data) * 0.75)
-    val_size = len(train_data) - train_size
+    if not os.path.exists(f"{args.output_folder}"):
+        os.makedirs(f"{args.output_folder}")
 
-    gen = torch.Generator().manual_seed(42)
-    train_data, val_data = random_split(train_data, [train_size, val_size], generator=gen)
+    with open(f"{args.output_folder}/logs.json", "w", encoding="utf-8") as file:
+        json.dump(logs, file, indent=2)
 
-    train_loader = DataLoader(train_data, batch_size=64, shuffle=True, num_workers=8)
-    val_loader = DataLoader(val_data, batch_size=64, shuffle=False, num_workers=8)
-
-    clf = None
-    if not args.params_file.endswith('.json'):
-        raise ValueError("The parameter 'params_file' must end with .json")
-
-    with open(f'{EVAL_FOLDER}{args.params_file}', 'r') as file:
-        params = json.load(file)
-
-    if args.domain_name == "MNIST":
-        clf = MnistClf(params)
-        print(f'MNIST Classifier Initialized')
-
-    elif args.domain_name == "USPS":
-        clf = UspsClf(params)
-        print(f'USPS Classifier Initialized')
-
-    elif args.domain_name == "SVHN":
-        clf = SvhnClf(params)
-        print(f'SVHN Classifier Initialized')
-
-    if clf is None:
-        raise ValueError("No classifier model as loaded.")
-    clf.to(device)
-
-    best_weights = copy.deepcopy(clf.state_dict())
-    best_val_loss = np.inf
-
-    train_loss_list = []
-    train_acc_list = []
-    val_loss_list = []
-    val_acc_list = []
-    patience_cnt = 0
-
-    for epoch in range(clf.epochs):
-        start_time = time()
-        ######################################################
-        clf.train()
-        train_loss, train_acc = run_loop(clf, train_loader)
-        train_loss_list.append(train_loss)
-        train_acc_list.append(train_acc)
-
-        ######################################################
-        clf.eval()
-        with torch.no_grad():
-            val_loss, val_acc = run_loop(clf, val_loader, train=False)
-
-        val_loss_list.append(val_loss)
-        val_acc_list.append(val_acc)
-
-        ######################################################
-        end_time = time()
-        print(f'Epoch {epoch} finished.')
-        print(f'\tTrain loss: {train_loss:.6f}, Train acc: {train_acc:.6f}')
-        print(f'\tVal loss: {val_loss:.6f}, Val acc: {val_acc:.6f}')
-        print(f'\tTook: {(end_time-start_time)/60:.2f} min')
-
-        if val_loss < best_val_loss:
-            best_val_loss = val_loss
-            best_weights = copy.deepcopy(clf.state_dict())
-            patience_cnt = 0
-
-        else:
-            patience_cnt += 1
-
-            if patience_cnt > clf.patience:
-                print(f'Patience {patience_cnt} reached its limit {clf.patience}.')
-                break
-
-        print(f'patience: {patience_cnt}')
-        ######################################################
-
-    results = {'train_loss': train_loss_list, 'train_acc': train_acc_list,
-               'val_loss': val_loss_list, 'val_acc': val_acc_list}
-
-    with open(f'{MODEL_FOLDER}/results.json', 'w') as file:
-        json.dump(results, file, indent=2)
-
-    torch.save(clf, f"{MODEL_FOLDER}/{args.domain_name}_model.pth")
-
+    torch.save(trained_clf, f"{args.output_folder}/{args.domain_name}_clf_model.pth")
+    print(
+        f"Classifier model saved at: {args.output_folder}/{args.domain_name}_clf_model.pth"
+    )
