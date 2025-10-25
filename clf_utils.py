@@ -40,12 +40,14 @@ def prepare_clf_data(
         batch_size=batch_size,
         shuffle=True,
         num_workers=num_workers,
+        pin_memory=True if utils.DEVICE is not None and utils.DEVICE.type == "cuda" else False,
     )
     val_loader = DataLoader(
         val_data,
         batch_size=batch_size,
         shuffle=False,
         num_workers=num_workers,
+        pin_memory=True if utils.DEVICE is not None and utils.DEVICE.type == "cuda" else False,
     )
     print("DataLoaders Created.")
 
