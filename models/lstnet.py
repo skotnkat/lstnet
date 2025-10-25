@@ -179,7 +179,7 @@ class LSTNET(nn.Module):
             first_gen_out_channels != self.first_in_channels_num
         ):
             raise ValueError(
-                f"Size mismatch for {self.first_domain}: \
+                f"Size mismatch for {self.first_domain_name}: \
                     The output size or out channels of the first generator do not match\
                         the input size or in channels of the first encoder."
             )
@@ -190,7 +190,7 @@ class LSTNET(nn.Module):
             second_gen_out_channels != self.second_in_channels_num
         ):
             raise ValueError(
-                f"Size mismatch for {self.second_domain}: \
+                f"Size mismatch for {self.second_domain_name}: \
                     The output size or out channels of the second generator do not match\
                         the input size or in channels of the second encoder."
             )

@@ -107,7 +107,7 @@ class LstnetTrainer:
             )
 
         if any(w <= 0 for w in weights):
-            raise ValueError("All weights must be non-negative values.")
+            raise ValueError("All weights must be positive values.")
 
         if train_params.lr <= 0:
             raise ValueError(f"Learning rate must be positive, got {train_params.lr}")
