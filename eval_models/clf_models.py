@@ -146,8 +146,9 @@ class ClfTrainer:
         loss_total = 0
         acc_total = 0
         for x, y in loader:
-            _ = x.to(utils.DEVICE)
-            _ = y.to(utils.DEVICE)
+            # Move batch to the same device as the model
+            x = x.to(utils.DEVICE, non_blocking=True)
+            y = y.to(utils.DEVICE, non_blocking=True)
 
             self.optimizer.zero_grad()
             outputs = self.clf.forward(x)
