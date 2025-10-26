@@ -89,6 +89,7 @@ def get_data_loader(
     persistent_workers: bool = False,
     pin_memory: bool = False,
     collate_fn: Optional[Callable] = None,
+    drop_last: bool = False,
 ) -> DataLoader[Any]:
     """Creates a DataLoader for the given dataset.
 
@@ -104,6 +105,7 @@ def get_data_loader(
             Defaults to False.
         collate_fn (Optional[Callable], optional): The function to merge samples into batches.
             Defaults to None. If None, the default collate function is used.
+        drop_last (bool, optional): Whether to drop the last incomplete batch. Defaults to False.
 
     Returns:
         DataLoader[Any]: The DataLoader instance for the given dataset.
@@ -117,6 +119,7 @@ def get_data_loader(
         persistent_workers=persistent_workers,
         pin_memory=pin_memory,
         collate_fn=collate_fn,
+        drop_last=drop_last,
     )
 
 
@@ -437,6 +440,7 @@ def get_train_val_loaders(
         shuffle=True,
         pin_memory=pin_memory,
         collate_fn=custom_collate_fn,
+        drop_last=True,  # To ensure consistent batch sizes during training (important for pytorch compile)
     )
     val_loader = get_data_loader(
         val_data,
@@ -445,6 +449,7 @@ def get_train_val_loaders(
         shuffle=False,
         pin_memory=pin_memory,
         collate_fn=custom_collate_fn,
+        drop_last=False,  # Evaluate on all data
     )
 
     print("Obtained Data Loader for both training and validation")
@@ -562,6 +567,7 @@ def get_training_loader(
         pin_memory=pin_memory,
         shuffle=True,
         collate_fn=custom_collate_fn,
+        drop_last=True,  # To ensure consistent batch sizes during training (important for pytorch compile)
     )
     print("Obtained Data Loader for training")
 
@@ -599,4 +605,5 @@ def get_testing_loader(
         num_workers=num_workers,
         pin_memory=pin_memory,
         shuffle=False,
+        drop_last=False,
     )

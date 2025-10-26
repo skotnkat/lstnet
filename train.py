@@ -12,7 +12,7 @@ import torch
 from torch.utils.data import DataLoader
 
 from dual_domain_dataset import DualDomainDataset
-from models.lstnet import LSTNET
+from models.lstnet import LSTNET, compile_lstnet_submodules
 from data_preparation import get_training_loader, AugmentOps
 from LstnetTrainer import LstnetTrainer, TrainParams
 import utils
@@ -35,6 +35,7 @@ def run(
     num_workers: int = 8,
     augm_ops: AugmentOps = AugmentOps(),
     train_params: TrainParams = TrainParams(),
+    compile_model: bool = False,
 ) -> LSTNET:
     """Train the LSTNET model.
 
@@ -108,6 +109,12 @@ def run(
         first_in_channels_num=first_channels,
         second_in_channels_num=second_channels,
     )
+
+    model.to(utils.DEVICE)
+
+    if compile_model:
+        print("Compiling LSTNET submodules.")
+        compile_lstnet_submodules(model)
 
     utils.init_logs(["train", "val"])
     trainer = LstnetTrainer(

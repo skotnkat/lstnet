@@ -451,3 +451,27 @@ class LSTNET(nn.Module):
             print(f"Unexpected keys: {load_result.unexpected_keys}")
 
         return model
+
+
+def compile_lstnet_submodules(model: LSTNET) -> None:
+    submodule_names = [
+        "first_encoder",
+        "second_encoder",
+        "shared_encoder",
+        "first_generator",
+        "second_generator",
+        "shared_generator",
+        "first_discriminator",
+        "second_discriminator",
+        "latent_discriminator",
+    ]
+
+    for name in submodule_names:
+        if not hasattr(model, name):
+            raise AttributeError(f"LSTNET model does not have submodule '{name}'")
+
+        submodule = getattr(model, name)
+        compiled = torch.compile(
+            submodule, mode="max-autotune", fullgraph=True, dynamic=False
+        )
+        setattr(model, name, compiled)
