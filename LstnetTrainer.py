@@ -175,12 +175,12 @@ class LstnetTrainer:
         with torch.no_grad():
             # second_gen_img are images from first domain mapped to second domain
             second_gen_img, first_latent_img = self.model.map_first_to_second(
-                first_real_img, return_latent=True
+                first_real_img
             )
 
             # first_gen_img are images from the second domain mapped to first domain
             first_gen_img, second_latent_img = self.model.map_second_to_first(
-                second_real_img, return_latent=True
+                second_real_img
             )
             imgs_mapping = (
                 first_gen_img,
@@ -228,10 +228,10 @@ class LstnetTrainer:
 
         # Generate images from first domain to second and vice versa
         second_gen_img, first_latent_img = self.model.map_first_to_second(
-            first_real_img, return_latent=True
+            first_real_img
         )
         first_gen_img, second_latent_img = self.model.map_second_to_first(
-            second_real_img, return_latent=True
+            second_real_img
         )
         imgs_mapping = (
             first_gen_img,
@@ -280,10 +280,10 @@ class LstnetTrainer:
         with torch.no_grad():
             # Generate images from first domain to second and vice versa
             second_gen_img, first_latent_img = self.model.map_first_to_second(
-                first_real_img, return_latent=True
+                first_real_img
             )
             first_gen_img, second_latent_img = self.model.map_second_to_first(
-                second_real_img, return_latent=True
+                second_real_img
             )
             imgs_mapping = (
                 first_gen_img,

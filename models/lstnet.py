@@ -7,6 +7,7 @@ import copy
 from torch import Tensor
 import torch
 import torch.nn as nn
+from zmq import has
 
 
 from models.encoder import Encoder
@@ -281,72 +282,40 @@ class LSTNET(nn.Module):
         x_second = self.shared_generator(x_latent)
         return self.second_generator(x_second)
 
-    # Overloads for type checking
-    @overload
-    def map_first_to_second(self, x_first: Tensor) -> Tensor: ...
-    @overload
     def map_first_to_second(
-        self, x_first: Tensor, return_latent: Literal[False]
-    ) -> Tensor: ...
-    @overload
-    def map_first_to_second(
-        self, x_first: Tensor, return_latent: Literal[True]
-    ) -> Tuple[Tensor, Tensor]: ...
-
-    def map_first_to_second(
-        self, x_first: Tensor, return_latent: bool = False
-    ) -> Union[Tensor, Tuple[Tensor, Tensor]]:
+        self,
+        x_first: Tensor,
+    ) -> Tuple[Tensor, Tensor]:
         """Maps images from the first domain to the second domain.
 
         Args:
             x_first (Tensor): Images from the first domain.
-            return_latent (bool, optional): Whether to return the latent representation.
-                Defaults to False.
 
         Returns:
-            Union[Tensor, Tuple[Tensor, Tensor]]: Generated images in the second domain
-                or a tuple of generated images and latent representation.
+            Tuple[Tensor, Tensor]: A tuple of generated images (from first domain to second)
+                and the representation of the images in latent space.
         """
         x_latent = self.map_first_to_latent(x_first)
         x_second = self.map_latent_to_second(x_latent)
 
-        if return_latent:
-            return x_second, x_latent
-
-        return x_second
-
-    @overload
-    def map_second_to_first(self, x_second: Tensor) -> Tensor: ...
-    @overload
-    def map_second_to_first(
-        self, x_second: Tensor, return_latent: Literal[False]
-    ) -> Tensor: ...
-    @overload
-    def map_second_to_first(
-        self, x_second: Tensor, return_latent: Literal[True]
-    ) -> Tuple[Tensor, Tensor]: ...
+        return x_second, x_latent
 
     def map_second_to_first(
-        self, x_second: Tensor, return_latent: bool = False
+        self, x_second: Tensor
     ) -> Union[Tensor, Tuple[Tensor, Tensor]]:
         """Maps images from the second domain to the first domain.
 
         Args:
             x_second (Tensor): Images from the second domain.
-            return_latent (bool, optional): Whether to return the latent representation.
-                Defaults to False.
 
         Returns:
-            Union[Tensor, Tuple[Tensor, Tensor]]: Generated images in the first domain
-                or a tuple of generated images and latent representation.
+            Tuple[Tensor, Tensor]: A tuple of generated images (from second domain to first)
+                and their representation in latent space.
         """
         x_latent = self.map_second_to_latent(x_second)
         x_first = self.map_latent_to_first(x_latent)
 
-        if return_latent:
-            return x_first, x_latent
-
-        return x_first
+        return x_first, x_latent
 
     def get_cc_components(
         self,
@@ -374,16 +343,14 @@ class LSTNET(nn.Module):
         second_cycle = self.map_latent_to_second(second_latent)
 
         # map generated images in second domain back to first domain
-        first_full_cycle = self.map_second_to_first(second_gen)
+        first_full_cycle, _ = self.map_second_to_first(second_gen)
 
         # map generated images in first domain back to second domain
-        second_full_cycle = self.map_first_to_second(first_gen)
+        second_full_cycle, _ = self.map_first_to_second(first_gen)
 
         return first_cycle, second_cycle, first_full_cycle, second_full_cycle
 
-    def forward(
-        self, x: Tensor, map_first_to_second=True, return_latent: bool = False
-    ) -> Union[Tuple[Tensor, Tensor], Tensor]:
+    def forward(self, x: Tensor, map_first_to_second=True) -> Tensor:
         """Maps images between two domains.
 
         Args:
@@ -392,17 +359,18 @@ class LSTNET(nn.Module):
                 Whether to map from the first domain to the second or vice versa.
                 If True, maps from first to second. If False, maps from second to first.
                 Defaults to True.
-            return_latent (bool, optional): Whether to return the latent representation.
-                Defaults to False.
 
         Returns:
             Tuple[Tensor, Tensor]: Generated images and latent representation.
         """
 
         if map_first_to_second:
-            return self.map_first_to_second(x, return_latent=return_latent)
+            res, _ = self.map_first_to_second(x)
 
-        return self.map_second_to_first(x, return_latent=return_latent)
+        else:
+            res, _ = self.map_second_to_first(x)
+
+        return res
 
     def set_domain_name(
         self, name: str, first: bool = True
