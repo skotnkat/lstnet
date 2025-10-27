@@ -1,3 +1,4 @@
+import os
 import argparse
 import json
 import optuna
@@ -86,8 +87,12 @@ def objective(trial, cmd_args: argparse.Namespace) -> float:
 
     state_dict = trained_model.get_lstnet_state_dict()
 
-    trial.set_user_attr("state_dict", state_dict)
     trial.set_user_attr("train_logs", logs)
+
+    model_path = f"{cmd_args.output_folder}/optuna_models/model_{trial.number}.pth"
+    trial.set_user_attr("model_path", model_path)
+
+    trained_model.save_model(model_path)
 
     return logs["trainer_info"]["best_loss"]
 
@@ -99,6 +104,8 @@ def run_optuna_lstnet(cmd_args) -> LSTNET:
         cmd_args (argparse.Namespace): Command line arguments.
 
     """
+
+    os.makedirs(f"{cmd_args.output_folder}/optuna_models", exist_ok=True)
 
     sampler = optuna.samplers.TPESampler(
         n_startup_trials=cmd_args.optuna_sampler_start_trials,
