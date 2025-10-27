@@ -388,11 +388,12 @@ class LstnetTrainer:
         epoch_idx = 0  # Init outside loop scope
         for epoch_idx in range(self.max_epoch_num):
             start_time = time.time()
-            utils.init_epoch_loss()
+            utils.init_epoch_loss(op="train")
             epoch_loss = self._run_epoch(val_op=False)
             self.train_loss_list.append(epoch_loss)
 
             if self.run_validation:
+                utils.init_epoch_loss(op="val")
                 epoch_loss = self._run_epoch(val_op=True)
                 self.val_loss_list.append(epoch_loss)
 
