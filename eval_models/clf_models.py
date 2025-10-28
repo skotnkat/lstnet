@@ -41,6 +41,8 @@ class BaseClf(Discriminator):
             ),
         )
 
+        self.criterion = nn.CrossEntropyLoss()
+
         return last_layer
 
 
