@@ -2,11 +2,14 @@ import os
 import argparse
 import json
 import optuna
+from sympy import hyper
 import train
 
 from models.lstnet import LSTNET
 from data_preparation import AugmentOps
 from LstnetTrainer import TrainParams
+
+import hyperparam_modes
 
 
 def objective(trial, cmd_args: argparse.Namespace) -> float:
@@ -31,18 +34,8 @@ def objective(trial, cmd_args: argparse.Namespace) -> float:
 
     # ---------------------------------------------------------------
     # Optimizing weights
-    original_sum = sum(weights)
 
-    for i in range(3):
-        weights[i] = trial.suggest_categorical(f"weight_{i}", [20, 30, 40])
-
-    for i in range(3, len(weights)):
-        weights[i] = trial.suggest_categorical(f"weight_{i}", [80, 100, 120])
-
-    # Normalize weights
-
-    new_sum = sum(weights)
-    weights = [w * original_sum / new_sum for w in weights]
+    weights = hyperparam_modes.suggest_weights(trial, weights_sum=sum(weights))
 
     # ---------------------------------------------------------------
     # Augmentation Ops
