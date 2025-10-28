@@ -173,6 +173,9 @@ def select_classifier(domain_name, params):
                 params=params,
             )
 
+        case "SVHN":
+            clf = SvhnClf(params=params)
+
     if clf is None:
         raise ValueError("No classifier model as loaded.")
 
