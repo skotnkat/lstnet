@@ -1,4 +1,4 @@
-from typing import Tuple, Sequence, Any, Optional, List
+from typing import Tuple, Sequence, Any, Optional, List, Dict
 import time
 import numpy as np
 import copy
@@ -11,6 +11,7 @@ import optuna
 
 from models.discriminator import Discriminator
 import utils
+from models.extended_layers import Conv2dExtended, MaxPool2dExtended
 
 
 class BaseClf(Discriminator):
@@ -30,8 +31,6 @@ class BaseClf(Discriminator):
             negative_slope=params[-1]["leaky_relu_neg_slope"],
         )
 
-        self.criterion = nn.CrossEntropyLoss()
-
     def _create_last_layer(self):
         last_layer = nn.Sequential(
             nn.Flatten(),
@@ -45,43 +44,115 @@ class BaseClf(Discriminator):
         return last_layer
 
 
-# class SvhnClf(Discriminator):
-#     def __init__(self, params):
-#         self.input_size = (32, 32)
-#         self.in_channels_num = 3
-#         self.global_params = params[-1]
-#         super().__init__(self.input_size, self.in_channels_num, params[:-1])
-#
-#         self.optimizer = optim.Adam(self.layers.parameters(), lr=0.001)
-#         self.criterion = nn.CrossEntropyLoss()
-#         self.epochs = 50
-#         self.patience = 10
-#
-#
-#     def _create_stand_layer(self, params, in_channels, input_size):
-#         conv_params, pool_params = params
-#         conv = Conv2dExtended(in_channels, input_size=input_size, **conv_params)
-#         batch_norm = nn.BatchNorm2d(conv_params["out_channels"], momentum=self.global_params["batch_norm_momentum"])
-#         relu = nn.ReLU()
-#
-#         layers = [conv, batch_norm, relu]
-#
-#         if len(pool_params):
-#             output_size = conv.compute_output_size(input_size)
-#             layers.append(MaxPool2dExtended(input_size=output_size, **pool_params))
-#             layers.append(negative_slope=self.global_params["leaky_relu_neg_slope"])
-#
-#         return nn.Sequential(*layers)
-#
-#     def _create_last_layer(self):
-#         last_layer = nn.Sequential(
-#             nn.Flatten(),
-#             nn.Dropout(self.dense_layer_params["dropout_p"]),
-#             nn.Linear(in_features=self.dense_layer_params["in_features"],
-#                       out_features=self.dense_layer_params["out_features"])
-#         )
-#
-#         return last_layer
+class SvhnClf(Discriminator):
+    def __init__(self, params):
+        self.input_size = (32, 32)
+        self.in_channels_num = 3
+        self.dropout_p = params[-1]["dropout_p"]
+
+        super().__init__(
+            self.input_size,
+            self.in_channels_num,
+            params[:-1],
+            negative_slope=params[-1]["leaky_relu_neg_slope"],
+        )
+
+        last_output_size = self.get_last_layer_output_size()
+        last_layer_out_channels = self.get_last_layer_out_channels()
+
+        in_features = (
+            last_output_size[0] * last_output_size[1] * last_layer_out_channels  # type: ignore Does it return tuple? Why? What does it rerpesent?
+        )
+
+        self.dense_layer_params["in_features"] = in_features
+        last_layer = self._create_last_layer()
+
+        _ = self.layers.append(last_layer)
+
+    def _create_stand_layer(
+        self,
+        params: Tuple[Dict[str, Any], Dict[str, Any]],
+        in_channels: int,
+        **kwargs: Dict[str, Any],
+    ) -> nn.Sequential:
+        first_block_params, second_block_params = params
+
+        conv1_params = first_block_params["conv_params"]
+        conv2_params = second_block_params["conv_params"]
+        pool2_params = second_block_params["pool_params"]
+
+        input_size_raw = kwargs.get("input_size", None)
+        if (
+            input_size_raw is None
+            or not isinstance(input_size_raw, tuple)
+            or len(input_size_raw) != 2
+            or not all(isinstance(i, int) for i in input_size_raw)
+        ):
+            raise ValueError(
+                "input_size must be provided for  Conv2dExtended layer to compute output size."
+            )
+
+        # -------------------------------------
+        # First Block
+        input_size: Tuple[int, int] = input_size_raw
+
+        conv1 = Conv2dExtended(in_channels, input_size=input_size, **conv1_params)
+        batch_norm1 = nn.BatchNorm2d(conv1.out_channels)
+        relu1 = nn.LeakyReLU(negative_slope=self.leaky_relu_neg_slope)
+
+        # -------------------------------------
+        # Second Block
+        conv1_output_size = conv1.compute_output_size(input_size)
+        conv2 = Conv2dExtended(
+            conv1.out_channels, input_size=conv1_output_size, **conv2_params
+        )
+        batch_norm2 = nn.BatchNorm2d(conv2.out_channels)
+        relu2 = nn.LeakyReLU(negative_slope=self.leaky_relu_neg_slope)
+
+        conv2_output_size = conv2.compute_output_size(conv1_output_size)
+        pool2 = MaxPool2dExtended(input_size=conv2_output_size, **pool2_params)
+        dropout2 = nn.Dropout2d(p=self.dropout_p)
+        # -------------------------------------
+
+        layer = nn.Sequential(
+            conv1, batch_norm1, relu1, conv2, batch_norm2, relu2, pool2, dropout2
+        )
+
+        return layer
+
+    def _create_last_layer(self) -> nn.Sequential:
+
+        last_layer = nn.Sequential(
+            nn.Flatten(),
+            nn.Linear(
+                in_features=self.dense_layer_params["in_features"],
+                out_features=self.dense_layer_params["out_features"],
+            ),
+            nn.Dropout(p=self.dropout_p),
+            nn.Linear(
+                in_features=self.dense_layer_params["out_features"],
+                out_features=self.dense_layer_params["num_classes"],
+            ),
+        )
+
+        return last_layer
+
+    def get_last_layer_out_channels(self) -> int:
+        """Get the number of output channels from the last layer."""
+
+        # Second convolution
+        out_channels: int = self.layers[-1][3].out_channels  # type: ignore (check what is happening: is it nn.Module or nn.Sequential)
+        return out_channels
+
+    @staticmethod
+    def _compute_layer_output_size(
+        layer: nn.Sequential, input_size: Tuple[int, int]
+    ) -> Tuple[int, int]:
+        conv1_output_size = layer[0].compute_output_size(input_size)  # type: ignore (why not ok?)
+        conv2_output_size = layer[3].compute_output_size(conv1_output_size)  # type: ignore (why not ok?)
+        pool_output_size = layer[6].compute_output_size(conv2_output_size)  # type: ignore (why not ok?)
+
+        return pool_output_size
 
 
 def select_classifier(domain_name, params):
