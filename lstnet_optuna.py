@@ -76,6 +76,7 @@ def objective(trial, cmd_args: argparse.Namespace) -> float:
         augm_ops=augm_ops,
         train_params=train_params,
         optuna=True,
+        optuna_trial=trial
     )
 
     trial.set_user_attr("train_logs", logs)
