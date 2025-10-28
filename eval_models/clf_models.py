@@ -59,17 +59,7 @@ class SvhnClf(Discriminator):
             negative_slope=params[-1]["leaky_relu_neg_slope"],
         )
 
-        last_output_size = self.get_last_layer_output_size()
-        last_layer_out_channels = self.get_last_layer_out_channels()
-
-        in_features = (
-            last_output_size[0] * last_output_size[1] * last_layer_out_channels  # type: ignore Does it return tuple? Why? What does it rerpesent?
-        )
-
-        self.dense_layer_params["in_features"] = in_features
-        last_layer = self._create_last_layer()
-
-        _ = self.layers.append(last_layer)
+        self.criterion = nn.CrossEntropyLoss()
 
     def _create_stand_layer(
         self,
