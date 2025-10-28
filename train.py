@@ -10,6 +10,7 @@ import json
 import os
 import torch
 from torch.utils.data import DataLoader
+import optuna
 
 from dual_domain_dataset import DualDomainDataset
 from models.lstnet import LSTNET
@@ -37,6 +38,7 @@ def run(
     augm_ops: AugmentOps = AugmentOps(),
     train_params: TrainParams = TrainParams(),
     optuna: Literal[False] = False,
+    optuna_trial: Optional[optuna.Trial] = None,
 ) -> LSTNET: ...
 @overload
 def run(
@@ -57,6 +59,7 @@ def run(
     augm_ops: AugmentOps = AugmentOps(),
     train_params: TrainParams = TrainParams(),
     optuna: Literal[True],
+    optuna_trial: Optional[optuna.Trial] = None,
 ) -> Tuple[LSTNET, Dict[str, Any]]: ...
 def run(
     first_domain_name: str,
@@ -76,6 +79,7 @@ def run(
     augm_ops: AugmentOps = AugmentOps(),
     train_params: TrainParams = TrainParams(),
     optuna: bool = False,
+    optuna_trial: Optional[optuna.Trial] = None,
 ) -> Union[LSTNET, Tuple[LSTNET, Dict[str, Any]]]:
     """Train the LSTNET model.
 
@@ -152,7 +156,13 @@ def run(
 
     utils.init_logs(["train", "val"])
     trainer = LstnetTrainer(
-        model, weights, train_loader, val_loader=val_loader, train_params=train_params
+        model,
+        weights,
+        train_loader,
+        val_loader=val_loader,
+        train_params=train_params,
+        run_optuna=optuna,
+        optuna_trial=optuna_trial,
     )
     print("Starting train and validate")
     trained_model = trainer.fit()
