@@ -85,8 +85,6 @@ def objective(trial, cmd_args: argparse.Namespace) -> float:
         optuna=True,
     )
 
-    state_dict = trained_model.get_lstnet_state_dict()
-
     trial.set_user_attr("train_logs", logs)
 
     model_path = f"{cmd_args.output_folder}/optuna_models/model_{trial.number}.pth"
@@ -137,8 +135,8 @@ def run_optuna_lstnet(cmd_args) -> LSTNET:
     for key, value in study.best_trial.params.items():
         print(f"\t{key}: {value}")
 
-    best_model_state_dict = study.best_trial.user_attrs["state_dict"]
-    trained_model = LSTNET.load_lstnet_from_state_dict(best_model_state_dict)
+    best_model_path = study.best_trial.user_attrs["model_path"]
+    trained_model = LSTNET.load_lstnet_model(best_model_path)
 
     trained_model.save_model(f"{cmd_args.output_folder}/{cmd_args.model_file_name}")
 
