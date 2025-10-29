@@ -51,7 +51,7 @@
         [{"out_channels" : 128, "kernel_size" : 3 , "stride" :  1, "padding" :  "same"}, {"kernel_size" :  2, "stride" :  1, "padding" :  "same"}],
         [{"out_channels" : 256, "kernel_size" : 5 , "stride" :  1, "padding" :  "same"}, {"kernel_size" :  2, "stride" :  2, "padding" :  "same"}],
         [{"out_channels" : 512, "kernel_size" : 2 , "stride" :  1, "padding" :  "valid"}, {"kernel_size" :  2, "stride" :  2, "padding" :  "same"}],
-        {"out_features" : 3}
+        {"out_features" : 1}
     ],
 
     "latent_discriminator" : [
