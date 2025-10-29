@@ -13,6 +13,7 @@ import torch
 from torch import Tensor
 from torch.utils.data import DataLoader
 import numpy as np
+import optuna
 
 from dual_domain_dataset import DualDomainDataset
 from models.lstnet import LSTNET
@@ -49,6 +50,8 @@ class LstnetTrainer:
         *,
         val_loader: Optional[DataLoader[DualDomainDataset]] = None,
         train_params: TrainParams = TrainParams(),
+        run_optuna: bool = False,
+        optuna_trial: Optional[optuna.Trial] = None,
     ) -> None:
         """Initialize the LSTNET trainer.
 
@@ -146,6 +149,9 @@ class LstnetTrainer:
         self.train_loss_list: List[float] = []
         self.val_loss_list: List[float] = []
 
+        self.run_optuna = run_optuna
+        self.optuna_trial = optuna_trial
+
     def get_trainer_info(self) -> Dict[str, Any]:
         """
         Function to get all the relevant trainer information.
@@ -165,6 +171,7 @@ class LstnetTrainer:
             "lr": self.lr,
             "betas": self.betas,
             "weight_decay": self.weight_decay,
+            "run_optuna": self.run_optuna,
         }
 
     def _update_disc(
@@ -388,13 +395,28 @@ class LstnetTrainer:
         epoch_idx = 0  # Init outside loop scope
         for epoch_idx in range(self.max_epoch_num):
             start_time = time.time()
-            utils.init_epoch_loss()
+            utils.init_epoch_loss(op="train")
             epoch_loss = self._run_epoch(val_op=False)
             self.train_loss_list.append(epoch_loss)
 
             if self.run_validation:
+                utils.init_epoch_loss(op="val")
                 epoch_loss = self._run_epoch(val_op=True)
                 self.val_loss_list.append(epoch_loss)
+
+                # ------------------------------
+                # Pruning in case of optuna
+                if self.run_optuna and self.optuna_trial is None:
+                    raise ValueError(
+                        "Optuna trial is None, but run_optuna is set to True. Provide valid optuna trial."
+                    )
+
+                self.optuna_trial.report(epoch_loss, epoch_idx)
+                if self.optuna_trial.should_prune():
+                    self.optuna_trial.set_user_attr("train_logs", utils.LOSS_LOGS.copy())
+                    raise optuna.TrialPruned()
+
+                # ------------------------------
 
             if epoch_loss < self.best_loss:
                 self.best_state_dict = self.model.state_dict()

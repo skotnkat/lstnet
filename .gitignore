@@ -1,8 +1,12 @@
 # python
 *.pyc
 
-# pycharm
+# environment
+.venv/
+
+# ide
 /.idea
+.vscode/
 
 # jupyter notebook
 .ipynb_checkpoints/
@@ -10,3 +14,6 @@
 .idea/lstnet.iml
 .idea/modules.xml
 /data
+
+# test folders
+test_files/
