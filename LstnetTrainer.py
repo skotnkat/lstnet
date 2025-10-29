@@ -413,6 +413,7 @@ class LstnetTrainer:
 
                 self.optuna_trial.report(epoch_loss, epoch_idx)
                 if self.optuna_trial.should_prune():
+                    self.optuna_trial.set_user_attr("train_logs", utils.LOSS_LOGS.copy())
                     raise optuna.TrialPruned()
 
                 # ------------------------------
