@@ -18,6 +18,7 @@ from data_preparation import AugmentOps
 from LstnetTrainer import TrainParams
 
 from models.lstnet import LSTNET
+import lstnet_optuna
 
 
 def add_common_args(parser: argparse.ArgumentParser):
@@ -81,6 +82,9 @@ def add_train_args(parser: argparse.ArgumentParser):
         help="If set, the full training set will be used. No validation phase after training.",
     )
 
+    _ = parser.add_argument("--model_file_name", type=str, default="lstnet.pth")
+    _ = parser.add_argument("--logs_file_name", type=str, default="loss_logs.json")
+
     _ = parser.add_argument("--epoch_num", type=int, default=50)
     _ = parser.add_argument("--val_size", type=float, default=0.25)
     _ = parser.add_argument("--early_stopping", action="store_true")
@@ -95,6 +99,19 @@ def add_train_args(parser: argparse.ArgumentParser):
         default=[20, 20, 30, 100, 100, 100, 100],
         help="List of 7 float weights",
     )
+
+    _ = parser.add_argument("--optuna", action="store_true")
+    _ = parser.add_argument("--optuna_study_name", type=str, default="lstnet_study")
+    _ = parser.add_argument(
+        "--optuna_trials",
+        type=int,
+        default=50,
+        help="Number of Optuna trials to perform if --optuna is set.",
+    )
+    _ = parser.add_argument("--optuna_max_resource", type=int, default=20)
+    _ = parser.add_argument("--optuna_min_resource", type=int, default=5)
+    _ = parser.add_argument("--optuna_reduction_factor", type=int, default=2)
+    _ = parser.add_argument("--optuna_sampler_start_trials", type=int, default=20)
 
 
 def add_translate_args(parser: argparse.ArgumentParser):
@@ -221,6 +238,14 @@ def run_training(
         Optional[torch.nn.Module]: If return_model is True, then the trained LSTNET model.
             Otherwise None.
     """
+    if cmd_args.optuna:
+        print("Running Optuna hyperparameter optimization for LSTNET model.")
+        model = lstnet_optuna.run_optuna_lstnet(cmd_args)
+
+        if return_model:
+            return model
+
+        return
 
     run_validation_flag = not cmd_args.full_training_only
 
@@ -255,6 +280,8 @@ def run_training(
         batch_size=cmd_args.batch_size,
         num_workers=cmd_args.num_workers,
         output_folder=cmd_args.output_folder,
+        model_file_name=cmd_args.model_file_name,
+        logs_file_name=cmd_args.logs_file_name,
         manual_seed=cmd_args.manual_seed,
         augm_ops=augm_ops,
         train_params=train_params,
@@ -359,7 +386,12 @@ def run_end_to_end(cmd_args: argparse.Namespace) -> None:
     Args:
         cmd_args (argparse.Namespace): Command line arguments.
     """
-    model = run_training(cmd_args, return_model=True)
+    if cmd_args.optuna:
+        print("Running Optuna hyperparameter optimization for LSTNET model.")
+        model = lstnet_optuna.run_optuna_lstnet(cmd_args)
+
+    else:
+        model = run_training(cmd_args, return_model=True)
 
     # Translate first and second domains
     first_translated_data = run_translation(
