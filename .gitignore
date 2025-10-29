@@ -1,17 +1,20 @@
 # python
 *.pyc
 
-# ide
-/.idea
-/.vscode
 
 # environment
 .venv/
+
+# ide
+.idea/
+.vscode/
+
 
 # jupyter notebook
 .ipynb_checkpoints/
 
 # test files and data
-/experiments
-/data
-/test_files
+experiments/
+data/
+test_files/
+
