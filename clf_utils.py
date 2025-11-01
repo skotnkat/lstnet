@@ -2,7 +2,6 @@ from typing import Any, Tuple, List, Optional
 import json
 from torch.utils.data import DataLoader
 import optuna
-import time
 
 from eval_models.clf_models import select_classifier, ClfTrainer, BaseClf
 import utils
@@ -106,12 +105,10 @@ def train_clf(
         run_optuna=optuna_trial is not None,
     )
 
-    start_time = time.time() 
     clf = trainer.train(train_loader, val_loader, trial=optuna_trial)
-    end_time = time.time() 
     
     print(f"Best validation accuracy: {trainer.best_acc}")
-    print(f"Trial took: {(end_time - start_time):.2f} s")
+    
     return (
         clf,
         trainer.best_acc,
