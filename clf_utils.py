@@ -1,6 +1,8 @@
 from typing import Any, Tuple, List, Optional
 import json
 from torch.utils.data import DataLoader
+import optuna
+import time
 
 from eval_models.clf_models import select_classifier, ClfTrainer, BaseClf
 import utils
@@ -91,7 +93,7 @@ def train_clf(
     lr: float,
     betas: Tuple[float, float],
     weight_decay: float,
-    run_optuna: bool = False,
+    optuna_trial: Optional[optuna.Trial] = None
 ):
     trainer = ClfTrainer(
         clf,
@@ -101,15 +103,15 @@ def train_clf(
         lr=lr,
         betas=betas,
         weight_decay=weight_decay,
-        run_optuna=run_optuna,
+        run_optuna=optuna_trial is not None,
     )
-    print("Trainer Created. Starting Training...")
 
-    clf = trainer.train(train_loader, val_loader)
-
-    print("Training Finished.")
+    start_time = time.time() 
+    clf = trainer.train(train_loader, val_loader, trial=optuna_trial)
+    end_time = time.time() 
+    
     print(f"Best validation accuracy: {trainer.best_acc}")
-
+    print(f"Trial took: {(end_time - start_time):.2f} s")
     return (
         clf,
         trainer.best_acc,

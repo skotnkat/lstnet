@@ -85,7 +85,7 @@ def objective(trial, cmd_args):
         lr=lr,
         betas=(beta1, beta2),
         weight_decay=wd,
-        run_optuna=True,
+        optuna_trial=trial,
     )
 
     trial.set_user_attr("architecture_params", params)
