@@ -1,7 +1,9 @@
 import optuna
-from torch import conv1d
+import time
+
 
 import clf_utils
+
 
 
 def suggest_architecture(trial):
@@ -51,6 +53,7 @@ def suggest_architecture(trial):
 
 
 def objective(trial, cmd_args):
+    start_time = time.time() 
     params = suggest_architecture(trial)
 
     rot = trial.suggest_int("augm_rotation", 5, 20, step=5)
@@ -88,8 +91,11 @@ def objective(trial, cmd_args):
         optuna_trial=trial,
     )
 
+    end_time = time.time()
+    print(f"Trial took: {(end_time - start_time):.2f} s")
+    
     trial.set_user_attr("architecture_params", params)
-
+     
     return best_acc
 
 
