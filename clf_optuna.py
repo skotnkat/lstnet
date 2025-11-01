@@ -92,7 +92,7 @@ def objective(trial, cmd_args):
     )
 
     end_time = time.time()
-    print(f"Trial took: {(end_time - start_time):.2f} s")
+    print(f"Trial took: {(end_time - start_time) / 60:.2f} s")
     
     trial.set_user_attr("architecture_params", params)
      

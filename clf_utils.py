@@ -34,7 +34,6 @@ def prepare_clf_data(
         manual_seed=manual_seed,
         augment_ops=aug_ops,
     )
-    print("Dataset Loaded.")
 
     train_loader = DataLoader(
         train_data,
@@ -54,7 +53,6 @@ def prepare_clf_data(
             True if utils.DEVICE is not None and utils.DEVICE.type == "cuda" else False
         ),
     )
-    print("DataLoaders Created.")
 
     return train_loader, val_loader
 
@@ -76,7 +74,6 @@ def get_clf(
             params = json.load(file)
 
     clf = select_classifier(domain_name.upper(), params=params)
-    print("Classifier Selected.")
 
     return clf
 
@@ -106,7 +103,6 @@ def train_clf(
     )
 
     clf = trainer.train(train_loader, val_loader, trial=optuna_trial)
-    
     print(f"Best validation accuracy: {trainer.best_acc}")
     
     return (
