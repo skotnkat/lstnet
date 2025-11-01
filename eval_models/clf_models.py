@@ -118,6 +118,7 @@ class ClfTrainer:
         lr: float = 1e-3,
         betas: Tuple[float, float] = (0.9, 0.999),
         weight_decay: float = 0.0,
+        run_optuna: bool = False
     ):
         self.clf: BaseClf = clf
         self.lr: float = lr
@@ -141,7 +142,8 @@ class ClfTrainer:
         self.val_acc: List[float] = []
 
         self.best_acc: float = 0.0
-
+        
+        self.run_optuna = run_optuna
     def run_loop(self, loader: DataLoader[Any], train: bool = True):
         loss_total = 0
         acc_total = 0
@@ -176,10 +178,9 @@ class ClfTrainer:
         train_loader: DataLoader[Any],
         val_loader: DataLoader[Any],
         *,
-        run_optuna: bool = False,
         trial: Optional[optuna.Trial] = None,
     ):
-        if run_optuna and trial is None:
+        if self.run_optuna and trial is None:
             raise ValueError("If run_optuna is True, trial must be provided.")
 
         best_clf_state_dict: Optional[dict] = None
@@ -217,7 +218,7 @@ class ClfTrainer:
                     print(f"Patience {patience_cnt} reached its limit {self.patience}.")
                     break
 
-            if run_optuna:
+            if self.run_optuna:
                 trial.report(val_acc, epoch)  # type: ignore
                 if trial.should_prune():  # type: ignore
                     raise optuna.exceptions.TrialPruned()
