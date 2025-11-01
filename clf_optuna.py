@@ -1,13 +1,57 @@
 import optuna
+from torch import conv1d
 
 import clf_utils
 
 
+def suggest_architecture(trial):
+    num_stages = trial.suggest_categorical("num_stages", [3, 4])
+    base = trial.suggest_categorical("base_channels", [16, 32, 64])
+    conv_first_kernel = trial.suggest_categorical("conv_first_kernel", [3, 5])
+    stage_channels = [base * (2**i) for i in range(num_stages)]
+
+    pool_down_kernel = trial.suggest_categorical("pool_down_kernel", [2, 3])
+
+    params = []
+
+    for out_channels in stage_channels:
+        conv1 = {
+            "out_channels": out_channels,
+            "kernel_size": conv_first_kernel,
+            "stride": 1,
+            "padding": "same",
+        }
+
+        pool1 = {"kernel_size": 3, "stride": 1, "padding": "same"}
+
+        conv2 = {
+            "out_channels": out_channels,
+            "kernel_size": 3,
+            "stride": 1,
+            "padding": "same",
+        }
+        pool2 = {
+            "kernel_size": pool_down_kernel,
+            "stride": 2,
+            "padding": "same",
+        }
+
+        params.append([conv1, pool1])
+        params.append([conv2, pool2])
+
+    dropout_p = trial.suggest_float("dropout_prob", 0.1, 0.5)
+    params.append(
+        {"out_features": 10, "dropout_p": dropout_p}
+    )  # !!! Fix hardcoded out channels (can be deduced from dataset)
+
+    leaky_relu_neg_slope = trial.suggest_float("leaky_relu_neg_slope", 0.01, 0.3)
+    params.append({"leaky_relu_neg_slope": leaky_relu_neg_slope})
+
+    return params
+
+
 def objective(trial, cmd_args):
-    lr = trial.suggest_float("lr", 5e-5, 1e-3, log=True)
-    wd = trial.suggest_float("weight_decay", 1e-5, 1e-3, log=True)
-    beta1 = trial.suggest_categorical("beta1", [0.85, 0.9, 0.95])
-    beta2 = trial.suggest_categorical("beta2", [0.99, 0.999, 0.9999])
+    params = suggest_architecture(trial)
 
     rot = trial.suggest_int("augm_rotation", 5, 20, step=5)
     zoom = trial.suggest_float("augm_zoom", 0.05, 0.2, step=0.05)
@@ -24,7 +68,12 @@ def objective(trial, cmd_args):
         shift=shift,
     )
 
-    clf = clf_utils.get_clf(cmd_args.domain_name, cmd_args.params_file)
+    clf = clf_utils.get_clf(cmd_args.domain_name, clf_params=params)
+
+    lr = trial.suggest_float("lr", 5e-5, 1e-3, log=True)
+    wd = trial.suggest_float("weight_decay", 1e-5, 1e-3, log=True)
+    beta1 = trial.suggest_categorical("beta1", [0.85, 0.9, 0.95])
+    beta2 = trial.suggest_categorical("beta2", [0.99, 0.999, 0.9999])
 
     _, best_acc, _ = clf_utils.train_clf(
         clf,
@@ -36,12 +85,15 @@ def objective(trial, cmd_args):
         lr=lr,
         betas=(beta1, beta2),
         weight_decay=wd,
+        run_optuna=True,
     )
+
+    trial.set_user_attr("architecture_params", params)
 
     return best_acc
 
 
-def rerun_with_best_params(best_params, cmd_args):
+def rerun_with_best_params(best_params, best_architecture_params, cmd_args):
     train_loader, val_loader = clf_utils.prepare_clf_data(
         cmd_args.domain_name,
         val_size_data=cmd_args.val_size,
@@ -53,7 +105,7 @@ def rerun_with_best_params(best_params, cmd_args):
         shift=best_params["augm_shift"],
     )
 
-    clf = clf_utils.get_clf(cmd_args.domain_name, cmd_args.params_file)
+    clf = clf_utils.get_clf(cmd_args.domain_name, clf_params=best_architecture_params)
 
     trained_clf, best_acc, trainer_info = clf_utils.train_clf(
         clf,
@@ -115,7 +167,9 @@ def run_optuna_clf(cmd_args):
         print(f"\t{key}: {value}")
 
     trained_clf, trainer_info = rerun_with_best_params(
-        study.best_trial.params, cmd_args
+        study.best_trial.params,
+        study.best_trial.user_attrs["architecture_params"],
+        cmd_args,
     )
 
     # Add study information to trainer_info

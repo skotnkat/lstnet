@@ -1,4 +1,4 @@
-from typing import Any, Tuple
+from typing import Any, Tuple, List, Optional
 import json
 from torch.utils.data import DataLoader
 
@@ -40,24 +40,39 @@ def prepare_clf_data(
         batch_size=batch_size,
         shuffle=True,
         num_workers=num_workers,
-        pin_memory=True if utils.DEVICE is not None and utils.DEVICE.type == "cuda" else False,
+        pin_memory=(
+            True if utils.DEVICE is not None and utils.DEVICE.type == "cuda" else False
+        ),
     )
     val_loader = DataLoader(
         val_data,
         batch_size=batch_size,
         shuffle=False,
         num_workers=num_workers,
-        pin_memory=True if utils.DEVICE is not None and utils.DEVICE.type == "cuda" else False,
+        pin_memory=(
+            True if utils.DEVICE is not None and utils.DEVICE.type == "cuda" else False
+        ),
     )
     print("DataLoaders Created.")
 
     return train_loader, val_loader
 
 
-def get_clf(domain_name: str, params_path: str):
+def get_clf(
+    domain_name: str,
+    *,
+    params_path: Optional[str] = None,
+    clf_params: Optional[List[Any]] = None,
+):
     # Load Parameters File
-    with open(f"{params_path}", "r", encoding="utf-8") as file:
-        params = json.load(file)
+    if params_path is None and clf_params is None:
+        raise ValueError("Either params_path or clf_params must be provided.")
+
+    if clf_params is not None:
+        params = clf_params
+    else:
+        with open(f"{params_path}", "r", encoding="utf-8") as file:
+            params = json.load(file)
 
     clf = select_classifier(domain_name.upper(), params=params)
     print("Classifier Selected.")
@@ -76,6 +91,7 @@ def train_clf(
     lr: float,
     betas: Tuple[float, float],
     weight_decay: float,
+    run_optuna: bool = False,
 ):
     trainer = ClfTrainer(
         clf,
@@ -85,6 +101,7 @@ def train_clf(
         lr=lr,
         betas=betas,
         weight_decay=weight_decay,
+        run_optuna=run_optuna,
     )
     print("Trainer Created. Starting Training...")
 
