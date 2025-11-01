@@ -67,7 +67,7 @@ if __name__ == "__main__":
             shift=args.aug_shift,
         )
 
-        clf = clf_utils.get_clf(args.domain_name, args.params_file)
+        clf = clf_utils.get_clf(args.domain_name, params_path=args.params_file)
 
         trained_clf, _, logs = clf_utils.train_clf(
             clf,
