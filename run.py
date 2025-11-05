@@ -89,7 +89,7 @@ def add_train_args(parser: argparse.ArgumentParser):
     _ = parser.add_argument("--val_size", type=float, default=0.25)
     _ = parser.add_argument("--early_stopping", action="store_true")
     _ = parser.add_argument("--patience", type=int, default=10)
-    _ = parser.add_argument("--rotation", type=int, default=0)
+    _ = parser.add_argument("--rotation", type=int, default=10)
     _ = parser.add_argument("--zoom", type=float, default=0.1)
     _ = parser.add_argument("--shift", type=int, default=2)
     _ = parser.add_argument(
