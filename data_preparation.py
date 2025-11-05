@@ -243,6 +243,58 @@ def load_dataset(
     return data
 
 
+# def load_benchmark(
+#     benchmark_name: str,
+#     *,
+#     split_data: bool = False,
+#     train_op: bool = True,
+#     transform_steps: Optional[Compose] = None,
+#     val_data_size: float = 0.4,
+#     manual_seed: int = 42):
+
+#     match benchmark_name:
+#         case "Visda2017":
+#             BASE_PATH = "http://csr.bu.edu/ftp/visda17/clf"
+
+#             FOLDER = "data/visda2017"
+#             os.makedirs(FOLDER, exist_ok=True)
+
+#             # Check if files are already downloaded, if not -> download
+#             if train_op:
+#                 if not os.path.exists(FOLDER + "/source.tar"):
+#                     _ = urllib.request.urlretrieve(
+#                         BASE_PATH + "/train.tar", FOLDER + "/source.tar"
+#                     )
+
+#                 if not os.path.exists(FOLDER + "/target.tar"):
+#                     _ = urllib.request.urlretrieve(
+#                         BASE_PATH + "/validation.tar", FOLDER + "/target.tar"
+#                     )
+
+#                 with tarfile.open(FOLDER + "/source.tar", "r") as tar:
+#                     tar.extractall(path=FOLDER + "/source")
+
+#                 with tarfile.open(FOLDER + "/target.tar", "r") as tar:
+#                     tar.extractall(path=FOLDER + "/target")
+
+#                 # load datasets separately
+#                 source_data = datasets.ImageFolder(FOLDER + "/source", transform=transform_steps)
+#                 target_data = datasets.ImageFolder(FOLDER + "/target", transform=transform_steps)
+#                 if split_data:
+#                     return split_train_val_dataset(
+#                         target_data, val_data_size=val_data_size, manual_seed=manual_seed
+#                     )
+
+#             else:
+#                 if not os.path.exists(FOLDER + "/test.tar"):
+#                     _ = urllib.request.urlretrieve(
+#                         BASE_PATH + "/test.tar", FOLDER + "/test.tar"
+#                     )
+#         case _:
+#             # dataset_name is path
+#             raise NotImplementedError(f"Loading of benchmark {benchmark_name} is not implemented yet.")
+
+
 def split_train_val_dataset(
     data: Dataset[Any], *, val_data_size: float = 0.4, manual_seed: int = 42
 ) -> DoubleDataset:
