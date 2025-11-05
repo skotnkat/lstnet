@@ -5,7 +5,6 @@ import time
 import clf_utils
 
 
-
 def suggest_architecture(trial):
     num_stages = trial.suggest_categorical("num_stages", [3, 4])
     base = trial.suggest_categorical("base_channels", [16, 32, 64])
@@ -53,7 +52,7 @@ def suggest_architecture(trial):
 
 
 def objective(trial, cmd_args):
-    start_time = time.time() 
+    start_time = time.time()
     params = suggest_architecture(trial)
 
     rot = trial.suggest_int("augm_rotation", 5, 20, step=5)
@@ -92,10 +91,10 @@ def objective(trial, cmd_args):
     )
 
     end_time = time.time()
-    print(f"Trial took: {(end_time - start_time) / 60:.2f} s")
-    
+    print(f"Trial took: {(end_time - start_time) / 60:.2f} min")
+
     trial.set_user_attr("architecture_params", params)
-     
+
     return best_acc
 
 
