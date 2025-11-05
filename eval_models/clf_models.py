@@ -118,7 +118,7 @@ class ClfTrainer:
         lr: float = 1e-3,
         betas: Tuple[float, float] = (0.9, 0.999),
         weight_decay: float = 0.0,
-        run_optuna: bool = False
+        run_optuna: bool = False,
     ):
         self.clf: BaseClf = clf
         self.lr: float = lr
@@ -142,11 +142,13 @@ class ClfTrainer:
         self.val_acc: List[float] = []
 
         self.best_acc: float = 0.0
-        
+
         self.run_optuna = run_optuna
+
     def run_loop(self, loader: DataLoader[Any], train: bool = True):
         loss_total = 0
         acc_total = 0
+        num_samples = 0
         for x, y in loader:
             # Move batch to the same device as the model
             x = x.to(utils.DEVICE, non_blocking=True)
@@ -167,9 +169,10 @@ class ClfTrainer:
             preds = outputs.argmax(dim=1)
             acc = (preds == y).sum()
             acc_total += acc.item()
+            num_samples += y.size(0)
 
         loss_total /= len(loader)
-        acc_total /= len(loader)
+        acc_total /= num_samples
 
         return loss_total, acc_total
 
