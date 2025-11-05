@@ -4,6 +4,9 @@ Module for preparing datasets for training, evaluation and testing for the LSTNE
 
 from typing import Literal, Union, Tuple, Any, overload, TypeAlias, Optional, Callable
 from dataclasses import dataclass
+import os
+import tarfile
+import urllib.request
 
 from torchvision import datasets
 from torchvision.transforms.v2 import Compose, RandomAffine, ToImage, ToDtype, Normalize
@@ -181,42 +184,56 @@ def load_dataset(
 
     # load data from torchvision datasets
     data: Dataset[Any]
-    if dataset_name.upper() == "MNIST":
-        if transform_steps is None:
-            transform_steps = create_basic_transform(1)
+    match dataset_name.upper():
+        case "MNIST":
+            if transform_steps is None:
+                transform_steps = create_basic_transform(1)
 
-        data = datasets.MNIST(
-            root="./data", train=train_op, transform=transform_steps, download=download
-        )
+            data = datasets.MNIST(
+                root="./data",
+                train=train_op,
+                transform=transform_steps,
+                download=download,
+            )
 
-    elif dataset_name.upper() == "USPS":
-        if transform_steps is None:
-            transform_steps = create_basic_transform(1)
+        case "USPS":
+            if transform_steps is None:
+                transform_steps = create_basic_transform(1)
 
-        data = datasets.USPS(
-            root="./data", train=train_op, transform=transform_steps, download=download
-        )
+            data = datasets.USPS(
+                root="./data",
+                train=train_op,
+                transform=transform_steps,
+                download=download,
+            )
 
-    elif dataset_name.upper() == "SVHN":
-        # Different way of getting train/test sets
-        split = "test"
-        if train_op:
-            split = "train"
+        case "SVHN":
+            # Different way of getting train/test sets
+            split = "test"
+            if train_op:
+                split = "train"
 
-        if transform_steps is None:
-            transform_steps = create_basic_transform(3)
+            if transform_steps is None:
+                transform_steps = create_basic_transform(3)
 
-        data = datasets.SVHN(
-            root="./data", split=split, transform=transform_steps, download=download
-        )
+            data = datasets.SVHN(
+                root="./data", split=split, transform=transform_steps, download=download
+            )
 
-    # dataset_name is path
-    else:
-        print(f"Trying to load dataset {dataset_name} locally")
-        data = torch.load(dataset_name)  # type: ignore
-        print(
-            f"Dataset loaded, number of records: {len(data)}, shape: {data[0][0].shape}"  # type: ignore  (has len())
-        )
+            if transform_steps is None:
+                transform_steps = create_basic_transform(3)
+
+            data = datasets.SVHN(
+                root="./data", split=split, transform=transform_steps, download=download
+            )
+
+        case _:
+            # dataset_name is path
+            print(f"Trying to load dataset {dataset_name} locally")
+            data = torch.load(dataset_name)  # type: ignore
+            print(
+                f"Dataset loaded, number of records: {len(data)}, shape: {data[0][0].shape}"  # type: ignore  (has len())
+            )
 
     if split_data:
         return split_train_val_dataset(
