@@ -419,17 +419,13 @@ class LSTNET(nn.Module):
         else:
             self.second_domain_name = name
 
-    def save_model(self, output_path: str) -> None:
-        """Saves the model to the specified output path.
-
-        Args:
-            output_path (str): The path to save the model.
-        """
-
+    def get_lstnet_state_dict(self) -> Dict[str, Any]:
         self.params["leaky_relu"] = {
             "negative_slope": self.global_params["negative_slope"]
         }
+
         self.params["batch_norm"] = {"momentum": self.global_params["momentum"]}
+
         attr_dict = {
             "domain_name": [self.first_domain_name, self.second_domain_name],
             "input_sizes": [self.first_input_size, self.second_input_size],
@@ -445,21 +441,31 @@ class LSTNET(nn.Module):
             "state_dict": self.state_dict(),
         }
 
+        return dict_to_save
+
+    def save_model(self, output_path: str) -> None:
+        """Saves the model to the specified output path.
+
+        Args:
+            output_path (str): The path to save the model.
+        """
+
+        dict_to_save = self.get_lstnet_state_dict()
+
         torch.save(dict_to_save, output_path)
 
     @staticmethod
-    def load_lstnet_model(input_path: str) -> "LSTNET":
-        """Loads the LSTNET model from the specified input path.
+    def load_lstnet_from_state_dict(state_dict: Dict[str, Any]) -> "LSTNET":
+        """Loads the LSTNET model from the specified state dictionary.
 
         Args:
-            input_path (str): The path to the model file.
+            state_dict (Dict[str, Any]): The state dictionary containing model attributes and state.
 
         Returns:
             LSTNET: The loaded LSTNET model.
         """
-        dict_to_load = torch.load(input_path, map_location=utils.DEVICE)
-        attr_dict = dict_to_load["attr_dict"]
-        state_dict = dict_to_load["state_dict"]
+        attr_dict = state_dict["attr_dict"]
+        state_dict = state_dict["state_dict"]
 
         first_domain_name, second_domain_name = attr_dict["domain_name"]
         first_input_size, second_input_size = attr_dict["input_sizes"]
@@ -483,3 +489,16 @@ class LSTNET(nn.Module):
             print(f"Unexpected keys: {load_result.unexpected_keys}")
 
         return model
+
+    @staticmethod
+    def load_lstnet_model(input_path: str) -> "LSTNET":
+        """Loads the LSTNET model from the specified input path.
+
+        Args:
+            input_path (str): The path to the model file.
+
+        Returns:
+            LSTNET: The loaded LSTNET model.
+        """
+        dict_to_load = torch.load(input_path, map_location=utils.DEVICE)
+        return LSTNET.load_lstnet_from_state_dict(dict_to_load)
