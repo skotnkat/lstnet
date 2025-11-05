@@ -81,7 +81,7 @@ class SvhnClf(Discriminator):
             or not all(isinstance(i, int) for i in input_size_raw)
         ):
             raise ValueError(
-                "input_size must be provided for  Conv2dExtended layer to compute output size."
+                "input_size must be provided for Conv2dExtended layer to compute output size."
             )
 
         # -------------------------------------
