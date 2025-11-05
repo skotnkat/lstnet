@@ -20,7 +20,9 @@ def get_loss_data(losses, split, loss_type):
     return losses[split][loss_type]
 
 
-def plot_discriminator_losses(ax, disc_loss, label_prefix="", show_legend=False):
+def plot_discriminator_losses(
+    ax, disc_loss, best_epoch, label_prefix="", show_legend=False
+):
     ax.plot(
         disc_loss["first_loss"],
         label=f"{label_prefix}First Domain",
@@ -39,7 +41,7 @@ def plot_discriminator_losses(ax, disc_loss, label_prefix="", show_legend=False)
         alpha=0.7,
         linewidth=2,
     )
-
+    ax.axvline(best_epoch, color="grey", linestyle="--", linewidth=2, alpha=0.7)
     ax.set_xlabel("Epoch", fontsize=11)
     ax.set_ylabel("Loss", fontsize=11)
     ax.set_title("Discriminator Losses", fontsize=12, fontweight="bold", pad=10)
@@ -47,7 +49,9 @@ def plot_discriminator_losses(ax, disc_loss, label_prefix="", show_legend=False)
     ax.grid(True, alpha=0.3)
 
 
-def plot_enc_gen_losses(ax, enc_gen_loss, label_prefix="", show_legend=False):
+def plot_enc_gen_losses(
+    ax, enc_gen_loss, best_epoch, label_prefix="", show_legend=False
+):
     ax.plot(
         enc_gen_loss["first_loss"],
         label=f"{label_prefix}First Domain",
@@ -66,7 +70,7 @@ def plot_enc_gen_losses(ax, enc_gen_loss, label_prefix="", show_legend=False):
         alpha=0.7,
         linewidth=2,
     )
-
+    ax.axvline(best_epoch, color="grey", linestyle="--", linewidth=2, alpha=0.7)
     ax.set_xlabel("Epoch", fontsize=11)
     ax.set_ylabel("Loss", fontsize=11)
     ax.set_title("Encoder-Generator Losses", fontsize=12, fontweight="bold", pad=10)
@@ -74,7 +78,9 @@ def plot_enc_gen_losses(ax, enc_gen_loss, label_prefix="", show_legend=False):
     ax.grid(True, alpha=0.3)
 
 
-def plot_cycle_consistency_losses(ax, cc_loss, label_prefix="", show_legend=False):
+def plot_cycle_consistency_losses(
+    ax, cc_loss, best_epoch, label_prefix="", show_legend=False
+):
     ax.plot(
         cc_loss["first_cycle_loss"],
         label=f"{label_prefix}First Cycle",
@@ -99,7 +105,7 @@ def plot_cycle_consistency_losses(ax, cc_loss, label_prefix="", show_legend=Fals
         alpha=0.7,
         linewidth=2,
     )
-
+    ax.axvline(best_epoch, color="grey", linestyle="--", linewidth=2, alpha=0.7)
     ax.set_xlabel("Epoch", fontsize=11)
     ax.set_ylabel("Loss", fontsize=11)
     ax.set_title("Cycle Consistency Losses", fontsize=12, fontweight="bold", pad=10)
@@ -113,15 +119,16 @@ def plot_component_losses(losses, split="train", figsize=(12, 16), save_path=Non
         return
 
     fig, axes = plt.subplots(3, 1, figsize=figsize, constrained_layout=True)
+    best_epoch = losses["trainer_info"]["best_epoch"]
 
     disc_loss = get_loss_data(losses, split, "disc_loss")
-    plot_discriminator_losses(axes[0], disc_loss, show_legend=False)
+    plot_discriminator_losses(axes[0], disc_loss, best_epoch, show_legend=False)
 
     enc_gen_loss = get_loss_data(losses, split, "enc_gen_loss")
-    plot_enc_gen_losses(axes[1], enc_gen_loss, show_legend=False)
+    plot_enc_gen_losses(axes[1], enc_gen_loss, best_epoch, show_legend=False)
 
     cc_loss = get_loss_data(losses, split, "cc_loss")
-    plot_cycle_consistency_losses(axes[2], cc_loss, show_legend=False)
+    plot_cycle_consistency_losses(axes[2], cc_loss, best_epoch, show_legend=False)
 
     # Legends outside on the right per axes
     for ax in axes:
@@ -158,6 +165,10 @@ def plot_total_losses(losses, figsize=(10, 6), save_path=None):
     val_loss = losses.get("trainer_info", {}).get("val_loss")
     if val_loss:
         ax.plot(val_loss, label="Validation Total Loss", linewidth=2, alpha=0.8)
+
+    best_epoch = losses["trainer_info"]["best_epoch"]
+    print(f"best_epoch: {best_epoch}")
+    ax.axvline(best_epoch, color="grey", linestyle="--", linewidth=2, alpha=0.7)
 
     ax.set_xlabel("Epoch", fontsize=12)
     ax.set_ylabel("Loss", fontsize=12)
@@ -208,6 +219,26 @@ def compare_total_losses(
     ax.plot(
         losses2["trainer_info"]["train_loss"], label=f"{label2}", linewidth=2, alpha=0.8
     )
+    best_epoch1 = losses1["trainer_info"]["best_epoch"]
+    best_epoch2 = losses2["trainer_info"]["best_epoch"]
+
+    ax.axvline(
+        best_epoch1,
+        color="grey",
+        linestyle="--",
+        linewidth=2,
+        alpha=0.7,
+        label=f"{label1} Best Epoch",
+    )
+    ax.axvline(
+        best_epoch2,
+        color="black",
+        linestyle="--",
+        linewidth=2,
+        alpha=0.7,
+        label=f"{label2} Best Epoch",
+    )
+
     ax.set_xlabel("Epoch", fontsize=12)
     ax.set_ylabel("Loss", fontsize=12)
     ax.set_title("Training Loss Comparison", fontsize=13, fontweight="bold", pad=10)
@@ -229,6 +260,26 @@ def compare_total_losses(
             linewidth=2,
             alpha=0.8,
         )
+        best_epoch1 = losses1["trainer_info"]["best_epoch"]
+        best_epoch2 = losses2["trainer_info"]["best_epoch"]
+        if best_epoch1 is not None:
+            ax.axvline(
+                best_epoch1,
+                color="grey",
+                linestyle="--",
+                linewidth=2,
+                alpha=0.7,
+                label=f"{label1} Best Epoch",
+            )
+        if best_epoch2 is not None:
+            ax.axvline(
+                best_epoch2,
+                color="black",
+                linestyle="--",
+                linewidth=2,
+                alpha=0.7,
+                label=f"{label2} Best Epoch",
+            )
         ax.set_xlabel("Epoch", fontsize=12)
         ax.set_ylabel("Loss", fontsize=12)
         ax.set_title(
@@ -276,13 +327,18 @@ def compare_component_losses(
     enc_gen_loss2 = get_loss_data(losses2, split, "enc_gen_loss")
     cc_loss1 = get_loss_data(losses1, split, "cc_loss")
     cc_loss2 = get_loss_data(losses2, split, "cc_loss")
+    best_epoch1 = losses1["trainer_info"]["best_epoch"]
+    best_epoch2 = losses2["trainer_info"]["best_epoch"]
 
     # Row 1
     ax = axes[0, 0]
     if "first_loss" in disc_loss1:
         ax.plot(disc_loss1["first_loss"], label=label1, alpha=0.7, linewidth=2)
+        ax.axvline(best_epoch1, color="grey", linestyle="--", linewidth=2, alpha=0.7, label=f"{label1} Best Epoch")
     if "first_loss" in disc_loss2:
         ax.plot(disc_loss2["first_loss"], label=label2, alpha=0.7, linewidth=2)
+        ax.axvline(best_epoch2, color="black", linestyle="--", linewidth=2, alpha=0.7, label=f"{label2} Best Epoch")
+    
     ax.set_xlabel("Epoch", fontsize=10)
     ax.set_ylabel("Loss", fontsize=10)
     ax.set_title("First Domain Disc Loss", fontsize=11, fontweight="bold", pad=8)
@@ -292,8 +348,11 @@ def compare_component_losses(
     ax = axes[0, 1]
     if "second_loss" in disc_loss1:
         ax.plot(disc_loss1["second_loss"], label=label1, alpha=0.7, linewidth=2)
+        ax.axvline(best_epoch1, color="grey", linestyle="--", linewidth=2, alpha=0.7, label=f"{label1} Best Epoch")
     if "second_loss" in disc_loss2:
         ax.plot(disc_loss2["second_loss"], label=label2, alpha=0.7, linewidth=2)
+        ax.axvline(best_epoch2, color="black", linestyle="--", linewidth=2, alpha=0.7, label=f"{label2} Best Epoch")
+        
     ax.set_xlabel("Epoch", fontsize=10)
     ax.set_ylabel("Loss", fontsize=10)
     ax.set_title("Second Domain Disc Loss", fontsize=11, fontweight="bold", pad=8)
@@ -303,8 +362,11 @@ def compare_component_losses(
     ax = axes[0, 2]
     if "latent_loss" in disc_loss1:
         ax.plot(disc_loss1["latent_loss"], label=label1, alpha=0.7, linewidth=2)
+        ax.axvline(best_epoch1, color="grey", linestyle="--", linewidth=2, alpha=0.7, label=f"{label1} Best Epoch")
     if "latent_loss" in disc_loss2:
         ax.plot(disc_loss2["latent_loss"], label=label2, alpha=0.7, linewidth=2)
+        ax.axvline(best_epoch2, color="black", linestyle="--", linewidth=2, alpha=0.7, label=f"{label2} Best Epoch")
+
     ax.set_xlabel("Epoch", fontsize=10)
     ax.set_ylabel("Loss", fontsize=10)
     ax.set_title("Latent Space Disc Loss", fontsize=11, fontweight="bold", pad=8)
@@ -315,8 +377,11 @@ def compare_component_losses(
     ax = axes[1, 0]
     if "first_loss" in enc_gen_loss1:
         ax.plot(enc_gen_loss1["first_loss"], label=label1, alpha=0.7, linewidth=2)
+        ax.axvline(best_epoch1, color="grey", linestyle="--", linewidth=2, alpha=0.7, label=f"{label1} Best Epoch")
     if "first_loss" in enc_gen_loss2:
         ax.plot(enc_gen_loss2["first_loss"], label=label2, alpha=0.7, linewidth=2)
+        ax.axvline(best_epoch2, color="black", linestyle="--", linewidth=2, alpha=0.7, label=f"{label2} Best Epoch")
+    
     ax.set_xlabel("Epoch", fontsize=10)
     ax.set_ylabel("Loss", fontsize=10)
     ax.set_title("First Domain Enc-Gen Loss", fontsize=11, fontweight="bold", pad=8)
@@ -326,8 +391,10 @@ def compare_component_losses(
     ax = axes[1, 1]
     if "second_loss" in enc_gen_loss1:
         ax.plot(enc_gen_loss1["second_loss"], label=label1, alpha=0.7, linewidth=2)
+                ax.axvline(best_epoch1, color="grey", linestyle="--", linewidth=2, alpha=0.7, label=f"{label1} Best Epoch")
     if "second_loss" in enc_gen_loss2:
         ax.plot(enc_gen_loss2["second_loss"], label=label2, alpha=0.7, linewidth=2)
+        ax.axvline(best_epoch2, color="black", linestyle="--", linewidth=2, alpha=0.7, label=f"{label2} Best Epoch")
     ax.set_xlabel("Epoch", fontsize=10)
     ax.set_ylabel("Loss", fontsize=10)
     ax.set_title("Second Domain Enc-Gen Loss", fontsize=11, fontweight="bold", pad=8)
@@ -337,8 +404,11 @@ def compare_component_losses(
     ax = axes[1, 2]
     if "latent_loss" in enc_gen_loss1:
         ax.plot(enc_gen_loss1["latent_loss"], label=label1, alpha=0.7, linewidth=2)
+        ax.axvline(best_epoch1, color="grey", linestyle="--", linewidth=2, alpha=0.7, label=f"{label1} Best Epoch")
     if "latent_loss" in enc_gen_loss2:
         ax.plot(enc_gen_loss2["latent_loss"], label=label2, alpha=0.7, linewidth=2)
+        ax.axvline(best_epoch2, color="black", linestyle="--", linewidth=2, alpha=0.7, label=f"{label2} Best Epoch")
+
     ax.set_xlabel("Epoch", fontsize=10)
     ax.set_ylabel("Loss", fontsize=10)
     ax.set_title("Latent Space Enc-Gen Loss", fontsize=11, fontweight="bold", pad=8)
@@ -349,8 +419,11 @@ def compare_component_losses(
     ax = axes[2, 0]
     if "first_cycle_loss" in cc_loss1:
         ax.plot(cc_loss1["first_cycle_loss"], label=label1, alpha=0.7, linewidth=2)
+        ax.axvline(best_epoch1, color="grey", linestyle="--", linewidth=2, alpha=0.7, label=f"{label1} Best Epoch")
     if "first_cycle_loss" in cc_loss2:
         ax.plot(cc_loss2["first_cycle_loss"], label=label2, alpha=0.7, linewidth=2)
+        ax.axvline(best_epoch2, color="black", linestyle="--", linewidth=2, alpha=0.7, label=f"{label2} Best Epoch")
+        
     ax.set_xlabel("Epoch", fontsize=10)
     ax.set_ylabel("Loss", fontsize=10)
     ax.set_title("First Cycle Loss", fontsize=11, fontweight="bold", pad=8)
@@ -360,8 +433,11 @@ def compare_component_losses(
     ax = axes[2, 1]
     if "second_cycle_loss" in cc_loss1:
         ax.plot(cc_loss1["second_cycle_loss"], label=label1, alpha=0.7, linewidth=2)
+        ax.axvline(best_epoch1, color="grey", linestyle="--", linewidth=2, alpha=0.7, label=f"{label1} Best Epoch")
     if "second_cycle_loss" in cc_loss2:
         ax.plot(cc_loss2["second_cycle_loss"], label=label2, alpha=0.7, linewidth=2)
+        ax.axvline(best_epoch2, color="black", linestyle="--", linewidth=2, alpha=0.7, label=f"{label2} Best Epoch")
+
     ax.set_xlabel("Epoch", fontsize=10)
     ax.set_ylabel("Loss", fontsize=10)
     ax.set_title("Second Cycle Loss", fontsize=11, fontweight="bold", pad=8)
@@ -399,6 +475,10 @@ def compare_component_losses(
             alpha=0.7,
             linewidth=2,
         )
+
+    ax.axvline(best_epoch1, color="grey", linestyle="--", linewidth=2, alpha=0.7, label=f"{label1} Best Epoch")
+    ax.axvline(best_epoch2, color="black", linestyle="--", linewidth=2, alpha=0.7, label=f"{label2} Best Epoch")
+
     ax.set_xlabel("Epoch", fontsize=10)
     ax.set_ylabel("Loss", fontsize=10)
     ax.set_title("Cycle Losses Combined", fontsize=11, fontweight="bold", pad=8)
@@ -409,8 +489,11 @@ def compare_component_losses(
     ax = axes[3, 0]
     if "first_full_cycle_loss" in cc_loss1:
         ax.plot(cc_loss1["first_full_cycle_loss"], label=label1, alpha=0.7, linewidth=2)
+        ax.axvline(best_epoch1, color="grey", linestyle="--", linewidth=2, alpha=0.7, label=f"{label1} Best Epoch")
     if "first_full_cycle_loss" in cc_loss2:
         ax.plot(cc_loss2["first_full_cycle_loss"], label=label2, alpha=0.7, linewidth=2)
+        ax.axvline(best_epoch2, color="black", linestyle="--", linewidth=2, alpha=0.7, label=f"{label2} Best Epoch")
+
     ax.set_xlabel("Epoch", fontsize=10)
     ax.set_ylabel("Loss", fontsize=10)
     ax.set_title("First Full Cycle Loss", fontsize=11, fontweight="bold", pad=8)
@@ -422,10 +505,13 @@ def compare_component_losses(
         ax.plot(
             cc_loss1["second_full_cycle_loss"], label=label1, alpha=0.7, linewidth=2
         )
+        ax.axvline(best_epoch1, color="grey", linestyle="--", linewidth=2, alpha=0.7, label=f"{label1} Best Epoch")
     if "second_full_cycle_loss" in cc_loss2:
         ax.plot(
             cc_loss2["second_full_cycle_loss"], label=label2, alpha=0.7, linewidth=2
         )
+        ax.axvline(best_epoch2, color="black", linestyle="--", linewidth=2, alpha=0.7, label=f"{label2} Best Epoch")
+
     ax.set_xlabel("Epoch", fontsize=10)
     ax.set_ylabel("Loss", fontsize=10)
     ax.set_title("Second Full Cycle Loss", fontsize=11, fontweight="bold", pad=8)
@@ -456,6 +542,7 @@ def compare_component_losses(
             linewidth=2,
             linestyle="--",
         )
+        ax.axvline(best_epoch1, color="grey", linestyle="--", linewidth=2, alpha=0.7, label=f"{label1} Best Epoch")
     if "second_full_cycle_loss" in cc_loss2:
         ax.plot(
             cc_loss2["second_full_cycle_loss"],
@@ -463,6 +550,8 @@ def compare_component_losses(
             alpha=0.7,
             linewidth=2,
         )
+        ax.axvline(best_epoch2, color="black", linestyle="--", linewidth=2, alpha=0.7, label=f"{label2} Best Epoch")
+
     ax.set_xlabel("Epoch", fontsize=10)
     ax.set_ylabel("Loss", fontsize=10)
     ax.set_title("Full Cycle Losses Combined", fontsize=11, fontweight="bold", pad=8)
