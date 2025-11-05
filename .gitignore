@@ -10,3 +10,9 @@
 .idea/lstnet.iml
 .idea/modules.xml
 /data
+
+
+.venv/
+.vscode/
+
+test_files/
