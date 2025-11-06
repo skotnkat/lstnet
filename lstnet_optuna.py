@@ -157,6 +157,9 @@ def run_optuna_lstnet(cmd_args) -> LSTNET:
         "total_trials_completed": len(study.trials),
         "database_file": f"optuna_{cmd_args.optuna_study_name}.db",
         "study_name": cmd_args.optuna_study_name,
+        "min_resource": cmd_args.optuna_min_resource,
+        "max_resource": cmd_args.optuna_max_resource,
+        "reduction_factor": cmd_args.optuna_reduction_factor,
     }
 
     with open(f"{cmd_args.output_folder}/{cmd_args.logs_file_name}", "w") as file:
