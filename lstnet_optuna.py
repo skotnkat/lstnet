@@ -34,33 +34,46 @@ def objective(trial, cmd_args: argparse.Namespace) -> float:
 
     # ---------------------------------------------------------------
     # Optimizing weights
+    if "weights" in cmd_args.optuna_hyperparams:
+        weights = hyperparam_modes.suggest_weights(trial, num_weights=len(weights))
 
-    weights = hyperparam_modes.suggest_weights(trial, weights_sum=sum(weights))
+    elif "weights_reduced" in cmd_args.optuna_hyperparams:
+        weights = hyperparam_modes.suggest_weights_reduced(
+            trial, weights_sum=sum(weights)
+        )
 
     # ---------------------------------------------------------------
     # Augmentation Ops
-    augm_ops = AugmentOps(
-        rotation=cmd_args.rotation,
-        zoom=cmd_args.zoom,
-        shift=cmd_args.shift,
-    )
+    if "augm_ops" in cmd_args.optuna_hyperparams:
+        augm_ops = hyperparam_modes.suggest_augment_params(trial)
+    else:
+        augm_ops = AugmentOps(
+            rotation=cmd_args.rotation,
+            zoom=cmd_args.zoom,
+            shift=cmd_args.shift,
+        )
 
-    max_epoch = cmd_args.optuna_max_resource
-    patience = cmd_args.patience
-    optim_name = cmd_args.optim_name
-    lr = cmd_args.learning_rate
-    betas = tuple(cmd_args.betas)
-    weight_decay = cmd_args.weight_decay
-
+    # ---------------------------------------------------------------
     # Training parameters
-    train_params = TrainParams(
-        max_epoch_num=max_epoch,
-        max_patience=patience,
-        optim_name=optim_name,
-        lr=lr,
-        betas=betas,
-        weight_decay=weight_decay,
-    )
+    if "training_params" in cmd_args.optuna_hyperparams:
+        train_params = hyperparam_modes.suggest_training_params(trial, cmd_args)
+    else:
+        max_epoch = cmd_args.optuna_max_resource
+        patience = cmd_args.patience
+        optim_name = cmd_args.optim_name
+        lr = cmd_args.learning_rate
+        betas = tuple(cmd_args.betas)
+        weight_decay = cmd_args.weight_decay
+
+        # Training parameters
+        train_params = TrainParams(
+            max_epoch_num=max_epoch,
+            max_patience=patience,
+            optim_name=optim_name,
+            lr=lr,
+            betas=betas,
+            weight_decay=weight_decay,
+        )
 
     trained_model, logs = train.run(
         cmd_args.first_domain,
@@ -76,7 +89,7 @@ def objective(trial, cmd_args: argparse.Namespace) -> float:
         augm_ops=augm_ops,
         train_params=train_params,
         optuna=True,
-        optuna_trial=trial
+        optuna_trial=trial,
     )
 
     trial.set_user_attr("train_logs", logs)

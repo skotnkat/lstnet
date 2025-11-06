@@ -112,6 +112,17 @@ def add_train_args(parser: argparse.ArgumentParser):
     _ = parser.add_argument("--optuna_min_resource", type=int, default=5)
     _ = parser.add_argument("--optuna_reduction_factor", type=int, default=2)
     _ = parser.add_argument("--optuna_sampler_start_trials", type=int, default=20)
+    _ = parser.add_argument(
+        "--hyperparam_mode",
+        type=str,
+        nargs="*",
+        choices=["weights", "weights_reduced", "augm_ops", "train_params"],
+        default=[],
+        help=(
+            "List of hyperparameter modes to run (choose zero or more from: "
+            "weights, weights_reduced, augm_ops, train_params, architecture)."
+        ),
+    )
 
 
 def add_translate_args(parser: argparse.ArgumentParser):
