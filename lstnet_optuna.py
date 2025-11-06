@@ -34,17 +34,17 @@ def objective(trial, cmd_args: argparse.Namespace) -> float:
 
     # ---------------------------------------------------------------
     # Optimizing weights
-    if "weights" in cmd_args.optuna_hyperparams:
+    if "weights" in cmd_args.hyperparam_mode:
         weights = hyperparam_modes.suggest_weights(trial, num_weights=len(weights))
 
-    elif "weights_reduced" in cmd_args.optuna_hyperparams:
+    elif "weights_reduced" in cmd_args.hyperparam_mode:
         weights = hyperparam_modes.suggest_weights_reduced(
             trial, weights_sum=sum(weights)
         )
 
     # ---------------------------------------------------------------
     # Augmentation Ops
-    if "augm_ops" in cmd_args.optuna_hyperparams:
+    if "augm_ops" in cmd_args.hyperparam_mode:
         augm_ops = hyperparam_modes.suggest_augment_params(trial)
     else:
         augm_ops = AugmentOps(
@@ -55,7 +55,7 @@ def objective(trial, cmd_args: argparse.Namespace) -> float:
 
     # ---------------------------------------------------------------
     # Training parameters
-    if "training_params" in cmd_args.optuna_hyperparams:
+    if "training_params" in cmd_args.hyperparam_mode:
         train_params = hyperparam_modes.suggest_training_params(trial, cmd_args)
     else:
         max_epoch = cmd_args.optuna_max_resource
