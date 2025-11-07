@@ -7,7 +7,7 @@ def suggest_weights(trial, weights_sum):
 
     # How much of the weight is given to the cycle consistency losses
     # -> domain + latent have the rest
-    cycle_overall_share = trial.suggest_float("cycle_overall_share", 0.2, 0.8)
+    cycle_overall_share = trial.suggest_float("cycle_overall_share", 0.2, 0.95)
     rest_overall_share = 1.0 - cycle_overall_share
 
     # How much of the rest is given to the latent loss
