@@ -35,7 +35,7 @@ def objective(trial, cmd_args: argparse.Namespace) -> float:
     # ---------------------------------------------------------------
     # Optimizing weights
     if "weights" in cmd_args.hyperparam_mode:
-        weights = hyperparam_modes.suggest_weights(trial, num_weights=len(weights))
+        weights = hyperparam_modes.suggest_weights(trial, weights_sum=sum(weights))
 
     elif "weights_reduced" in cmd_args.hyperparam_mode:
         weights = hyperparam_modes.suggest_weights_reduced(
