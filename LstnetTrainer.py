@@ -414,7 +414,9 @@ class LstnetTrainer:
                 if self.run_optuna:
                     self.optuna_trial.report(epoch_loss, epoch_idx)
                     if self.optuna_trial.should_prune():
-                        self.optuna_trial.set_user_attr("train_logs", utils.LOSS_LOGS.copy())
+                        self.optuna_trial.set_user_attr(
+                            "train_logs", utils.LOSS_LOGS.copy()
+                        )
                         raise optuna.TrialPruned()
 
                 # ------------------------------
@@ -434,8 +436,11 @@ class LstnetTrainer:
 
             end_time = time.time()
 
-            print(f"\tEpoch {epoch_idx} took: {(end_time - start_time) / 60:.2f} min")
-            print(f"\tPatience: {self.cur_patience}")
+            if not self.run_optuna:
+                print(
+                    f"\tEpoch {epoch_idx} took: {(end_time - start_time) / 60:.2f} min"
+                )
+                print(f"\tPatience: {self.cur_patience}")
 
             if torch.cuda.is_available():
                 torch.cuda.empty_cache()
