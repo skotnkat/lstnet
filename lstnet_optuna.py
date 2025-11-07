@@ -160,6 +160,7 @@ def run_optuna_lstnet(cmd_args) -> LSTNET:
         "min_resource": cmd_args.optuna_min_resource,
         "max_resource": cmd_args.optuna_max_resource,
         "reduction_factor": cmd_args.optuna_reduction_factor,
+        "hyperparam_mode": cmd_args.hyperparam_mode,
     }
 
     with open(f"{cmd_args.output_folder}/{cmd_args.logs_file_name}", "w") as file:
