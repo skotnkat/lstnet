@@ -120,7 +120,9 @@ def run_optuna_lstnet(cmd_args) -> LSTNET:
     pruner = PatientPruner(
         PercentilePruner(
             percentile=cmd_args.percentile,
-            n_startup_trials=cmd_args.optuna_sampler_start_trials,
+            n_startup_trials=cmd_args.optuna_pruner_sample_trials,
+            n_warmup_steps=cmd_args.optuna_pruner_warmup_steps,
+            interval_steps=cmd_args.optuna_pruner_interval_steps,
         ),
         patience=cmd_args.patience,
     )
@@ -164,6 +166,9 @@ def run_optuna_lstnet(cmd_args) -> LSTNET:
         "patience": cmd_args.patience,
         "percentile": cmd_args.percentile,
         "optuna_sampler_start_trials": cmd_args.optuna_sampler_start_trials,
+        "optuna_pruner_sample_trials": cmd_args.optuna_pruner_sample_trials,
+        "optuna_pruner_warmup_steps": cmd_args.optuna_pruner_warmup_steps,
+        "optuna_pruner_interval_steps": cmd_args.optuna_pruner_interval_steps,
     }
 
     with open(f"{cmd_args.output_folder}/{cmd_args.logs_file_name}", "w") as file:
