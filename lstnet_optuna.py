@@ -156,13 +156,14 @@ def run_optuna_lstnet(cmd_args) -> LSTNET:
     all_logs["optuna_study_info"] = {
         "best_trial_number": study.best_trial.number,
         "best_trial_value": study.best_trial.value,
+        "best_trial_params": study.best_trial.params,
         "total_trials_completed": len(study.trials),
         "database_file": f"optuna_{cmd_args.optuna_study_name}.db",
         "study_name": cmd_args.optuna_study_name,
-        "min_resource": cmd_args.optuna_min_resource,
-        "max_resource": cmd_args.optuna_max_resource,
-        "reduction_factor": cmd_args.optuna_reduction_factor,
         "hyperparam_mode": cmd_args.hyperparam_mode,
+        "patience": cmd_args.patience,
+        "percentile": cmd_args.percentile,
+        "optuna_sampler_start_trials": cmd_args.optuna_sampler_start_trials,
     }
 
     with open(f"{cmd_args.output_folder}/{cmd_args.logs_file_name}", "w") as file:
