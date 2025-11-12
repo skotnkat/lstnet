@@ -172,6 +172,8 @@ def run(
     trainer_info["second_domain"] = second_domain_name
     trainer_info["supervised"] = supervised
     trainer_info["augmentation_ops"] = str(augm_ops)
+    trainer_info["batch_size"] = batch_size
+    trainer_info["train_params"] = str(train_params)
 
     utils.LOSS_LOGS["trainer_info"] = trainer_info
 
