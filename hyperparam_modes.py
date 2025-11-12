@@ -132,8 +132,7 @@ def suggest_training_params(trial, cmd_args):
     betas = (beta1, beta2)
 
     return TrainParams(
-        max_epoch_num=cmd_args.optuna_max_resource,
-        max_patience=cmd_args.patience,
+        max_epoch_num=cmd_args.epoch_num,
         optim_name=optim_name,
         lr=lr,
         betas=betas,
