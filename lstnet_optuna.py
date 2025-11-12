@@ -58,7 +58,7 @@ def objective(trial, cmd_args: argparse.Namespace) -> float:
     if "training_params" in cmd_args.hyperparam_mode:
         train_params = hyperparam_modes.suggest_training_params(trial, cmd_args)
     else:
-        max_epoch = cmd_args.optuna_max_resource
+        max_epoch = cmd_args.epoch_num
         patience = cmd_args.patience
         optim_name = cmd_args.optim_name
         lr = cmd_args.learning_rate
