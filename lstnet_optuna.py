@@ -2,7 +2,7 @@ import os
 import argparse
 import json
 import optuna
-from sympy import hyper
+from optuna.pruners import PatientPruner, PercentilePruner
 import train
 
 from models.lstnet import LSTNET
@@ -117,10 +117,12 @@ def run_optuna_lstnet(cmd_args) -> LSTNET:
         multivariate=True,
         group=True,
     )
-    pruner = optuna.pruners.HyperbandPruner(
-        min_resource=cmd_args.optuna_min_resource,
-        max_resource=cmd_args.optuna_max_resource,
-        reduction_factor=cmd_args.optuna_reduction_factor,
+    pruner = PatientPruner(
+        PercentilePruner(
+            percentile=cmd_args.percentile,
+            n_startup_trials=cmd_args.optuna_sampler_start_trials,
+        ),
+        patience=cmd_args.patience,
     )
 
     study = optuna.create_study(
