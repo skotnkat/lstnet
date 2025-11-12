@@ -108,10 +108,11 @@ def add_train_args(parser: argparse.ArgumentParser):
         default=50,
         help="Number of Optuna trials to perform if --optuna is set.",
     )
-    _ = parser.add_argument("--optuna_max_resource", type=int, default=20)
-    _ = parser.add_argument("--optuna_min_resource", type=int, default=5)
-    _ = parser.add_argument("--optuna_reduction_factor", type=int, default=2)
+    # _ = parser.add_argument("--optuna_max_resource", type=int, default=20)
+    # _ = parser.add_argument("--optuna_min_resource", type=int, default=5)
+    # _ = parser.add_argument("--optuna_reduction_factor", type=int, default=2)
     _ = parser.add_argument("--optuna_sampler_start_trials", type=int, default=20)
+    _ = parser.add_argument("--percentile", type=int, default=10)
     _ = parser.add_argument(
         "--hyperparam_mode",
         type=str,
