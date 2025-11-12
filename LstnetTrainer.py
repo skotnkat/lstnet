@@ -142,15 +142,13 @@ class LstnetTrainer:
 
         self.max_epoch_num = train_params.max_epoch_num
 
-        self.best_state_dict = self.model.state_dict()
-        self.best_loss = np.inf
-        self.best_epoch_idx = None
         self.cur_patience = 0
         self.train_loss_list: List[float] = []
         self.val_loss_list: List[float] = []
 
         self.run_optuna = run_optuna
         self.optuna_trial = optuna_trial
+        self.fin_loss = np.inf
 
     def get_trainer_info(self) -> Dict[str, Any]:
         """
@@ -161,9 +159,8 @@ class LstnetTrainer:
         return {
             "train_loss": self.train_loss_list,
             "val_loss": self.val_loss_list,
+            "fin_loss": self.fin_loss,
             "epoch_num": len(self.train_loss_list),
-            "best_epoch": self.best_epoch_idx,
-            "best_loss": self.best_loss,
             "max_patience": self.max_patience,
             "max_epoch_num": self.max_epoch_num,
             "weights": self.weights,
@@ -421,35 +418,19 @@ class LstnetTrainer:
 
                 # ------------------------------
 
-            if epoch_loss < self.best_loss:
-                self.best_state_dict = self.model.state_dict()
-                self.best_loss = epoch_loss
-                self.best_epoch_idx = epoch_idx
-                self.cur_patience = 0
-
-            else:
-                self.cur_patience += 1
-
-                if self.cur_patience >= self.max_patience:  # type: ignore
-                    print("Max patience reached")
-                    break
-
             end_time = time.time()
 
             if not self.run_optuna:
                 print(
                     f"\tEpoch {epoch_idx} took: {(end_time - start_time) / 60:.2f} min"
                 )
-                print(f"\tPatience: {self.cur_patience}")
 
             if torch.cuda.is_available():
                 torch.cuda.empty_cache()
 
         _ = self.model.to("cpu")
-
-        print(f"Best model reached in epoch: {self.best_epoch_idx}")
-        print(f"Training ended after: {epoch_idx+1} epochs")
-
-        _ = self.model.load_state_dict(self.best_state_dict)
+        self.fin_loss = (
+            self.val_loss_list[-1] if self.run_validation else self.train_loss_list[-1]
+        )
 
         return self.model
