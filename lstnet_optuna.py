@@ -99,7 +99,7 @@ def objective(trial, cmd_args: argparse.Namespace) -> float:
 
     trained_model.save_model(model_path)
 
-    return logs["trainer_info"]["best_loss"]
+    return logs["trainer_info"]["fin_loss"]
 
 
 def run_optuna_lstnet(cmd_args) -> LSTNET:
