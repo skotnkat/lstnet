@@ -124,7 +124,8 @@ def add_train_args(parser: argparse.ArgumentParser):
         default=[],
         help=(
             "List of hyperparameter modes to run (choose zero or more from: "
-            "weights, weights_reduced, augm_ops, train_params, architecture)."
+            "weights, weights_reduced, augm_ops, train_params). "
+            "Note: 'weights' and 'weights_reduced' are mutually exclusive."
         ),
     )
 
@@ -223,6 +224,14 @@ def parse_args() -> argparse.Namespace:
     add_end_to_end_parser(all_parser)
 
     cmd_args = parser.parse_args()
+
+    # Validate mutually exclusive hyperparam_mode options
+    if cmd_args.operation in ["train", "all"]:
+        if "weights" in cmd_args.hyperparam_mode and "weights_reduced" in cmd_args.hyperparam_mode:
+            parser.error(
+                "Arguments 'weights' and 'weights_reduced' in --hyperparam_mode are mutually exclusive. "
+                "Please specify only one of them."
+            )
 
     if not os.path.exists(cmd_args.output_folder):
         os.makedirs(cmd_args.output_folder)
