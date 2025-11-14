@@ -1,5 +1,5 @@
 scikit-learn
 matplotlib
 optuna
-lion_pytorch
+lion_pytorch  # not in conda install via pip
 plotly  # for visualizations in optuna

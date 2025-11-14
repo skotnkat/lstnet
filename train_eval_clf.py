@@ -13,7 +13,7 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
 
     _ = parser.add_argument("domain_name", type=str.upper)
-    _ = parser.add_argument("params_file", type=str)
+    _ = parser.add_argument("--params_file", type=str)  # make the changes, so it is only optional -> not needed for optuna
     _ = parser.add_argument("--output_folder", type=str, default="eval_models/")
     # _ = parser.add_argument("--custom_clf", action="store_true")
 
@@ -67,7 +67,7 @@ if __name__ == "__main__":
             shift=args.aug_shift,
         )
 
-        clf = clf_utils.get_clf(args.domain_name, args.params_file)
+        clf = clf_utils.get_clf(args.domain_name, params_path=args.params_file)
 
         trained_clf, _, logs = clf_utils.train_clf(
             clf,

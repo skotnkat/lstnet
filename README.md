@@ -17,6 +17,10 @@ Run evaluation
 
 `pyhon run.py all mnis usps mnis_usps_params.json eval_models/USPS/USPS_model.pth eval_models/MNIST/MNIST_model.pth --ouput_folder output_base`
 
+
+Run Optuna
+`python run.py train mnist usps params/mnist_usps_params.json --output_folder output_optuna_uda --num_workers 12 --optuna --optuna_study_name name --optuna_min_resource 5 --optuna_max_resource 50 --optuna_reduction_factor 3 --optuna_sampler_start_trials 10 --optuna_trials 50`
+
 ## Training Classifiers
 
 ### Evaluation

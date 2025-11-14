@@ -13,6 +13,7 @@ import torch
 from torch import Tensor
 from torch.utils.data import DataLoader
 import numpy as np
+import optuna
 
 from dual_domain_dataset import DualDomainDataset
 from models.lstnet import LSTNET
@@ -49,6 +50,8 @@ class LstnetTrainer:
         *,
         val_loader: Optional[DataLoader[DualDomainDataset]] = None,
         train_params: TrainParams = TrainParams(),
+        run_optuna: bool = False,
+        optuna_trial: Optional[optuna.Trial] = None,
     ) -> None:
         """Initialize the LSTNET trainer.
 
@@ -139,12 +142,12 @@ class LstnetTrainer:
 
         self.max_epoch_num = train_params.max_epoch_num
 
-        self.best_state_dict = self.model.state_dict()
-        self.best_loss = np.inf
-        self.best_epoch_idx = None
-        self.cur_patience = 0
         self.train_loss_list: List[float] = []
         self.val_loss_list: List[float] = []
+
+        self.run_optuna = run_optuna
+        self.optuna_trial = optuna_trial
+        self.fin_loss = np.inf
 
     def get_trainer_info(self) -> Dict[str, Any]:
         """
@@ -155,9 +158,8 @@ class LstnetTrainer:
         return {
             "train_loss": self.train_loss_list,
             "val_loss": self.val_loss_list,
+            "fin_loss": self.fin_loss,
             "epoch_num": len(self.train_loss_list),
-            "best_epoch": self.best_epoch_idx,
-            "best_loss": self.best_loss,
             "max_patience": self.max_patience,
             "max_epoch_num": self.max_epoch_num,
             "weights": self.weights,
@@ -165,6 +167,7 @@ class LstnetTrainer:
             "lr": self.lr,
             "betas": self.betas,
             "weight_decay": self.weight_decay,
+            "run_optuna": self.run_optuna,
         }
 
     def _update_disc(
@@ -388,40 +391,45 @@ class LstnetTrainer:
         epoch_idx = 0  # Init outside loop scope
         for epoch_idx in range(self.max_epoch_num):
             start_time = time.time()
-            utils.init_epoch_loss()
+            utils.init_epoch_loss(op="train")
             epoch_loss = self._run_epoch(val_op=False)
             self.train_loss_list.append(epoch_loss)
 
             if self.run_validation:
+                utils.init_epoch_loss(op="val")
                 epoch_loss = self._run_epoch(val_op=True)
                 self.val_loss_list.append(epoch_loss)
 
-            if epoch_loss < self.best_loss:
-                self.best_state_dict = self.model.state_dict()
-                self.best_loss = epoch_loss
-                self.best_epoch_idx = epoch_idx
-                self.cur_patience = 0
+                # ------------------------------
+                # Pruning in case of optuna
+                if self.run_optuna and self.optuna_trial is None:
+                    raise ValueError(
+                        "Optuna trial is None, but run_optuna is set to True. Provide valid optuna trial."
+                    )
 
-            else:
-                self.cur_patience += 1
+                if self.run_optuna:
+                    self.optuna_trial.report(epoch_loss, epoch_idx)
+                    if self.optuna_trial.should_prune():
+                        self.optuna_trial.set_user_attr(
+                            "train_logs", utils.LOSS_LOGS.copy()
+                        )
+                        raise optuna.TrialPruned()
 
-                if self.cur_patience >= self.max_patience:  # type: ignore
-                    print("Max patience reached")
-                    break
+                # ------------------------------
 
             end_time = time.time()
 
-            print(f"\tEpoch {epoch_idx} took: {(end_time - start_time) / 60:.2f} min")
-            print(f"\tPatience: {self.cur_patience}")
+            if not self.run_optuna:
+                print(
+                    f"\tEpoch {epoch_idx} took: {(end_time - start_time) / 60:.2f} min"
+                )
 
             if torch.cuda.is_available():
                 torch.cuda.empty_cache()
 
         _ = self.model.to("cpu")
-
-        print(f"Best model reached in epoch: {self.best_epoch_idx}")
-        print(f"Training ended after: {epoch_idx+1} epochs")
-
-        _ = self.model.load_state_dict(self.best_state_dict)
+        self.fin_loss = (
+            self.val_loss_list[-1] if self.run_validation else self.train_loss_list[-1]
+        )
 
         return self.model

@@ -4,18 +4,67 @@ It includes data loading, model initialization, training, validation,
 and saving the trained model along with training logs.
 """
 
-from typing import List, Dict, Any, Optional, cast
+from typing import List, Dict, Any, Optional, cast, Union, Tuple, overload, Literal
 import json
 
 import os
 import torch
 from torch.utils.data import DataLoader
+import optuna
 
 from dual_domain_dataset import DualDomainDataset
 from models.lstnet import LSTNET, compile_lstnet_submodules
 from data_preparation import get_training_loader, AugmentOps
 from LstnetTrainer import LstnetTrainer, TrainParams
 import utils
+
+
+@overload
+def run(
+    first_domain_name: str,
+    second_domain_name: str,
+    *,
+    supervised: bool,
+    params: Dict[str, Any],
+    weights: List[float],
+    run_validation: bool = True,
+    output_folder: str = "results/",
+    model_file_name: str = "lstnet.pth",
+    logs_file_name: str = "loss_logs.json",
+    manual_seed: int = 42,
+    val_data_size: float = 0.4,
+    batch_size: int = 64,
+    num_workers: int = 8,
+    augm_ops: AugmentOps = AugmentOps(),
+    train_params: TrainParams = TrainParams(),
+    optuna: Literal[False] = False,
+    optuna_trial: Optional[optuna.Trial] = None,
+    compile_model: bool = False,
+) -> LSTNET: ...
+
+
+@overload
+def run(
+    first_domain_name: str,
+    second_domain_name: str,
+    *,
+    supervised: bool,
+    params: Dict[str, Any],
+    weights: List[float],
+    run_validation: bool = True,
+    output_folder: str = "results/",
+    model_file_name: str = "lstnet.pth",
+    logs_file_name: str = "loss_logs.json",
+    manual_seed: int = 42,
+    val_data_size: float = 0.4,
+    batch_size: int = 64,
+    num_workers: int = 8,
+    augm_ops: AugmentOps = AugmentOps(),
+    train_params: TrainParams = TrainParams(),
+    optuna: Literal[True],
+    optuna_trial: Optional[optuna.Trial] = None,
+    compile_model: bool = False,
+) -> Tuple[LSTNET, Dict[str, Any]]: ...
 
 
 def run(
@@ -28,15 +77,17 @@ def run(
     run_validation: bool = True,
     output_folder: str = "results/",
     model_file_name: str = "lstnet.pth",
-    logs_file: str = "loss_logs.json",
+    logs_file_name: str = "loss_logs.json",
     manual_seed: int = 42,
     val_data_size: float = 0.4,
     batch_size: int = 64,
     num_workers: int = 8,
     augm_ops: AugmentOps = AugmentOps(),
     train_params: TrainParams = TrainParams(),
+    optuna: bool = False,
+    optuna_trial: Optional[optuna.Trial] = None,
     compile_model: bool = False,
-) -> LSTNET:
+) -> Union[LSTNET, Tuple[LSTNET, Dict[str, Any]]]:
     """Train the LSTNET model.
 
     Args:
@@ -48,7 +99,7 @@ def run(
         run_validation (bool, optional): Whether to run validation. Defaults to True.
         output_folder (str, optional): Folder to save the results. Defaults to "results/".
         model_file_name (str, optional): File name for the saved model. Defaults to "lstnet.pth".
-        logs_file (str, optional): _description_. Defaults to "loss_logs.json".
+        logs_file_name (str, optional): _description_. Defaults to "loss_logs.json".
         manual_seed (int, optional): _description_. Defaults to 42.
         val_data_size (float, optional): _description_. Defaults to 0.4.
         batch_size (int, optional): Batch size for training. Defaults to 32.
@@ -118,7 +169,13 @@ def run(
 
     utils.init_logs(["train", "val"])
     trainer = LstnetTrainer(
-        model, weights, train_loader, val_loader=val_loader, train_params=train_params
+        model,
+        weights,
+        train_loader,
+        val_loader=val_loader,
+        train_params=train_params,
+        run_optuna=optuna,
+        optuna_trial=optuna_trial,
     )
     print("Starting train and validate")
     trained_model = trainer.fit()
@@ -128,8 +185,13 @@ def run(
     trainer_info["second_domain"] = second_domain_name
     trainer_info["supervised"] = supervised
     trainer_info["augmentation_ops"] = str(augm_ops)
+    trainer_info["batch_size"] = batch_size
+    trainer_info["train_params"] = str(train_params)
 
     utils.LOSS_LOGS["trainer_info"] = trainer_info
+
+    if optuna:
+        return trained_model, utils.LOSS_LOGS.copy()
 
     # Ensure output folder exists
     os.makedirs(output_folder, exist_ok=True)
@@ -137,7 +199,7 @@ def run(
     model_path = f"{output_folder}/{model_file_name}"
     trained_model.save_model(model_path)
 
-    with open(f"{output_folder}/{logs_file}", "w", encoding="utf-8") as f:
+    with open(f"{output_folder}/{logs_file_name}", "w", encoding="utf-8") as f:
         json.dump(utils.LOSS_LOGS, f, indent=2)
 
     return trained_model
