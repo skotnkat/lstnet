@@ -104,6 +104,7 @@ def add_train_args(parser: argparse.ArgumentParser):
         "--compile",
         action="store_true",
         help="If set, the model will be compiled before training (pytorch compile).",
+    )
     _ = parser.add_argument("--optuna", action="store_true")
     _ = parser.add_argument("--optuna_study_name", type=str, default="lstnet_study")
     _ = parser.add_argument(
