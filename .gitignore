@@ -17,3 +17,5 @@
 .vscode/
 
 test_files/
+analysis/
+tmp/
