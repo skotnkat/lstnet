@@ -142,7 +142,6 @@ class LstnetTrainer:
 
         self.max_epoch_num = train_params.max_epoch_num
 
-        self.cur_patience = 0
         self.train_loss_list: List[float] = []
         self.val_loss_list: List[float] = []
 
