@@ -137,4 +137,5 @@ def suggest_training_params(trial, cmd_args):
         lr=lr,
         betas=betas,
         weight_decay=weight_decay,
+        max_patience=cmd_args.patience,
     )
