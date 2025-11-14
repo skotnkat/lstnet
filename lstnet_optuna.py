@@ -2,7 +2,7 @@ import os
 import argparse
 import json
 import optuna
-from optuna.pruners import PatientPruner, PercentilePruner
+from optuna.pruners import PercentilePruner
 import train
 
 from models.lstnet import LSTNET
