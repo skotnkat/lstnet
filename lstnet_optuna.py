@@ -117,14 +117,11 @@ def run_optuna_lstnet(cmd_args) -> LSTNET:
         multivariate=True,
         group=True,
     )
-    pruner = PatientPruner(
-        PercentilePruner(
-            percentile=cmd_args.percentile,
-            n_startup_trials=cmd_args.optuna_pruner_sample_trials,
-            n_warmup_steps=cmd_args.optuna_pruner_warmup_steps,
-            interval_steps=cmd_args.optuna_pruner_interval_steps,
-        ),
-        patience=cmd_args.patience,
+    pruner = PercentilePruner(
+        percentile=cmd_args.percentile,
+        n_startup_trials=cmd_args.optuna_pruner_sample_trials,
+        n_warmup_steps=cmd_args.optuna_pruner_warmup_steps,
+        interval_steps=cmd_args.optuna_pruner_interval_steps,
     )
 
     study = optuna.create_study(
