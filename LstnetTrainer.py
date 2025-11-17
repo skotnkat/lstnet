@@ -170,20 +170,18 @@ class LstnetTrainer:
             "run_optuna": self.run_optuna,
         }
 
-    def _update_disc(
+    def disc_forward(
         self, first_real_img: Tensor, second_real_img: Tensor
-    ) -> Tuple[FloatTriplet, FloatTriplet, FloatQuad]:
-        self.disc_optim.zero_grad()
-
+    ) -> Any:  # tmp: Tuple[TensorTriplet, TensorTriplet, TensorQuad]
         with torch.no_grad():
             # second_gen_img are images from first domain mapped to second domain
             second_gen_img, first_latent_img = self.model.map_first_to_second(
-                first_real_img, return_latent=True
+                first_real_img
             )
 
             # first_gen_img are images from the second domain mapped to first domain
             first_gen_img, second_latent_img = self.model.map_second_to_first(
-                second_real_img, return_latent=True
+                second_real_img
             )
             imgs_mapping = (
                 first_gen_img,
@@ -200,41 +198,50 @@ class LstnetTrainer:
             *imgs_mapping,
         )
 
-        total_disc_loss = functools.reduce(operator.add, disc_loss_tensors)
-
         # only for obtaining all the losses, no update
         with torch.no_grad():
             imgs_cc = self.model.get_cc_components(*imgs_mapping)
-            cc_loss_tuple = loss_functions.compute_cc_loss(
+            cc_loss_tensors = loss_functions.compute_cc_loss(
                 self.weights,
                 first_real_img,
                 second_real_img,
                 *imgs_cc,
-                return_grad=False,
             )
-            enc_gen_loss_tuple = loss_functions.compute_enc_gen_loss(
-                self.model, self.weights, *imgs_mapping, return_grad=False
+            enc_gen_loss_tensors = loss_functions.compute_enc_gen_loss(
+                self.model, self.weights, *imgs_mapping
             )
+
+        return disc_loss_tensors, enc_gen_loss_tensors, cc_loss_tensors
+
+    def _update_disc(
+        self, first_real_img: Tensor, second_real_img: Tensor
+    ) -> Any:  # Tuple[FloatTriplet, FloatTriplet, FloatQuad]:
+        self.disc_optim.zero_grad()
+
+        disc_loss_tensors, enc_gen_loss_tensors, cc_loss_tensors = self.disc_forward(
+            first_real_img, second_real_img
+        )
+
+        total_disc_loss = functools.reduce(operator.add, disc_loss_tensors)
 
         total_disc_loss.backward()
         self.disc_optim.step()
 
-        d1, d2, d3 = disc_loss_tensors
-        disc_loss_tuple = (d1.item(), d2.item(), d3.item())
+        return (
+            utils.convert_tensor_tuple_to_floats(disc_loss_tensors),
+            utils.convert_tensor_tuple_to_floats(enc_gen_loss_tensors),
+            utils.convert_tensor_tuple_to_floats(cc_loss_tensors),
+        )
 
-        return disc_loss_tuple, enc_gen_loss_tuple, cc_loss_tuple
-
-    def _update_enc_gen(
+    def enc_gen_forward(
         self, first_real_img: Tensor, second_real_img: Tensor
-    ) -> Tuple[FloatTriplet, FloatTriplet, FloatQuad]:
-        self.enc_gen_optim.zero_grad()
-
+    ) -> Any:  # tmp: Tuple[TensorTriplet, TensorTriplet, TensorQuad]
         # Generate images from first domain to second and vice versa
         second_gen_img, first_latent_img = self.model.map_first_to_second(
-            first_real_img, return_latent=True
+            first_real_img
         )
         first_gen_img, second_latent_img = self.model.map_second_to_first(
-            second_real_img, return_latent=True
+            second_real_img
         )
         imgs_mapping = (
             first_gen_img,
@@ -251,29 +258,76 @@ class LstnetTrainer:
             self.model, self.weights, *imgs_mapping
         )
 
-        total_enc_gen_loss = functools.reduce(
-            operator.add, cc_loss_tensors
-        ) + functools.reduce(operator.add, enc_gen_loss_tensors)
-
         # only for obtaining all losses, no update
         with torch.no_grad():
-            disc_loss_tuple = loss_functions.compute_discriminator_loss(
+            disc_loss_tensors = loss_functions.compute_discriminator_loss(
                 self.model,
                 self.weights,
                 first_real_img,
                 second_real_img,
                 *imgs_mapping,
-                return_grad=False,
             )
+
+        return disc_loss_tensors, enc_gen_loss_tensors, cc_loss_tensors
+
+    def _update_enc_gen(
+        self, first_real_img: Tensor, second_real_img: Tensor
+    ) -> Any:  # Tuple[FloatTriplet, FloatTriplet, FloatQuad]:
+        self.enc_gen_optim.zero_grad()
+
+        disc_loss_tensors, enc_gen_loss_tensors, cc_loss_tensors = self.enc_gen_forward(
+            first_real_img, second_real_img
+        )
+
+        total_enc_gen_loss = functools.reduce(
+            operator.add, cc_loss_tensors
+        ) + functools.reduce(operator.add, enc_gen_loss_tensors)
 
         total_enc_gen_loss.backward()
         self.enc_gen_optim.step()
 
-        cc1, cc2, cc3, cc4 = cc_loss_tensors
-        cc_loss_tuple = (cc1.item(), cc2.item(), cc3.item(), cc4.item())
+        return (
+            utils.convert_tensor_tuple_to_floats(disc_loss_tensors),
+            utils.convert_tensor_tuple_to_floats(enc_gen_loss_tensors),
+            utils.convert_tensor_tuple_to_floats(cc_loss_tensors),
+        )
 
-        eg1, eg2, eg3 = enc_gen_loss_tensors
-        enc_gen_loss_tuple = (eg1.item(), eg2.item(), eg3.item())
+    def eval_forward(
+        self, first_real_img: Tensor, second_real_img: Tensor
+    ) -> Any:  # Tuple[TensorTriplet, TensorTriplet, TensorQuad]
+        # Generate images from first domain to second and vice versa
+        second_gen_img, first_latent_img = self.model.map_first_to_second(
+            first_real_img
+        )
+        first_gen_img, second_latent_img = self.model.map_second_to_first(
+            second_real_img
+        )
+        imgs_mapping = (
+            first_gen_img,
+            second_gen_img,
+            first_latent_img,
+            second_latent_img,
+        )
+        imgs_cc = self.model.get_cc_components(*imgs_mapping)
+
+        disc_loss_tuple = loss_functions.compute_discriminator_loss(
+            self.model,
+            self.weights,
+            first_real_img,
+            second_real_img,
+            *imgs_mapping,
+            return_grad=False,
+        )
+        cc_loss_tuple = loss_functions.compute_cc_loss(
+            self.weights,
+            first_real_img,
+            second_real_img,
+            *imgs_cc,
+            return_grad=False,
+        )
+        enc_gen_loss_tuple = loss_functions.compute_enc_gen_loss(
+            self.model, self.weights, *imgs_mapping, return_grad=False
+        )
 
         return disc_loss_tuple, enc_gen_loss_tuple, cc_loss_tuple
 
@@ -281,38 +335,8 @@ class LstnetTrainer:
         self, first_real_img: Tensor, second_real_img: Tensor
     ) -> Tuple[FloatTriplet, FloatTriplet, FloatQuad]:
         with torch.no_grad():
-            # Generate images from first domain to second and vice versa
-            second_gen_img, first_latent_img = self.model.map_first_to_second(
-                first_real_img, return_latent=True
-            )
-            first_gen_img, second_latent_img = self.model.map_second_to_first(
-                second_real_img, return_latent=True
-            )
-            imgs_mapping = (
-                first_gen_img,
-                second_gen_img,
-                first_latent_img,
-                second_latent_img,
-            )
-            imgs_cc = self.model.get_cc_components(*imgs_mapping)
-
-            disc_loss_tuple = loss_functions.compute_discriminator_loss(
-                self.model,
-                self.weights,
-                first_real_img,
-                second_real_img,
-                *imgs_mapping,
-                return_grad=False,
-            )
-            cc_loss_tuple = loss_functions.compute_cc_loss(
-                self.weights,
-                first_real_img,
-                second_real_img,
-                *imgs_cc,
-                return_grad=False,
-            )
-            enc_gen_loss_tuple = loss_functions.compute_enc_gen_loss(
-                self.model, self.weights, *imgs_mapping, return_grad=False
+            disc_loss_tuple, enc_gen_loss_tuple, cc_loss_tuple = self.eval_forward(
+                first_real_img, second_real_img
             )
 
         return disc_loss_tuple, enc_gen_loss_tuple, cc_loss_tuple
