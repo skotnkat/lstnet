@@ -282,3 +282,11 @@ def init_device():
         DEVICE = get_device()
 
     print(f"Using device: {DEVICE}")
+
+
+def convert_tensor_tuple_to_floats(
+    tuple_tensor: Tuple[Tensor, ...],
+) -> Tuple[float, ...]:
+    """Convert a tuple of tensors to a tuple of floats."""
+
+    return tuple(t.item() for t in tuple_tensor)
