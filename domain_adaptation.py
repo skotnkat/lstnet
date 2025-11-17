@@ -34,7 +34,7 @@ def translate_to_diff_domain(
             all_labels.append(labels)
 
             imgs = imgs.to(utils.DEVICE)
-            trans_imgs = map_fn(imgs)
+            trans_imgs, _ = map_fn(imgs)
             all_trans_imgs.append(trans_imgs.cpu())
 
     trans_igms_tensor = torch.cat(all_trans_imgs)
