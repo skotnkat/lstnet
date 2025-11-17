@@ -76,6 +76,9 @@ class LstnetTrainer:
             ValueError: If the weight decay is negative.
         """
 
+        if torch.cuda.is_available():
+            torch.set_float32_matmul_precision("high")
+
         self.model = lstnet_model
         self.optim_name = train_params.optim_name
         self.lr = train_params.lr
