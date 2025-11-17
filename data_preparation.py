@@ -89,6 +89,7 @@ def get_data_loader(
     persistent_workers: bool = False,
     pin_memory: bool = False,
     collate_fn: Optional[Callable] = None,
+    drop_last: bool = False,
 ) -> DataLoader[Any]:
     """Creates a DataLoader for the given dataset.
 
@@ -117,6 +118,7 @@ def get_data_loader(
         persistent_workers=persistent_workers,
         pin_memory=pin_memory,
         collate_fn=collate_fn,
+        drop_last=drop_last,
     )
 
 
@@ -437,6 +439,7 @@ def get_train_val_loaders(
         shuffle=True,
         pin_memory=pin_memory,
         collate_fn=custom_collate_fn,
+        drop_last=True,  # To ensure consistent batch sizes during training
     )
     val_loader = get_data_loader(
         val_data,
@@ -445,6 +448,7 @@ def get_train_val_loaders(
         shuffle=False,
         pin_memory=pin_memory,
         collate_fn=custom_collate_fn,
+        drop_last=False,  # Getting all data in validation
     )
 
     print("Obtained Data Loader for both training and validation")
@@ -562,6 +566,7 @@ def get_training_loader(
         pin_memory=pin_memory,
         shuffle=True,
         collate_fn=custom_collate_fn,
+        drop_last=True,  # To ensure consistent batch sizes during training
     )
     print("Obtained Data Loader for training")
 
