@@ -100,7 +100,7 @@ def add_train_args(parser: argparse.ArgumentParser):
         help="List of 7 float weights",
     )
 
-    = parser.add_argument(
+    _ = parser.add_argument(
         "--compile",
         action="store_true",
         help="If set, the model will be compiled before training (pytorch compile).",
@@ -306,6 +306,7 @@ def run_training(
         manual_seed=cmd_args.manual_seed,
         augm_ops=augm_ops,
         train_params=train_params,
+        compile_model=cmd_args.compile,
     )
 
     if return_model:
