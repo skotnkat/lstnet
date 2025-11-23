@@ -17,4 +17,10 @@
 experiments/
 data/
 test_files/
+<<<<<<< Updated upstream
 
+=======
+analysis/
+tmp/
+img_processing/
+>>>>>>> Stashed changes
