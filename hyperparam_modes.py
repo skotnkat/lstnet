@@ -311,5 +311,4 @@ def suggest_architecture_params(trial, base_params):
             domain_disc_layers_num, [extra_conv, extra_max_pool]
         )
 
-    print(params)
     return params
