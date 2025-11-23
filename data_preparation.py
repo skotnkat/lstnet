@@ -7,6 +7,7 @@ from dataclasses import dataclass
 import os
 import tarfile
 import urllib.request
+import kagglehub
 
 from torchvision import datasets
 from torchvision.transforms.v2 import Compose, RandomAffine, ToImage, ToDtype, Normalize
@@ -20,6 +21,9 @@ DoubleLoader: TypeAlias = Tuple[DataLoader[Any], DataLoader[Any]]
 
 SingleDataset: TypeAlias = Dataset[Any]
 DoubleDataset: TypeAlias = Tuple[Dataset[Any], Dataset[Any]]
+
+
+A2O_DATASET = "balraj98/apple2orange-dataset"
 
 
 @dataclass(slots=True)
@@ -81,6 +85,31 @@ def create_basic_transform(num_channels: int = 1) -> Compose:
             Normalize(mean=[0.5] * num_channels, std=[0.5] * num_channels),
         ]
     )
+
+
+def get_a2o_dataset(
+    dataset: str, *, train_op: bool, transform_steps: Optional[Compose] = None
+) -> DataLoader[Any]:
+    cache_path = kagglehub.dataset_download(A2O_DATASET, unzip=True)
+
+    if transform_steps is None:
+        transform_steps = create_basic_transform(3)
+
+    folder = "test"
+    if train_op:
+        folder = "train"
+
+    dataset = "A"
+    if dataset.upper() == "ORANGE":
+        dataset = "B"
+
+    path = f"{cache_path}/{folder}{dataset}"
+    data = datasets.ImageFolder(
+        root=path,
+        transform=transform_steps,
+    )
+
+    return data
 
 
 def get_data_loader(
@@ -225,6 +254,16 @@ def load_dataset(
 
             data = datasets.SVHN(
                 root="./data", split=split, transform=transform_steps, download=download
+            )
+
+        case "APPLE":  # from the a2o dataset
+            return get_a2o_dataset(
+                "APPLE", train_op=train_op, transform_steps=transform_steps
+            )
+
+        case "ORANGE":  # from the a2o dataset
+            return get_a2o_dataset(
+                "ORANGE", train_op=train_op, transform_steps=transform_steps
             )
 
         case _:
