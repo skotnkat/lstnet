@@ -145,7 +145,7 @@ def suggest_training_params(trial, cmd_args):
     )
 
 
-def suggest_architecture(trial, base_params):
+def suggest_architecture_params(trial, base_params):
     """
     Suggest architecture modifications with symmetry:
     - Domain encoders/generators modified together
@@ -197,16 +197,14 @@ def suggest_architecture(trial, base_params):
 
     # Shared Encoder
     for i in range(len(params["shared_encoder"])):
-        out_channels = last_domain_encoder_out_channels / (1 + 2**i)
+        out_channels = last_domain_encoder_out_channels // (2 ** (i + 1))
         params["shared_encoder"][i]["out_channels"] = out_channels
 
-    shared_encoder_last_out_channels = last_domain_encoder_out_channels / (
-        2 ** (len(params["shared_encoder"]) - 1)
+    shared_encoder_last_out_channels = last_domain_encoder_out_channels // (
+        2 ** (len(params["shared_encoder"]))
     )
     if shared_extra_layer:
-        shared_encoder_last_out_channels = last_domain_encoder_out_channels / (
-            2 ** len(params["shared_encoder"])
-        )
+        shared_encoder_last_out_channels = shared_encoder_last_out_channels // 2
         extra_layer = {
             "out_channels": shared_encoder_last_out_channels,
             "kernel_size": 3,
@@ -216,35 +214,13 @@ def suggest_architecture(trial, base_params):
         params["shared_encoder"].append(extra_layer)
 
     # Latent Discriminator
-    latent_disc_fin_layers = len(params["latent_discriminator"]) + int(
-        latent_disc_extra_layer
-    )
-    first_half_layers = latent_disc_fin_layers // 2 + 1
-    even_layers_flag = True if latent_disc_fin_layers % 2 == 0 else False
+    base_pattern = [4, 8, 4]
+    if latent_disc_extra_layer:
+        base_pattern = [4, 8, 8, 4]
 
-    out_channels = shared_encoder_last_out_channels
-    for i in range(first_half_layers):
-        out_channels = shared_encoder_last_out_channels * 2
-        params["latent_discriminator"][i]["out_channels"] = out_channels
-
-    if even_layers_flag:
-        new_layer = {
-            "out_channels": out_channels,
-            "kernel_size": 3,
-            "stride": 1,
-            "padding": "same",
-        }
-        params["latent_discriminator"].insert(first_half_layers, new_layer)
-
-        # Reduce for second half
-        for i in range(first_half_layers + 1, len(params["latent_discriminator"])):
-            reduction_factor = 2 ** (i - first_half_layers)
-            out_channels = (
-                shared_encoder_last_out_channels
-                * (2**first_half_layers)
-                / reduction_factor
-            )
-            params["latent_discriminator"][i]["out_channels"] = out_channels
+    for i in range(len(base_pattern)):
+        out_channels = base_channels * base_pattern[i]
+        params["latent_discriminator"][i][0]["out_channels"] = out_channels
 
     # Shared Generator
     shared_generator_layers_num = len(params["shared_generator"])
@@ -268,34 +244,33 @@ def suggest_architecture(trial, base_params):
         params["shared_generator"].append(extra_layer)
 
     # Domain Generator
-    domain_generators_layers_num = len(params["first_generator"])
+    gen_layers_num = len(params["first_generator"])
+    domain_gen_conv_layers_num = gen_layers_num - 1
 
-    first_domain_generator_out_channels = shared_encoder_last_out_channels * 2
-
-    for i in range(domain_generators_layers_num):
-        out_channels = first_domain_generator_out_channels * (
-            2 ** (domain_generators_layers_num - i - 1)
-        )
+    for i in range(domain_gen_conv_layers_num):
+        out_channels = base_channels * (2 ** (domain_gen_conv_layers_num - 1 - i))
         params["first_generator"][i]["out_channels"] = out_channels
         params["second_generator"][i]["out_channels"] = out_channels
 
     if domain_extra_layer:
         extra_layer = {
-            "out_channels": first_domain_generator_out_channels
-            / (2 ** (domain_generators_layers_num - i)),
+            "out_channels": base_channels,
             "kernel_size": 3,
             "stride": 1,
             "padding": "same",
         }
-        params["first_generator"].append(extra_layer)
-        params["second_generator"].append(extra_layer)
+
+        params["first_generator"].insert(domain_gen_conv_layers_num, extra_layer)
+        params["second_generator"].insert(domain_gen_conv_layers_num, extra_layer)
 
     # Domain Discriminators
-    domain_disc_layers_num = len(params["first_discriminator"])
+    domain_disc_layers_num = (
+        len(params["first_discriminator"]) - 1
+    )  # without the last dense layer
     for i in range(domain_disc_layers_num):
         out_channels = base_channels * (2**i)
-        params["first_discriminator"][i]["out_channels"] = out_channels
-        params["second_discriminator"][i]["out_channels"] = out_channels
+        params["first_discriminator"][i][0]["out_channels"] = out_channels
+        params["second_discriminator"][i][0]["out_channels"] = out_channels
 
     if domain_disc_extra_layer:
         out_channels = base_channels * (2**domain_disc_layers_num)
@@ -312,8 +287,12 @@ def suggest_architecture(trial, base_params):
             "padding": "same",
         }
 
-        params["first_discriminator"].append([extra_conv, extra_max_pool])
-        params["second_discriminator"].append([extra_conv, extra_max_pool])
+        params["first_discriminator"].insert(
+            domain_disc_layers_num, [extra_conv, extra_max_pool]
+        )
+        params["second_discriminator"].insert(
+            domain_disc_layers_num, [extra_conv, extra_max_pool]
+        )
 
     print(params)
     return params
