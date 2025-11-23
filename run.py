@@ -126,7 +126,13 @@ def add_train_args(parser: argparse.ArgumentParser):
         "--hyperparam_mode",
         type=str,
         nargs="*",
-        choices=["weights", "weights_reduced", "augm_ops", "train_params"],
+        choices=[
+            "weights",
+            "weights_reduced",
+            "augm_ops",
+            "train_params",
+            "architecture",
+        ],
         default=[],
         help=(
             "List of hyperparameter modes to run (choose zero or more from: "

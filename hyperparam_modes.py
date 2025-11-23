@@ -1,3 +1,5 @@
+import copy
+
 from data_preparation import AugmentOps
 from LstnetTrainer import TrainParams
 
@@ -131,11 +133,183 @@ def suggest_training_params(trial, cmd_args):
 
     betas = (beta1, beta2)
 
+    epoch_num = trial.suggest_int("max_epoch_num", 50, 200, step=50)
+
     return TrainParams(
-        max_epoch_num=cmd_args.epoch_num,
+        max_epoch_num=epoch_num,
         optim_name=optim_name,
         lr=lr,
         betas=betas,
         weight_decay=weight_decay,
         max_patience=cmd_args.patience,
     )
+
+
+def suggest_architecture_params(trial, base_params):
+    """
+    Suggest architecture modifications with symmetry:
+    - Domain encoders/generators modified together
+    - Shared encoders/generators modified together
+    - Domain discriminators modified together
+    - Latent discriminator modified separately
+    """
+
+    params = copy.deepcopy(base_params)
+
+    # Suggest extra layers for components
+    domain_extra_layer = trial.suggest_categorical("domain_extra_layer", [True, False])
+    shared_extra_layer = trial.suggest_categorical("shared_extra_layer", [True, False])
+    domain_disc_extra_layer = trial.suggest_categorical(
+        "domain_disc_extra_layer", [True, False]
+    )
+    latent_disc_extra_layer = trial.suggest_categorical(
+        "latent_disc_extra_layer", [True, False]
+    )
+
+    # Suggest base output channels (will be doubled for each subsequent layer)
+    # Base for first layers of encoders, rest will be derived
+    base_channels = trial.suggest_categorical("base_channels", [32, 64, 128])
+
+    # Domain Encoders
+    domain_encoders_layers_num = len(params["first_encoder"])
+
+    for i in range(domain_encoders_layers_num):
+        out_channels = base_channels * (2**i)
+        params["first_encoder"][i]["out_channels"] = out_channels
+        params["second_encoder"][i]["out_channels"] = out_channels
+
+    last_domain_encoder_out_channels = base_channels * (
+        2 ** (domain_encoders_layers_num - 1)
+    )
+    if domain_extra_layer:
+        last_domain_encoder_out_channels = base_channels * (
+            2**domain_encoders_layers_num
+        )
+
+        extra_layer = {
+            "out_channels": last_domain_encoder_out_channels,
+            "kernel_size": 3,
+            "stride": 1,
+            "padding": "same",
+        }
+        params["first_encoder"].append(extra_layer)
+        params["second_encoder"].append(extra_layer)
+
+    # Shared Encoder
+    for i in range(len(params["shared_encoder"])):
+        out_channels = last_domain_encoder_out_channels // (2 ** (i + 1))
+        params["shared_encoder"][i]["out_channels"] = out_channels
+
+    shared_encoder_last_out_channels = last_domain_encoder_out_channels // (
+        2 ** (len(params["shared_encoder"]))
+    )
+    if shared_extra_layer:
+        shared_encoder_last_out_channels = shared_encoder_last_out_channels // 2
+        extra_layer = {
+            "out_channels": shared_encoder_last_out_channels,
+            "kernel_size": 3,
+            "stride": 1,
+            "padding": "same",
+        }
+        params["shared_encoder"].append(extra_layer)
+
+    # Latent Discriminator
+    latent_conv_layers_num = (
+        len(params["latent_discriminator"]) - 1
+    )  # without the last dense layer
+    base_pattern = [4, 8, 4]
+    if latent_disc_extra_layer:
+        extra_conv = {
+            "out_channels": shared_encoder_last_out_channels * 8,
+            "kernel_size": 3,
+            "stride": 1,
+            "padding": "same",
+        }
+        extra_pool = {
+            "kernel_size": 2,
+            "stride": 1,
+            "padding": "same",
+        }
+
+        params["latent_discriminator"].insert(
+            latent_conv_layers_num, [extra_conv, extra_pool]
+        )
+
+        base_pattern = [4, 8, 8, 4]
+        latent_conv_layers_num += 1
+
+    for i in range(latent_conv_layers_num):
+        out_channels = base_channels * base_pattern[i]
+        params["latent_discriminator"][i][0]["out_channels"] = out_channels
+
+    # Shared Generator
+    shared_generator_layers_num = len(params["shared_generator"])
+    for i in range(shared_generator_layers_num):
+        out_channels = shared_encoder_last_out_channels * (2**i)
+        params["shared_generator"][i]["out_channels"] = out_channels
+
+    shared_generator_last_out_channels = shared_encoder_last_out_channels * (
+        2**shared_generator_layers_num
+    )
+    if shared_extra_layer:
+        extra_layer = {
+            "out_channels": shared_generator_last_out_channels,
+            "kernel_size": 3,
+            "stride": 1,
+            "padding": "same",
+        }
+        params["shared_generator"].append(extra_layer)
+
+    # Domain Generator
+    gen_layers_num = len(params["first_generator"])
+    domain_gen_conv_layers_num = gen_layers_num - 1
+
+    for i in range(domain_gen_conv_layers_num):
+        out_channels = base_channels * (2 ** (domain_gen_conv_layers_num - 1 - i))
+        params["first_generator"][i]["out_channels"] = out_channels
+        params["second_generator"][i]["out_channels"] = out_channels
+
+    if domain_extra_layer:
+        extra_layer = {
+            "out_channels": base_channels,
+            "kernel_size": 3,
+            "stride": 1,
+            "padding": "same",
+        }
+
+        params["first_generator"].insert(domain_gen_conv_layers_num, extra_layer)
+        params["second_generator"].insert(domain_gen_conv_layers_num, extra_layer)
+
+    # Domain Discriminators
+    domain_disc_layers_num = (
+        len(params["first_discriminator"]) - 1
+    )  # without the last dense layer
+    for i in range(domain_disc_layers_num):
+        out_channels = base_channels * (2**i)
+        params["first_discriminator"][i][0]["out_channels"] = out_channels
+        params["second_discriminator"][i][0]["out_channels"] = out_channels
+
+    if domain_disc_extra_layer:
+        out_channels = base_channels * (2**domain_disc_layers_num)
+        extra_conv = {
+            "out_channels": out_channels,
+            "kernel_size": 3,
+            "stride": 1,
+            "padding": "same",
+        }
+
+        extra_max_pool = {
+            "kernel_size": 2,
+            "stride": 2,
+            "padding": "same",
+        }
+
+        params["first_discriminator"].insert(
+            domain_disc_layers_num, [extra_conv, extra_max_pool]
+        )
+        params["second_discriminator"].insert(
+            domain_disc_layers_num, [extra_conv, extra_max_pool]
+        )
+
+    print(params)
+    return params
