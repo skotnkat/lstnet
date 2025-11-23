@@ -214,11 +214,31 @@ def suggest_architecture_params(trial, base_params):
         params["shared_encoder"].append(extra_layer)
 
     # Latent Discriminator
+    latent_conv_layers_num = (
+        len(params["latent_discriminator"]) - 1
+    )  # without the last dense layer
     base_pattern = [4, 8, 4]
     if latent_disc_extra_layer:
-        base_pattern = [4, 8, 8, 4]
+        extra_conv = {
+            "out_channels": shared_encoder_last_out_channels * 8,
+            "kernel_size": 3,
+            "stride": 1,
+            "padding": "same",
+        }
+        extra_pool = {
+            "kernel_size": 2,
+            "stride": 1,
+            "padding": "same",
+        }
 
-    for i in range(len(base_pattern)):
+        params["latent_discriminator"].insert(
+            latent_conv_layers_num, [extra_conv, extra_pool]
+        )
+
+        base_pattern = [4, 8, 8, 4]
+        latent_conv_layers_num += 1
+
+    for i in range(latent_conv_layers_num):
         out_channels = base_channels * base_pattern[i]
         params["latent_discriminator"][i][0]["out_channels"] = out_channels
 
