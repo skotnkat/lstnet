@@ -252,9 +252,6 @@ def suggest_architecture_params(trial, base_params):
         2**shared_generator_layers_num
     )
     if shared_extra_layer:
-        shared_generator_last_out_channels = shared_encoder_last_out_channels * (
-            2**shared_generator_layers_num
-        )
         extra_layer = {
             "out_channels": shared_generator_last_out_channels,
             "kernel_size": 3,
