@@ -149,6 +149,9 @@ class LstnetTrainer:
         self.train_loss_list: List[float] = []
         self.val_loss_list: List[float] = []
 
+        self.best_val_loss = np.inf
+        self.patience_counter = 0
+
         self.run_optuna = run_optuna
         self.optuna_trial = optuna_trial
         self.fin_loss = np.inf
@@ -438,6 +441,20 @@ class LstnetTrainer:
                 utils.init_epoch_loss(op="val")
                 epoch_loss = self._run_epoch(val_op=True)
                 self.val_loss_list.append(epoch_loss)
+                # ------------------------------
+                # Early stopping check
+                if epoch_loss < self.best_val_loss:
+                    self.best_val_loss = epoch_loss
+                    self.patience_counter = 0
+                else:
+                    self.patience_counter += 1
+
+                if self.patience_counter >= self.max_patience:
+                    if not self.run_optuna:
+                        print(
+                            f"\nEarly stopping triggered at epoch {epoch_idx}. Patience limit reached."
+                        )
+                    break
 
                 # ------------------------------
                 # Pruning in case of optuna
