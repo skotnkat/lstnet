@@ -55,6 +55,7 @@ def objective(trial, cmd_args: argparse.Namespace) -> float:
 
     # ---------------------------------------------------------------
     # Training parameters
+    batch_size = cmd_args.batch_size
     if "train_params" in cmd_args.hyperparam_mode:
         train_params = hyperparam_modes.suggest_training_params(trial, cmd_args)
         batch_size = trial.suggest_categorical("batch_size", [64, 128, 256])
@@ -77,6 +78,13 @@ def objective(trial, cmd_args: argparse.Namespace) -> float:
             weight_decay=weight_decay,
         )
 
+    # ---------------------------------------------------------------
+    # Suggest architecture changes
+    if "architecture" in cmd_args.hyperparam_mode:
+        params = hyperparam_modes.suggest_architecture_params(trial, params)
+
+    # ---------------------------------------------------------------
+    # Run training with suggested hyperparameters
     trained_model, logs = train.run(
         cmd_args.first_domain,
         cmd_args.second_domain,
