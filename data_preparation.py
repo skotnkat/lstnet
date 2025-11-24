@@ -2,12 +2,23 @@
 Module for preparing datasets for training, evaluation and testing for the LSTNET model.
 """
 
-from typing import Literal, Union, Tuple, Any, overload, TypeAlias, Optional, Callable
+from typing import (
+    Literal,
+    Union,
+    Tuple,
+    Any,
+    overload,
+    TypeAlias,
+    Optional,
+    Callable,
+    List,
+)
 from dataclasses import dataclass
 import os
 import tarfile
 import urllib.request
 import kagglehub
+from PIL import Image
 
 from torchvision import datasets
 from torchvision.transforms.v2 import Compose, RandomAffine, ToImage, ToDtype, Normalize
@@ -87,14 +98,67 @@ def create_basic_transform(num_channels: int = 1) -> Compose:
     )
 
 
+class ImageDataset(Dataset):
+    def __init__(
+        self,
+        folder,
+        transform=None,
+        extensions: List[str] = [".jpg"],
+        rgb: bool = True,
+        dummy_class: int = 1,
+    ):
+        """
+        Args:
+            folder: Folder path to load images from
+            transform: Optional torchvision transforms to apply
+        """
+        self.image_paths = []
+        self.transform = transform
+        self.rgb = rgb
+        self.extensions = extensions
+        self.dummy_class = dummy_class
+
+        # Collect all image paths from the folder
+        if not os.path.exists(folder):
+            print(f"Warning: {folder} does not exist")
+        else:
+            for filename in os.listdir(folder):
+                if any(filename.lower().endswith(ext) for ext in self.extensions):
+                    self.image_paths.append(os.path.join(folder, filename))
+
+        print(f"Found {len(self.image_paths)} images in {folder}")
+
+    def __len__(self):
+        return len(self.image_paths)
+
+    def __getitem__(self, idx):
+        img_path = self.image_paths[idx]
+
+        # Load image
+        image = Image.open(img_path)
+
+        if self.rgb:
+            image = image.convert("RGB")
+
+        # Apply transforms
+        if self.transform:
+            image = self.transform(image)
+
+        return image, self.dummy_class
+
+
 def get_a2o_dataset(
-    dataset: str, *, train_op: bool, transform_steps: Optional[Compose] = None
-) -> DataLoader[Any]:
+    dataset: str,
+    *,
+    train_op: bool,
+    transform_steps: Optional[Compose] = None,
+) -> Dataset[Any]:
     cache_path = kagglehub.dataset_download(A2O_DATASET, unzip=True)
 
     if transform_steps is None:
         transform_steps = create_basic_transform(3)
 
+    dummy_class = 1
     folder = "test"
     if train_op:
         folder = "train"
@@ -102,11 +166,13 @@ def get_a2o_dataset(
     dataset = "A"
     if dataset.upper() == "ORANGE":
         dataset = "B"
+        dummy_class = 0
 
     path = f"{cache_path}/{folder}{dataset}"
-    data = datasets.ImageFolder(
-        root=path,
+    data = ImageDataset(
+        folder=path,
         transform=transform_steps,
+        dummy_class=dummy_class,
     )
 
     return data
