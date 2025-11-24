@@ -46,6 +46,36 @@ class BaseClf(Discriminator):
         return last_layer
 
 
+# Adam Optim: lr 0.001
+class A2OClf(BaseClf):
+    def __init__(self, params):
+        self.input_size = (256, 256)
+        self.in_channels_num = 3
+
+        super().__init__(
+            self.input_size,
+            self.in_channels_num,
+            params,
+        )
+
+    def _create_last_layer(self):
+        last_layer = nn.Sequential(
+            nn.Flatten(),
+            nn.Dropout(self.dense_layer_params["dropout_p"]),
+            nn.Linear(
+                in_features=self.dense_layer_params["in_features"],
+                out_features=10,
+            ),
+            nn.ReLU(),
+            nn.Linear(in_features=10, out_features=1),
+            nn.Sigmoid(),
+        )
+
+        self.criterion = nn.CrossEntropyLoss()
+
+        return last_layer
+
+
 class SvhnClf(Discriminator):
     def __init__(self, params):
         self.input_size = (32, 32)
@@ -167,6 +197,9 @@ def select_classifier(domain_name, params):
 
         case "SVHN":
             clf = SvhnClf(params=params)
+
+        case "A2O":
+            clf = A2OClf(params=params)
 
     if clf is None:
         raise ValueError("No classifier model as loaded.")
