@@ -46,7 +46,6 @@ class BaseClf(Discriminator):
         return last_layer
 
 
-# Adam Optim: lr 0.001
 class A2OClf(BaseClf):
     def __init__(self, params):
         self.input_size = (256, 256)
