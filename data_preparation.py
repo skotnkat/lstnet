@@ -128,6 +128,8 @@ class ImageDataset(Dataset):
 
         print(f"Found {len(self.image_paths)} images in {folder}")
 
+        self.image_paths.sort()
+
     def __len__(self):
         return len(self.image_paths)
 
