@@ -163,12 +163,12 @@ def get_a2o_dataset(
     if train_op:
         folder = "train"
 
-    dataset = "A"
+    letter = "A"
     if dataset.upper() == "ORANGE":
-        dataset = "B"
+        letter = "B"
         dummy_class = 0
 
-    path = f"{cache_path}/{folder}{dataset}"
+    path = f"{cache_path}/{folder}{letter}"
     data = ImageDataset(
         folder=path,
         transform=transform_steps,
