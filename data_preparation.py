@@ -153,7 +153,7 @@ def get_a2o_dataset(
     train_op: bool,
     transform_steps: Optional[Compose] = None,
 ) -> Dataset[Any]:
-    cache_path = kagglehub.dataset_download(A2O_DATASET, unzip=True)
+    cache_path = kagglehub.dataset_download(A2O_DATASET)
 
     if transform_steps is None:
         transform_steps = create_basic_transform(3)
