@@ -13,7 +13,9 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
 
     _ = parser.add_argument("domain_name", type=str.upper)
-    _ = parser.add_argument("--params_file", type=str)  # make the changes, so it is only optional -> not needed for optuna
+    _ = parser.add_argument(
+        "--params_file", type=str
+    )  # make the changes, so it is only optional -> not needed for optuna
     _ = parser.add_argument("--output_folder", type=str, default="eval_models/")
     # _ = parser.add_argument("--custom_clf", action="store_true")
 
@@ -66,8 +68,12 @@ if __name__ == "__main__":
             zoom=args.aug_zoom,
             shift=args.aug_shift,
         )
+        print("Data preppared.")
 
         clf = clf_utils.get_clf(args.domain_name, params_path=args.params_file)
+        print("Clf obtained.")
+
+        print("Starting training...")
 
         trained_clf, _, logs = clf_utils.train_clf(
             clf,
