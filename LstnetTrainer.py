@@ -52,6 +52,7 @@ class LstnetTrainer:
         train_params: TrainParams = TrainParams(),
         run_optuna: bool = False,
         optuna_trial: Optional[optuna.Trial] = None,
+        compile_model: bool = False,
     ) -> None:
         """Initialize the LSTNET trainer.
 
@@ -74,6 +75,9 @@ class LstnetTrainer:
             ValueError: If the patience is not positive.
             ValueError: If the weight decay is negative.
         """
+
+        if torch.cuda.is_available():
+            torch.set_float32_matmul_precision("high")
 
         self.model = lstnet_model
         self.optim_name = train_params.optim_name
@@ -142,15 +146,26 @@ class LstnetTrainer:
 
         self.max_epoch_num = train_params.max_epoch_num
 
-        self.best_state_dict = self.model.state_dict()
-        self.best_loss = np.inf
-        self.best_epoch_idx = None
-        self.cur_patience = 0
         self.train_loss_list: List[float] = []
         self.val_loss_list: List[float] = []
 
+        self.best_val_loss = np.inf
+        self.patience_counter = 0
+
         self.run_optuna = run_optuna
         self.optuna_trial = optuna_trial
+        self.fin_loss = np.inf
+
+        if compile_model:
+            self.disc_forward = torch.compile(
+                self.disc_forward, mode="default", dynamic=False
+            )
+            self.enc_gen_forward = torch.compile(
+                self.enc_gen_forward, mode="default", dynamic=False
+            )
+            self.eval_forward = torch.compile(
+                self.eval_forward, mode="default", dynamic=False
+            )
 
     def get_trainer_info(self) -> Dict[str, Any]:
         """
@@ -161,9 +176,8 @@ class LstnetTrainer:
         return {
             "train_loss": self.train_loss_list,
             "val_loss": self.val_loss_list,
+            "fin_loss": self.fin_loss,
             "epoch_num": len(self.train_loss_list),
-            "best_epoch": self.best_epoch_idx,
-            "best_loss": self.best_loss,
             "max_patience": self.max_patience,
             "max_epoch_num": self.max_epoch_num,
             "weights": self.weights,
@@ -174,20 +188,18 @@ class LstnetTrainer:
             "run_optuna": self.run_optuna,
         }
 
-    def _update_disc(
+    def disc_forward(
         self, first_real_img: Tensor, second_real_img: Tensor
-    ) -> Tuple[FloatTriplet, FloatTriplet, FloatQuad]:
-        self.disc_optim.zero_grad()
-
+    ) -> Any:  # tmp: Tuple[TensorTriplet, TensorTriplet, TensorQuad]
         with torch.no_grad():
             # second_gen_img are images from first domain mapped to second domain
             second_gen_img, first_latent_img = self.model.map_first_to_second(
-                first_real_img, return_latent=True
+                first_real_img
             )
 
             # first_gen_img are images from the second domain mapped to first domain
             first_gen_img, second_latent_img = self.model.map_second_to_first(
-                second_real_img, return_latent=True
+                second_real_img
             )
             imgs_mapping = (
                 first_gen_img,
@@ -204,41 +216,50 @@ class LstnetTrainer:
             *imgs_mapping,
         )
 
-        total_disc_loss = functools.reduce(operator.add, disc_loss_tensors)
-
         # only for obtaining all the losses, no update
         with torch.no_grad():
             imgs_cc = self.model.get_cc_components(*imgs_mapping)
-            cc_loss_tuple = loss_functions.compute_cc_loss(
+            cc_loss_tensors = loss_functions.compute_cc_loss(
                 self.weights,
                 first_real_img,
                 second_real_img,
                 *imgs_cc,
-                return_grad=False,
             )
-            enc_gen_loss_tuple = loss_functions.compute_enc_gen_loss(
-                self.model, self.weights, *imgs_mapping, return_grad=False
+            enc_gen_loss_tensors = loss_functions.compute_enc_gen_loss(
+                self.model, self.weights, *imgs_mapping
             )
+
+        return disc_loss_tensors, enc_gen_loss_tensors, cc_loss_tensors
+
+    def _update_disc(
+        self, first_real_img: Tensor, second_real_img: Tensor
+    ) -> Any:  # Tuple[FloatTriplet, FloatTriplet, FloatQuad]:
+        self.disc_optim.zero_grad()
+
+        disc_loss_tensors, enc_gen_loss_tensors, cc_loss_tensors = self.disc_forward(
+            first_real_img, second_real_img
+        )
+
+        total_disc_loss = functools.reduce(operator.add, disc_loss_tensors)
 
         total_disc_loss.backward()
         self.disc_optim.step()
 
-        d1, d2, d3 = disc_loss_tensors
-        disc_loss_tuple = (d1.item(), d2.item(), d3.item())
+        return (
+            utils.convert_tensor_tuple_to_floats(disc_loss_tensors),
+            utils.convert_tensor_tuple_to_floats(enc_gen_loss_tensors),
+            utils.convert_tensor_tuple_to_floats(cc_loss_tensors),
+        )
 
-        return disc_loss_tuple, enc_gen_loss_tuple, cc_loss_tuple
-
-    def _update_enc_gen(
+    def enc_gen_forward(
         self, first_real_img: Tensor, second_real_img: Tensor
-    ) -> Tuple[FloatTriplet, FloatTriplet, FloatQuad]:
-        self.enc_gen_optim.zero_grad()
-
+    ) -> Any:  # tmp: Tuple[TensorTriplet, TensorTriplet, TensorQuad]
         # Generate images from first domain to second and vice versa
         second_gen_img, first_latent_img = self.model.map_first_to_second(
-            first_real_img, return_latent=True
+            first_real_img
         )
         first_gen_img, second_latent_img = self.model.map_second_to_first(
-            second_real_img, return_latent=True
+            second_real_img
         )
         imgs_mapping = (
             first_gen_img,
@@ -255,29 +276,76 @@ class LstnetTrainer:
             self.model, self.weights, *imgs_mapping
         )
 
-        total_enc_gen_loss = functools.reduce(
-            operator.add, cc_loss_tensors
-        ) + functools.reduce(operator.add, enc_gen_loss_tensors)
-
         # only for obtaining all losses, no update
         with torch.no_grad():
-            disc_loss_tuple = loss_functions.compute_discriminator_loss(
+            disc_loss_tensors = loss_functions.compute_discriminator_loss(
                 self.model,
                 self.weights,
                 first_real_img,
                 second_real_img,
                 *imgs_mapping,
-                return_grad=False,
             )
+
+        return disc_loss_tensors, enc_gen_loss_tensors, cc_loss_tensors
+
+    def _update_enc_gen(
+        self, first_real_img: Tensor, second_real_img: Tensor
+    ) -> Any:  # Tuple[FloatTriplet, FloatTriplet, FloatQuad]:
+        self.enc_gen_optim.zero_grad()
+
+        disc_loss_tensors, enc_gen_loss_tensors, cc_loss_tensors = self.enc_gen_forward(
+            first_real_img, second_real_img
+        )
+
+        total_enc_gen_loss = functools.reduce(
+            operator.add, cc_loss_tensors
+        ) + functools.reduce(operator.add, enc_gen_loss_tensors)
 
         total_enc_gen_loss.backward()
         self.enc_gen_optim.step()
 
-        cc1, cc2, cc3, cc4 = cc_loss_tensors
-        cc_loss_tuple = (cc1.item(), cc2.item(), cc3.item(), cc4.item())
+        return (
+            utils.convert_tensor_tuple_to_floats(disc_loss_tensors),
+            utils.convert_tensor_tuple_to_floats(enc_gen_loss_tensors),
+            utils.convert_tensor_tuple_to_floats(cc_loss_tensors),
+        )
 
-        eg1, eg2, eg3 = enc_gen_loss_tensors
-        enc_gen_loss_tuple = (eg1.item(), eg2.item(), eg3.item())
+    def eval_forward(
+        self, first_real_img: Tensor, second_real_img: Tensor
+    ) -> Any:  # Tuple[TensorTriplet, TensorTriplet, TensorQuad]
+        # Generate images from first domain to second and vice versa
+        second_gen_img, first_latent_img = self.model.map_first_to_second(
+            first_real_img
+        )
+        first_gen_img, second_latent_img = self.model.map_second_to_first(
+            second_real_img
+        )
+        imgs_mapping = (
+            first_gen_img,
+            second_gen_img,
+            first_latent_img,
+            second_latent_img,
+        )
+        imgs_cc = self.model.get_cc_components(*imgs_mapping)
+
+        disc_loss_tuple = loss_functions.compute_discriminator_loss(
+            self.model,
+            self.weights,
+            first_real_img,
+            second_real_img,
+            *imgs_mapping,
+            return_grad=False,
+        )
+        cc_loss_tuple = loss_functions.compute_cc_loss(
+            self.weights,
+            first_real_img,
+            second_real_img,
+            *imgs_cc,
+            return_grad=False,
+        )
+        enc_gen_loss_tuple = loss_functions.compute_enc_gen_loss(
+            self.model, self.weights, *imgs_mapping, return_grad=False
+        )
 
         return disc_loss_tuple, enc_gen_loss_tuple, cc_loss_tuple
 
@@ -285,38 +353,8 @@ class LstnetTrainer:
         self, first_real_img: Tensor, second_real_img: Tensor
     ) -> Tuple[FloatTriplet, FloatTriplet, FloatQuad]:
         with torch.no_grad():
-            # Generate images from first domain to second and vice versa
-            second_gen_img, first_latent_img = self.model.map_first_to_second(
-                first_real_img, return_latent=True
-            )
-            first_gen_img, second_latent_img = self.model.map_second_to_first(
-                second_real_img, return_latent=True
-            )
-            imgs_mapping = (
-                first_gen_img,
-                second_gen_img,
-                first_latent_img,
-                second_latent_img,
-            )
-            imgs_cc = self.model.get_cc_components(*imgs_mapping)
-
-            disc_loss_tuple = loss_functions.compute_discriminator_loss(
-                self.model,
-                self.weights,
-                first_real_img,
-                second_real_img,
-                *imgs_mapping,
-                return_grad=False,
-            )
-            cc_loss_tuple = loss_functions.compute_cc_loss(
-                self.weights,
-                first_real_img,
-                second_real_img,
-                *imgs_cc,
-                return_grad=False,
-            )
-            enc_gen_loss_tuple = loss_functions.compute_enc_gen_loss(
-                self.model, self.weights, *imgs_mapping, return_grad=False
+            disc_loss_tuple, enc_gen_loss_tuple, cc_loss_tuple = self.eval_forward(
+                first_real_img, second_real_img
             )
 
         return disc_loss_tuple, enc_gen_loss_tuple, cc_loss_tuple
@@ -403,6 +441,20 @@ class LstnetTrainer:
                 utils.init_epoch_loss(op="val")
                 epoch_loss = self._run_epoch(val_op=True)
                 self.val_loss_list.append(epoch_loss)
+                # ------------------------------
+                # Early stopping check
+                if epoch_loss < self.best_val_loss:
+                    self.best_val_loss = epoch_loss
+                    self.patience_counter = 0
+                else:
+                    self.patience_counter += 1
+
+                if self.patience_counter >= self.max_patience:
+                    if not self.run_optuna:
+                        print(
+                            f"\nEarly stopping triggered at epoch {epoch_idx}. Patience limit reached."
+                        )
+                    break
 
                 # ------------------------------
                 # Pruning in case of optuna
@@ -414,37 +466,26 @@ class LstnetTrainer:
                 if self.run_optuna:
                     self.optuna_trial.report(epoch_loss, epoch_idx)
                     if self.optuna_trial.should_prune():
-                        self.optuna_trial.set_user_attr("train_logs", utils.LOSS_LOGS.copy())
+                        self.optuna_trial.set_user_attr(
+                            "train_logs", utils.LOSS_LOGS.copy()
+                        )
                         raise optuna.TrialPruned()
 
                 # ------------------------------
 
-            if epoch_loss < self.best_loss:
-                self.best_state_dict = self.model.state_dict()
-                self.best_loss = epoch_loss
-                self.best_epoch_idx = epoch_idx
-                self.cur_patience = 0
-
-            else:
-                self.cur_patience += 1
-
-                if self.cur_patience >= self.max_patience:  # type: ignore
-                    print("Max patience reached")
-                    break
-
             end_time = time.time()
 
-            print(f"\tEpoch {epoch_idx} took: {(end_time - start_time) / 60:.2f} min")
-            print(f"\tPatience: {self.cur_patience}")
+            if not self.run_optuna:
+                print(
+                    f"\tEpoch {epoch_idx} took: {(end_time - start_time) / 60:.2f} min"
+                )
 
             if torch.cuda.is_available():
                 torch.cuda.empty_cache()
 
         _ = self.model.to("cpu")
-
-        print(f"Best model reached in epoch: {self.best_epoch_idx}")
-        print(f"Training ended after: {epoch_idx+1} epochs")
-
-        _ = self.model.load_state_dict(self.best_state_dict)
+        self.fin_loss = (
+            self.val_loss_list[-1] if self.run_validation else self.train_loss_list[-1]
+        )
 
         return self.model

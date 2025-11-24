@@ -10,7 +10,13 @@ import torch
 from torch import Tensor
 
 from models.lstnet import LSTNET
-from utils import TensorTriplet, TensorQuad, FloatTriplet, FloatQuad
+from utils import (
+    TensorTriplet,
+    TensorQuad,
+    FloatTriplet,
+    FloatQuad,
+    convert_tensor_tuple_to_floats,
+)
 
 
 class WeightIndex(IntEnum):
@@ -186,7 +192,7 @@ def compute_discriminator_loss(
     if return_grad:
         return res_with_grad
 
-    return (res_with_grad[0].item(), res_with_grad[1].item(), res_with_grad[2].item())
+    return convert_tensor_tuple_to_floats(res_with_grad)
 
 
 # Overloads for type checking
@@ -274,12 +280,7 @@ def compute_cc_loss(
     if return_grad:
         return res_with_grad
 
-    return (
-        res_with_grad[0].item(),
-        res_with_grad[1].item(),
-        res_with_grad[2].item(),
-        res_with_grad[3].item(),
-    )
+    return convert_tensor_tuple_to_floats(res_with_grad)
 
 
 # Overloads for type checking
@@ -370,4 +371,4 @@ def compute_enc_gen_loss(
     if return_grad:
         return res_with_grad
 
-    return (res_with_grad[0].item(), res_with_grad[1].item(), res_with_grad[2].item())
+    return convert_tensor_tuple_to_floats(res_with_grad)

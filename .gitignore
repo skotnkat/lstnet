@@ -13,14 +13,12 @@
 # jupyter notebook
 .ipynb_checkpoints/
 
+
 # test files and data
 experiments/
 data/
 test_files/
-<<<<<<< Updated upstream
-
-=======
 analysis/
 tmp/
 img_processing/
->>>>>>> Stashed changes
+

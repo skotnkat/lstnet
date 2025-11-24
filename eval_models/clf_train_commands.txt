@@ -7,6 +7,10 @@ USPS
 
 python train_eval_clf.py usps eval_models/params/usps_clf_params.json --output_folder output_usps_clf --optimizer "Adam" --learning_rate 0.001 --epoch_num 40 --patience 10
 
+SVHN
+
+python train_eval_clf.py svhn eval_models/params/svhn_clf_params.json --output_folder output_svhn_clf --optimizer "Adam" --learning_rate 0.001 --epoch_num 50 --patience 10 --aug_rotation 8 --aug_zoom 0.1 --aug_shift 2
+
 
 Optuna:
 

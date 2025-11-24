@@ -7,6 +7,7 @@ from typing import Dict, Any, List, Tuple, Union, Optional, TypeAlias
 import json
 import torch
 from torch import Tensor
+
 from lion_pytorch import Lion
 
 PARAMS_FILE_PATH = None
@@ -246,12 +247,12 @@ def init_optimizer(
     optim = None
     if optim_name == "Adam":
         optim = torch.optim.Adam(
-            model_params, lr, betas=betas, weight_decay=weight_decay, amsgrad=True
+            model_params, lr, betas=betas, weight_decay=weight_decay
         )
 
     elif optim_name == "AdamW":
         optim = torch.optim.AdamW(
-            model_params, lr, betas=betas, weight_decay=weight_decay, amsgrad=True
+            model_params, lr, betas=betas, weight_decay=weight_decay
         )
 
     elif optim_name == "Lion":
@@ -281,3 +282,11 @@ def init_device():
         DEVICE = get_device()
 
     print(f"Using device: {DEVICE}")
+
+
+def convert_tensor_tuple_to_floats(
+    tuple_tensor: Tuple[Tensor, ...],
+) -> Tuple[float, ...]:
+    """Convert a tuple of tensors to a tuple of floats."""
+
+    return tuple(t.item() for t in tuple_tensor)

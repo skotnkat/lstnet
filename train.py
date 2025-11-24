@@ -39,6 +39,7 @@ def run(
     train_params: TrainParams = TrainParams(),
     optuna: Literal[False] = False,
     optuna_trial: Optional[optuna.Trial] = None,
+    compile_model: bool = False,
 ) -> LSTNET: ...
 @overload
 def run(
@@ -60,6 +61,7 @@ def run(
     train_params: TrainParams = TrainParams(),
     optuna: Literal[True],
     optuna_trial: Optional[optuna.Trial] = None,
+    compile_model: bool = False,
 ) -> Tuple[LSTNET, Dict[str, Any]]: ...
 def run(
     first_domain_name: str,
@@ -80,6 +82,7 @@ def run(
     train_params: TrainParams = TrainParams(),
     optuna: bool = False,
     optuna_trial: Optional[optuna.Trial] = None,
+    compile_model: bool = False,
 ) -> Union[LSTNET, Tuple[LSTNET, Dict[str, Any]]]:
     """Train the LSTNET model.
 
@@ -163,6 +166,7 @@ def run(
         train_params=train_params,
         run_optuna=optuna,
         optuna_trial=optuna_trial,
+        compile_model=compile_model,
     )
     print("Starting train and validate")
     trained_model = trainer.fit()
@@ -172,6 +176,8 @@ def run(
     trainer_info["second_domain"] = second_domain_name
     trainer_info["supervised"] = supervised
     trainer_info["augmentation_ops"] = str(augm_ops)
+    trainer_info["batch_size"] = batch_size
+    trainer_info["train_params"] = str(train_params)
 
     utils.LOSS_LOGS["trainer_info"] = trainer_info
 
