@@ -13,7 +13,9 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
 
     _ = parser.add_argument("domain_name", type=str.upper)
-    _ = parser.add_argument("--params_file", type=str)  # make the changes, so it is only optional -> not needed for optuna
+    _ = parser.add_argument(
+        "--params_file", type=str
+    )  # make the changes, so it is only optional -> not needed for optuna
     _ = parser.add_argument("--output_folder", type=str, default="eval_models/")
     # _ = parser.add_argument("--custom_clf", action="store_true")
 
@@ -26,6 +28,7 @@ def parse_args() -> argparse.Namespace:
 
     _ = parser.add_argument("--batch_size", type=int, default=64)
     _ = parser.add_argument("--num_workers", type=int, default=8)
+    _ = parser.add_argument("--pin_memory", action="store_true")
 
     _ = parser.add_argument("--epoch_num", type=int, default=50)
     _ = parser.add_argument("--patience", type=int, default=5)
@@ -62,6 +65,7 @@ if __name__ == "__main__":
             seed=args.manual_seed,
             batch_size=args.batch_size,
             num_workers=args.num_workers,
+            pin_memory=args.pin_memory,
             rotation=args.aug_rotation,
             zoom=args.aug_zoom,
             shift=args.aug_shift,
