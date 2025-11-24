@@ -89,7 +89,7 @@ def add_train_args(parser: argparse.ArgumentParser):
     _ = parser.add_argument("--val_size", type=float, default=0.25)
     _ = parser.add_argument("--early_stopping", action="store_true")
     _ = parser.add_argument("--patience", type=int, default=10)
-    _ = parser.add_argument("--rotation", type=int, default=0)
+    _ = parser.add_argument("--rotation", type=int, default=10)
     _ = parser.add_argument("--zoom", type=float, default=0.1)
     _ = parser.add_argument("--shift", type=int, default=2)
     _ = parser.add_argument(
@@ -100,6 +100,12 @@ def add_train_args(parser: argparse.ArgumentParser):
         help="List of 7 float weights",
     )
 
+    _ = parser.add_argument(
+        "--compile",
+        action="store_true",
+        help="If set, the model will be compiled before training (pytorch compile).",
+    )
+
     _ = parser.add_argument("--optuna", action="store_true")
     _ = parser.add_argument("--optuna_study_name", type=str, default="lstnet_study")
     _ = parser.add_argument(
@@ -108,10 +114,31 @@ def add_train_args(parser: argparse.ArgumentParser):
         default=50,
         help="Number of Optuna trials to perform if --optuna is set.",
     )
-    _ = parser.add_argument("--optuna_max_resource", type=int, default=20)
-    _ = parser.add_argument("--optuna_min_resource", type=int, default=5)
-    _ = parser.add_argument("--optuna_reduction_factor", type=int, default=2)
+    # _ = parser.add_argument("--optuna_max_resource", type=int, default=20)
+    # _ = parser.add_argument("--optuna_min_resource", type=int, default=5)
+    # _ = parser.add_argument("--optuna_reduction_factor", type=int, default=2)
     _ = parser.add_argument("--optuna_sampler_start_trials", type=int, default=20)
+    _ = parser.add_argument("--optuna_pruner_sample_trials", type=int, default=50)
+    _ = parser.add_argument("--optuna_pruner_warmup_steps", type=int, default=15)
+    _ = parser.add_argument("--optuna_pruner_interval_steps", type=int, default=5)
+    _ = parser.add_argument("--percentile", type=int, default=10)
+    _ = parser.add_argument(
+        "--hyperparam_mode",
+        type=str,
+        nargs="*",
+        choices=[
+            "weights",
+            "weights_reduced",
+            "augm_ops",
+            "train_params",
+            "architecture",
+        ],
+        default=[],
+        help=(
+            "List of hyperparameter modes to run (choose zero or more from: "
+            "weights, weights_reduced, augm_ops, train_params, architecture)."
+        ),
+    )
 
 
 def add_translate_args(parser: argparse.ArgumentParser):
@@ -285,6 +312,7 @@ def run_training(
         manual_seed=cmd_args.manual_seed,
         augm_ops=augm_ops,
         train_params=train_params,
+        compile_model=cmd_args.compile,
     )
 
     if return_model:

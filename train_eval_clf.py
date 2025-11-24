@@ -13,7 +13,7 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
 
     _ = parser.add_argument("domain_name", type=str.upper)
-    _ = parser.add_argument("params_file", type=str)
+    _ = parser.add_argument("--params_file", type=str)  # make the changes, so it is only optional -> not needed for optuna
     _ = parser.add_argument("--output_folder", type=str, default="eval_models/")
     # _ = parser.add_argument("--custom_clf", action="store_true")
 
