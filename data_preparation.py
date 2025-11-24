@@ -325,12 +325,12 @@ def load_dataset(
             )
 
         case "APPLE":  # from the a2o dataset
-            return get_a2o_dataset(
+            data = get_a2o_dataset(
                 "APPLE", train_op=train_op, transform_steps=transform_steps
             )
 
         case "ORANGE":  # from the a2o dataset
-            return get_a2o_dataset(
+            data = get_a2o_dataset(
                 "ORANGE", train_op=train_op, transform_steps=transform_steps
             )
 
