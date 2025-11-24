@@ -178,6 +178,21 @@ def get_a2o_dataset(
     return data
 
 
+def get_a2o_clf_dataset(
+    *,
+    train_op: bool,
+    transform_steps: Optional[Compose] = None,
+) -> Dataset[Any]:
+    apple_data = get_a2o_dataset(
+        "APPLE", train_op=train_op, transform_steps=transform_steps
+    )
+    orange_data = get_a2o_dataset(
+        "ORANGE", train_op=train_op, transform_steps=transform_steps
+    )
+
+    return ConcatDataset([apple_data, orange_data])
+
+
 def get_data_loader(
     data: Dataset[Any],
     *,
@@ -332,6 +347,11 @@ def load_dataset(
         case "ORANGE":  # from the a2o dataset
             data = get_a2o_dataset(
                 "ORANGE", train_op=train_op, transform_steps=transform_steps
+            )
+
+        case "A2O":  # Combined Apple and Orange for classification
+            data = get_a2o_clf_dataset(
+                train_op=train_op, transform_steps=transform_steps
             )
 
         case _:
