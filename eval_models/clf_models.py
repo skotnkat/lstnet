@@ -70,7 +70,7 @@ class A2OClf(BaseClf):
             nn.Sigmoid(),
         )
 
-        self.criterion = nn.CrossEntropyLoss()
+        self.criterion = nn.BCELoss()
 
         return last_layer
 
@@ -198,7 +198,7 @@ def select_classifier(domain_name, params):
             clf = SvhnClf(params=params)
 
         case "A2O":
-            clf = A2OClf(params=params)
+            clf = BaseClf(input_size=(256, 256), in_channels=3, params=params)
 
     if clf is None:
         raise ValueError("No classifier model as loaded.")
@@ -252,6 +252,9 @@ class ClfTrainer:
             x = x.to(utils.DEVICE, non_blocking=True)
             y = y.to(utils.DEVICE, non_blocking=True)
 
+            if isinstance(self.clf, A2OClf):
+                y = y.float().unsqueeze(1)
+
             self.optimizer.zero_grad()
             outputs = self.clf.forward(x)
 
@@ -264,8 +267,14 @@ class ClfTrainer:
                 loss.item()
             )  # reduction='sum' -> already returns sum of the losses
 
-            preds = outputs.argmax(dim=1)
-            acc = (preds == y).sum()
+            if isinstance(self.clf, A2OClf):
+                preds = (outputs >= 0.5).float()
+                acc = (preds == y).sum()
+
+            else:
+                preds = outputs.argmax(dim=1)
+                acc = (preds == y).sum()
+
             acc_total += acc.item()
             num_samples += y.size(0)
 
