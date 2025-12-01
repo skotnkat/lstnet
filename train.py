@@ -83,6 +83,7 @@ def run(
     optuna: bool = False,
     optuna_trial: Optional[optuna.Trial] = None,
     compile_model: bool = False,
+    wasserstein: bool = False,
 ) -> Union[LSTNET, Tuple[LSTNET, Dict[str, Any]]]:
     """Train the LSTNET model.
 
@@ -167,6 +168,7 @@ def run(
         run_optuna=optuna,
         optuna_trial=optuna_trial,
         compile_model=compile_model,
+        wasserstein=wasserstein,
     )
     print("Starting train and validate")
     trained_model = trainer.fit()
