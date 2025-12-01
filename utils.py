@@ -306,5 +306,5 @@ def print_gpu_memory(prefix: str = ""):
     free = total - reserv
 
     print(
-        f"{prefix}alloc={alloc:.1f}MB | reserv={reserv:.1f}MB | free~={free:.1f}MB | total={total:.1f}MB"
+        f"[{prefix}]: alloc={alloc:.1f}MB | reserv={reserv:.1f}MB | free~={free:.1f}MB | total={total:.1f}MB"
     )
