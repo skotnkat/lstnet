@@ -109,7 +109,7 @@ def compute_discriminator_loss(
     second_gen_img: Tensor,
     first_latent_img: Tensor,
     second_latent_img: Tensor,
-    wasserstein: bool = False,
+    wasserstein: bool,
 ) -> TensorTriplet: ...
 @overload
 def compute_discriminator_loss(
@@ -148,7 +148,7 @@ def compute_discriminator_loss(
     second_gen_img: Tensor,
     first_latent_img: Tensor,
     second_latent_img: Tensor,
-    wasserstein: bool = False,
+    wasserstein: bool,
     return_grad: bool = True,
 ) -> Union[TensorTriplet, FloatTriplet]:
     """
@@ -313,7 +313,7 @@ def compute_enc_gen_loss(
     second_gen_img: Tensor,
     first_latent_img: Tensor,
     second_latent_img: Tensor,
-    wasserstein: bool = False,
+    wasserstein: bool,
 ) -> TensorTriplet: ...
 @overload
 def compute_enc_gen_loss(
@@ -346,7 +346,7 @@ def compute_enc_gen_loss(
     second_gen_img: Tensor,
     first_latent_img: Tensor,
     second_latent_img: Tensor,
-    wasserstein: bool = False,
+    wasserstein: bool,
     return_grad: bool = True,
 ) -> Union[TensorTriplet, FloatTriplet]:
     """
