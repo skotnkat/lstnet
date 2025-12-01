@@ -476,6 +476,7 @@ def get_dataset_chw(
     return int(sample.shape[0]), int(sample.shape[1]), int(sample.shape[2])
 
 
+# !!! If set to None/0 -> no augmentation applied (not doubled dataset)
 @overload
 def load_augmented_dataset(
     dataset_name: str,
