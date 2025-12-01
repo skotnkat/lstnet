@@ -53,6 +53,7 @@ class LstnetTrainer:
         run_optuna: bool = False,
         optuna_trial: Optional[optuna.Trial] = None,
         compile_model: bool = False,
+        wasserstein: bool = False,
     ) -> None:
         """Initialize the LSTNET trainer.
 
@@ -138,6 +139,7 @@ class LstnetTrainer:
             )
 
         self.weights = weights
+        self.wasserstein = wasserstein
 
         # Adjust max_patience if not provided (None) -> set to max_epoch_num to never early stop
         self.max_patience = train_params.max_patience
@@ -186,6 +188,7 @@ class LstnetTrainer:
             "betas": self.betas,
             "weight_decay": self.weight_decay,
             "run_optuna": self.run_optuna,
+            "wasserstein": self.wasserstein,
         }
 
     def disc_forward(
@@ -214,6 +217,7 @@ class LstnetTrainer:
             first_real_img,
             second_real_img,
             *imgs_mapping,
+            wasserstein=self.wasserstein,
         )
 
         # only for obtaining all the losses, no update
@@ -226,7 +230,7 @@ class LstnetTrainer:
                 *imgs_cc,
             )
             enc_gen_loss_tensors = loss_functions.compute_enc_gen_loss(
-                self.model, self.weights, *imgs_mapping
+                self.model, self.weights, *imgs_mapping, wasserstein=self.wasserstein
             )
 
         return disc_loss_tensors, enc_gen_loss_tensors, cc_loss_tensors
@@ -273,7 +277,7 @@ class LstnetTrainer:
             self.weights, first_real_img, second_real_img, *imgs_cc
         )
         enc_gen_loss_tensors = loss_functions.compute_enc_gen_loss(
-            self.model, self.weights, *imgs_mapping
+            self.model, self.weights, *imgs_mapping, wasserstein=self.wasserstein
         )
 
         # only for obtaining all losses, no update
@@ -284,6 +288,7 @@ class LstnetTrainer:
                 first_real_img,
                 second_real_img,
                 *imgs_mapping,
+                wasserstein=self.wasserstein,
             )
 
         return disc_loss_tensors, enc_gen_loss_tensors, cc_loss_tensors
@@ -335,16 +340,17 @@ class LstnetTrainer:
             second_real_img,
             *imgs_mapping,
             return_grad=False,
+            wasserstein=self.wasserstein,
         )
         cc_loss_tuple = loss_functions.compute_cc_loss(
-            self.weights,
-            first_real_img,
-            second_real_img,
-            *imgs_cc,
-            return_grad=False,
+            self.weights, first_real_img, second_real_img, *imgs_cc, return_grad=False
         )
         enc_gen_loss_tuple = loss_functions.compute_enc_gen_loss(
-            self.model, self.weights, *imgs_mapping, return_grad=False
+            self.model,
+            self.weights,
+            *imgs_mapping,
+            return_grad=False,
+            wasserstein=self.wasserstein,
         )
 
         return disc_loss_tuple, enc_gen_loss_tuple, cc_loss_tuple

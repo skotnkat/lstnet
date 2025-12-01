@@ -18,6 +18,8 @@ from utils import (
     convert_tensor_tuple_to_floats,
 )
 
+import wasserstein_loss_functions
+
 
 class WeightIndex(IntEnum):
     """Indices for the weights list used in loss computations."""
@@ -107,6 +109,7 @@ def compute_discriminator_loss(
     second_gen_img: Tensor,
     first_latent_img: Tensor,
     second_latent_img: Tensor,
+    wasserstein: bool = False,
 ) -> TensorTriplet: ...
 @overload
 def compute_discriminator_loss(
@@ -118,6 +121,7 @@ def compute_discriminator_loss(
     second_gen_img: Tensor,
     first_latent_img: Tensor,
     second_latent_img: Tensor,
+    wasserstein: bool,
     return_grad: Literal[True],
 ) -> TensorTriplet: ...
 @overload
@@ -130,6 +134,7 @@ def compute_discriminator_loss(
     second_gen_img: Tensor,
     first_latent_img: Tensor,
     second_latent_img: Tensor,
+    wasserstein: bool,
     return_grad: Literal[False],
 ) -> FloatTriplet: ...
 
@@ -143,6 +148,7 @@ def compute_discriminator_loss(
     second_gen_img: Tensor,
     first_latent_img: Tensor,
     second_latent_img: Tensor,
+    wasserstein: bool = False,
     return_grad: bool = True,
 ) -> Union[TensorTriplet, FloatTriplet]:
     """
@@ -171,18 +177,33 @@ def compute_discriminator_loss(
     Returns:
         Union[TensorTriplet, FloatTriplet]: The computed discriminator loss.
     """
+    if wasserstein:
+        first_disc_loss, second_disc_loss, latent_disc_loss = (
+            wasserstein_loss_functions.compute_discriminator_loss(
+                model,
+                first_real_img,
+                second_real_img,
+                first_gen_img,
+                second_gen_img,
+                first_latent_img,
+                second_latent_img,
+            )
+        )
 
-    first_real_disc = model.first_discriminator.forward(first_real_img)
-    first_gen_disc = model.first_discriminator.forward(first_gen_img)
-    first_disc_loss = network_adversarial_loss(first_real_disc, first_gen_disc)
+    else:
+        first_real_disc = model.first_discriminator.forward(first_real_img)
+        first_gen_disc = model.first_discriminator.forward(first_gen_img)
+        first_disc_loss = network_adversarial_loss(first_real_disc, first_gen_disc)
 
-    second_real_disc = model.second_discriminator.forward(second_real_img)
-    second_gen_disc = model.second_discriminator.forward(second_gen_img)
-    second_disc_loss = network_adversarial_loss(second_real_disc, second_gen_disc)
+        second_real_disc = model.second_discriminator.forward(second_real_img)
+        second_gen_disc = model.second_discriminator.forward(second_gen_img)
+        second_disc_loss = network_adversarial_loss(second_real_disc, second_gen_disc)
 
-    first_latent_disc = model.latent_discriminator.forward(first_latent_img)
-    second_latent_disc = model.latent_discriminator.forward(second_latent_img)
-    latent_disc_loss = network_adversarial_loss(first_latent_disc, second_latent_disc)
+        first_latent_disc = model.latent_discriminator.forward(first_latent_img)
+        second_latent_disc = model.latent_discriminator.forward(second_latent_img)
+        latent_disc_loss = network_adversarial_loss(
+            first_latent_disc, second_latent_disc
+        )
 
     res_with_grad = (
         weights[WeightIndex.FIRST_DOMAIN] * first_disc_loss,
@@ -292,6 +313,7 @@ def compute_enc_gen_loss(
     second_gen_img: Tensor,
     first_latent_img: Tensor,
     second_latent_img: Tensor,
+    wasserstein: bool = False,
 ) -> TensorTriplet: ...
 @overload
 def compute_enc_gen_loss(
@@ -301,6 +323,7 @@ def compute_enc_gen_loss(
     second_gen_img: Tensor,
     first_latent_img: Tensor,
     second_latent_img: Tensor,
+    wasserstein: bool,
     return_grad: Literal[True],
 ) -> TensorTriplet: ...
 @overload
@@ -311,6 +334,7 @@ def compute_enc_gen_loss(
     second_gen_img: Tensor,
     first_latent_img: Tensor,
     second_latent_img: Tensor,
+    wasserstein: bool,
     return_grad: Literal[False],
 ) -> FloatTriplet: ...
 
@@ -322,6 +346,7 @@ def compute_enc_gen_loss(
     second_gen_img: Tensor,
     first_latent_img: Tensor,
     second_latent_img: Tensor,
+    wasserstein: bool = False,
     return_grad: bool = True,
 ) -> Union[TensorTriplet, FloatTriplet]:
     """
@@ -351,17 +376,28 @@ def compute_enc_gen_loss(
     Returns:
         Union[TensorTriplet, FloatTriplet]: _description_
     """
-    first_gen_disc = model.first_discriminator.forward(first_gen_img)
-    first_gen_loss = adversarial_loss_real(first_gen_disc)
 
-    second_gen_disc = model.second_discriminator.forward(second_gen_img)
-    second_gen_loss = adversarial_loss_real(second_gen_disc)
+    if wasserstein:
+        first_gen_loss, second_gen_loss, latent_loss = (
+            wasserstein_loss_functions.compute_enc_gen_loss(
+                model,
+                first_gen_img,
+                second_gen_img,
+                first_latent_img,
+                second_latent_img,
+            )
+        )
 
-    first_latent_disc = model.latent_discriminator.forward(first_latent_img)
-    second_latent_disc = model.latent_discriminator.forward(second_latent_img)
+    else:
+        first_gen_disc = model.first_discriminator.forward(first_gen_img)
+        first_gen_loss = adversarial_loss_real(first_gen_disc)
 
-    # should be also only second_latent_disc?
-    latent_loss = network_adversarial_loss(second_latent_disc, first_latent_disc)
+        second_gen_disc = model.second_discriminator.forward(second_gen_img)
+        second_gen_loss = adversarial_loss_real(second_gen_disc)
+
+        first_latent_disc = model.latent_discriminator.forward(first_latent_img)
+        second_latent_disc = model.latent_discriminator.forward(second_latent_img)
+        latent_loss = network_adversarial_loss(second_latent_disc, first_latent_disc)
 
     res_with_grad = (
         weights[WeightIndex.FIRST_DOMAIN] * first_gen_loss,
