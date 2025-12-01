@@ -290,3 +290,21 @@ def convert_tensor_tuple_to_floats(
     """Convert a tuple of tensors to a tuple of floats."""
 
     return tuple(t.item() for t in tuple_tensor)
+
+
+def print_gpu_memory(prefix: str = ""):
+    if not torch.cuda.is_available():
+        print(f"{prefix}CUDA not available.")
+        return
+
+    d = torch.device("cuda")
+    torch.cuda.synchronize(d)
+
+    alloc = torch.cuda.memory_allocated(d) / 1024**2
+    reserv = torch.cuda.memory_reserved(d) / 1024**2
+    total = torch.cuda.get_device_properties(d).total_memory / 1024**2
+    free = total - reserv
+
+    print(
+        f"{prefix}alloc={alloc:.1f}MB | reserv={reserv:.1f}MB | free~={free:.1f}MB | total={total:.1f}MB"
+    )
