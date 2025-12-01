@@ -106,6 +106,12 @@ def add_train_args(parser: argparse.ArgumentParser):
         help="If set, the model will be compiled before training (pytorch compile).",
     )
 
+    _ = parser.add_argument(
+        "--use_checkpoint",
+        action="store_true",
+        help="If set, gradient checkpointing will be enabled to reduce GPU memory usage.",
+    )
+
     _ = parser.add_argument("--optuna", action="store_true")
     _ = parser.add_argument("--optuna_study_name", type=str, default="lstnet_study")
     _ = parser.add_argument(
@@ -313,6 +319,7 @@ def run_training(
         augm_ops=augm_ops,
         train_params=train_params,
         compile_model=cmd_args.compile,
+        use_checkpoint=cmd_args.use_checkpoint,
     )
 
     if return_model:

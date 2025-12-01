@@ -29,6 +29,7 @@ class LSTNET(nn.Module):
         second_input_size: Tuple[int, int],
         first_in_channels_num: int = 1,
         second_in_channels_num: int = 1,
+        use_checkpoint: bool = False,
     ) -> None:
         """Initialize the LSTNET model.
 
@@ -59,6 +60,7 @@ class LSTNET(nn.Module):
         self.second_input_size = second_input_size
         self.first_in_channels_num = first_in_channels_num
         self.second_in_channels_num = second_in_channels_num
+        self.use_checkpoint = use_checkpoint
 
         self.params = copy.deepcopy(params)
 
@@ -101,12 +103,14 @@ class LSTNET(nn.Module):
             self.first_input_size,
             self.first_in_channels_num,
             self.params["first_encoder"],
+            use_checkpoint=self.use_checkpoint,
             **self.global_params,
         )
         self.second_encoder = Encoder(
             self.second_input_size,
             self.second_in_channels_num,
             self.params["second_encoder"],
+            use_checkpoint=self.use_checkpoint,
             **self.global_params,
         )
 
@@ -129,6 +133,7 @@ class LSTNET(nn.Module):
             first_input_size,
             first_in_channels_num,
             params=self.params["shared_encoder"],
+            use_checkpoint=self.use_checkpoint,
             **self.global_params,
         )
 
@@ -154,6 +159,7 @@ class LSTNET(nn.Module):
             input_size_shared,
             out_channels_shared,
             self.params["shared_generator"],
+            use_checkpoint=self.use_checkpoint,
             **self.global_params,
         )
 
@@ -164,12 +170,14 @@ class LSTNET(nn.Module):
             input_size,
             out_channels,
             self.params["first_generator"],
+            use_checkpoint=self.use_checkpoint,
             **self.global_params,
         )
         self.second_generator = Generator(
             input_size,
             out_channels,
             self.params["second_generator"],
+            use_checkpoint=self.use_checkpoint,
             **self.global_params,
         )
 
@@ -211,12 +219,14 @@ class LSTNET(nn.Module):
             self.first_input_size,
             self.first_in_channels_num,
             self.params["first_discriminator"],
+            use_checkpoint=self.use_checkpoint,
             **self.global_params,
         )
         self.second_discriminator = Discriminator(
             self.second_input_size,
             self.second_in_channels_num,
             self.params["second_discriminator"],
+            use_checkpoint=self.use_checkpoint,
             **self.global_params,
         )
 
@@ -226,6 +236,7 @@ class LSTNET(nn.Module):
             input_size_shared,
             out_channels_shared,
             self.params["latent_discriminator"],
+            use_checkpoint=self.use_checkpoint,
             **self.global_params,
         )
 

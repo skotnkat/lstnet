@@ -21,12 +21,15 @@ class Encoder(LstnetComponent):
         *,
         negative_slope: float = 0.01,
         momentum: float = 0.1,
+        use_checkpoint: bool = False,
         **kwargs: Any,
     ):
         self.leaky_relu_negative_slope = negative_slope
         self.batch_norm_momentum = momentum
 
-        super().__init__(input_size, in_channels_num, params, **kwargs)
+        super().__init__(
+            input_size, in_channels_num, params, use_checkpoint=use_checkpoint, **kwargs
+        )
 
     def _create_stand_layer(
         self, params: Dict[str, Any], in_channels: int, **kwargs: Dict[str, Any]
