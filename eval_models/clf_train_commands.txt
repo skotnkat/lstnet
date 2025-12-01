@@ -11,6 +11,8 @@ SVHN
 
 python train_eval_clf.py svhn eval_models/params/svhn_clf_params.json --output_folder output_svhn_clf --optimizer "Adam" --learning_rate 0.001 --epoch_num 50 --patience 10 --aug_rotation 8 --aug_zoom 0.1 --aug_shift 2
 
+python train_eval_clf.py a2o --params_file eval_models/params/a2o_clf_params.json --batch_size 32 --epoch_num 20 --learning_rate 0.001
+
 
 Optuna:
 
