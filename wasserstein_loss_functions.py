@@ -13,7 +13,7 @@ def gradient_penalty(
     critic: Discriminator, batch_real: Tensor, batch_gen: Tensor
 ) -> Tensor:
     batch_size = batch_real.size(0)
-    epsilon = torch.rand(batch_size, 1, 1, 1, device=DEVICE)
+    epsilon = torch.rand(batch_size, 1, 1, 1, device=batch_real.device)
 
     # Detach generated images to prevent gradients flowing back through generator
     # Linear interpolation between real and gen imgs
