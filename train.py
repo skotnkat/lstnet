@@ -40,6 +40,7 @@ def run(
     optuna: Literal[False] = False,
     optuna_trial: Optional[optuna.Trial] = None,
     compile_model: bool = False,
+    use_checkpoint: bool = False,
 ) -> LSTNET: ...
 @overload
 def run(
@@ -62,6 +63,7 @@ def run(
     optuna: Literal[True],
     optuna_trial: Optional[optuna.Trial] = None,
     compile_model: bool = False,
+    use_checkpoint: bool = False,
 ) -> Tuple[LSTNET, Dict[str, Any]]: ...
 def run(
     first_domain_name: str,
@@ -83,6 +85,7 @@ def run(
     optuna: bool = False,
     optuna_trial: Optional[optuna.Trial] = None,
     compile_model: bool = False,
+    use_checkpoint: bool = False,
 ) -> Union[LSTNET, Tuple[LSTNET, Dict[str, Any]]]:
     """Train the LSTNET model.
 
@@ -96,12 +99,13 @@ def run(
         output_folder (str, optional): Folder to save the results. Defaults to "results/".
         model_file_name (str, optional): File name for the saved model. Defaults to "lstnet.pth".
         logs_file_name (str, optional): _description_. Defaults to "loss_logs.json".
-        manual_seed (int, optional): _description_. Defaults to 42.
+        manual_seed (int, optional): _description_. Defaults to 0.4.
         val_data_size (float, optional): _description_. Defaults to 0.4.
         batch_size (int, optional): Batch size for training. Defaults to 32.
         num_workers (int, optional): Number of workers for data loading. Defaults to 8.
         augm_ops (AugmentOps, optional): Data augmentation operations. Defaults to AugmentOps().
         train_params (TrainParams, optional): Training hyperparameters. Defaults to TrainParams().
+        use_checkpoint (bool, optional): Enable gradient checkpointing. Defaults to False.
 
     Returns:
         LSTNET: The trained LSTNET model.
@@ -155,6 +159,7 @@ def run(
         second_input_size=(second_h, second_w),
         first_in_channels_num=first_channels,
         second_in_channels_num=second_channels,
+        use_checkpoint=use_checkpoint,
     )
 
     utils.init_logs(["train", "val"])

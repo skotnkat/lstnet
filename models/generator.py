@@ -21,6 +21,7 @@ class Generator(LstnetComponent):
         *,
         negative_slope: float = 0.01,
         momentum: float = 0.1,
+        use_checkpoint: bool = False,
         **kwargs: Any,
     ):
         self.leaky_relu_negative_slope = negative_slope
@@ -28,7 +29,12 @@ class Generator(LstnetComponent):
 
         # pass all the params apart the ones for the last layer
         super().__init__(
-            input_size, in_channels_num, params, skip_last_layer=True, **kwargs
+            input_size,
+            in_channels_num,
+            params,
+            skip_last_layer=True,
+            use_checkpoint=use_checkpoint,
+            **kwargs,
         )
 
         last_output_size = self.get_last_layer_output_size()
