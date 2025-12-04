@@ -7,7 +7,7 @@ from typing import Any, Dict, Tuple, Sequence
 import torch.nn as nn
 
 from models.lstnet_component import LstnetComponent
-from models.extended_layers import Conv2dExtended
+from models.extended_layers import Conv2dExtendedStatic
 
 
 class Encoder(LstnetComponent):
@@ -57,7 +57,7 @@ class Encoder(LstnetComponent):
 
         input_size: Tuple[int, int] = input_size_raw
         layer = nn.Sequential(
-            Conv2dExtended(in_channels, input_size=input_size, **params),
+            Conv2dExtendedStatic(in_channels, input_size=input_size, **params),
             nn.BatchNorm2d(params["out_channels"], momentum=self.batch_norm_momentum),
             nn.LeakyReLU(negative_slope=self.leaky_relu_negative_slope),
         )
