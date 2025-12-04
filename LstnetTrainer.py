@@ -359,10 +359,9 @@ class LstnetTrainer:
     def _run_eval_loop(
         self, first_real_img: Tensor, second_real_img: Tensor
     ) -> Tuple[FloatTriplet, FloatTriplet, FloatQuad]:
-        with torch.no_grad():
-            disc_loss_tuple, enc_gen_loss_tuple, cc_loss_tuple = self.eval_forward(
-                first_real_img, second_real_img
-            )
+        disc_loss_tuple, enc_gen_loss_tuple, cc_loss_tuple = self.eval_forward(
+            first_real_img, second_real_img
+        )
 
         return disc_loss_tuple, enc_gen_loss_tuple, cc_loss_tuple
 
