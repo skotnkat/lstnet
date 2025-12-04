@@ -8,7 +8,7 @@ from torch import Tensor
 import torch.nn as nn
 
 from models.lstnet_component import LstnetComponent
-from models.extended_layers import Conv2dExtended, MaxPool2dExtended
+from models.extended_layers import Conv2dExtendedStatic, MaxPool2dExtendedStatic
 
 
 class Discriminator(LstnetComponent):
@@ -90,11 +90,11 @@ class Discriminator(LstnetComponent):
             )
 
         input_size: Tuple[int, int] = input_size_raw
-        conv = Conv2dExtended(in_channels, input_size=input_size, **conv_params)
+        conv = Conv2dExtendedStatic(in_channels, input_size=input_size, **conv_params)
         relu = nn.LeakyReLU(negative_slope=self.leaky_relu_neg_slope)
 
         output_size = conv.compute_output_size(input_size)
-        pool = MaxPool2dExtended(input_size=output_size, **pool_params)
+        pool = MaxPool2dExtendedStatic(input_size=output_size, **pool_params)
 
         layer = nn.Sequential(conv, relu, pool)
 
