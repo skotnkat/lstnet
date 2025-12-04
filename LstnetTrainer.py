@@ -52,7 +52,6 @@ class LstnetTrainer:
         train_params: TrainParams = TrainParams(),
         run_optuna: bool = False,
         optuna_trial: Optional[optuna.Trial] = None,
-        compile_model: bool = False,
     ) -> None:
         """Initialize the LSTNET trainer.
 
@@ -155,17 +154,6 @@ class LstnetTrainer:
         self.run_optuna = run_optuna
         self.optuna_trial = optuna_trial
         self.fin_loss = np.inf
-
-        if compile_model:
-            self.disc_forward = torch.compile(
-                self.disc_forward, mode="default", dynamic=False
-            )
-            self.enc_gen_forward = torch.compile(
-                self.enc_gen_forward, mode="default", dynamic=False
-            )
-            self.eval_forward = torch.compile(
-                self.eval_forward, mode="default", dynamic=False
-            )
 
     def get_trainer_info(self) -> Dict[str, Any]:
         """

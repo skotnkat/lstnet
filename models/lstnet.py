@@ -16,6 +16,9 @@ from models.discriminator import Discriminator
 import utils
 
 
+# TO DO: COmpile Config (mode, dynamic, fullgraph, etc.)
+
+
 class LSTNET(nn.Module):
     """LSTNET model for image-to-image translation."""
 
@@ -29,6 +32,7 @@ class LSTNET(nn.Module):
         second_input_size: Tuple[int, int],
         first_in_channels_num: int = 1,
         second_in_channels_num: int = 1,
+        compile_components: bool = False,
     ) -> None:
         """Initialize the LSTNET model.
 
@@ -82,7 +86,43 @@ class LSTNET(nn.Module):
             + list(self.shared_generator.parameters())
         )
 
+        if compile_components:
+            self.compile_components()
+
         print("LSTNET model initialized")
+
+    def compile_components(
+        self, dynamic: bool = False, mode: str = "max-autotune"
+    ) -> None:
+        print("Compiling LSTNET components with torch.compile()...")
+        self.first_encoder = torch.compile(
+            self.first_encoder, dynamic=dynamic, mode=mode
+        )
+        self.second_encoder = torch.compile(
+            self.second_encoder, dynamic=dynamic, mode=mode
+        )
+        self.shared_encoder = torch.compile(
+            self.shared_encoder, dynamic=dynamic, mode=mode
+        )
+
+        self.first_generator = torch.compile(
+            self.first_generator, dynamic=dynamic, mode=mode
+        )
+        self.second_generator = torch.compile(
+            self.second_generator, dynamic=dynamic, mode=mode
+        )
+        self.shared_generator = torch.compile(
+            self.shared_generator, dynamic=dynamic, mode=mode
+        )
+        self.first_discriminator = torch.compile(
+            self.first_discriminator, dynamic=dynamic, mode=mode
+        )
+        self.second_discriminator = torch.compile(
+            self.second_discriminator, dynamic=dynamic, mode=mode
+        )
+        self.latent_discriminator = torch.compile(
+            self.latent_discriminator, dynamic=dynamic, mode=mode
+        )
 
     def initialize_encoders(self) -> None:
         """

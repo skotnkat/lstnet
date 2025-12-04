@@ -155,6 +155,7 @@ def run(
         second_input_size=(second_h, second_w),
         first_in_channels_num=first_channels,
         second_in_channels_num=second_channels,
+        compile_components=compile_model,
     )
 
     utils.init_logs(["train", "val"])
@@ -166,7 +167,6 @@ def run(
         train_params=train_params,
         run_optuna=optuna,
         optuna_trial=optuna_trial,
-        compile_model=compile_model,
     )
     print("Starting train and validate")
     trained_model = trainer.fit()
