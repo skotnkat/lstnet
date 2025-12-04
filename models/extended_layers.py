@@ -363,6 +363,33 @@ class ConvTranspose2dExtended(nn.ConvTranspose2d):
 
         return (p_height, p_width), (p_output_height, p_output_width)
 
+    def compute_output_size(self, input_size: Tuple[int, int]) -> Tuple[int, int]:
+        """Computes the output size of the transposed convolution layer in advance.
+
+        Args:
+            input_size (Tuple[int, int]): Size of the input tensor (height, width).
+
+        Returns:
+            Tuple[int, int]: Size of the output tensor (height, width).
+        """
+
+        output_height = (
+            (input_size[0] - 1) * cast(int, self.stride[0])
+            - 2 * cast(int, self.padding[0])
+            + self.dilation[0] * (self.kernel_size[0] - 1)
+            + self.output_padding[0]
+            + 1
+        )
+        output_width = (
+            (input_size[1] - 1) * cast(int, self.stride[1])
+            - 2 * cast(int, self.padding[1])
+            + self.dilation[1] * (self.kernel_size[1] - 1)
+            + self.output_padding[1]
+            + 1
+        )
+
+        return output_height, output_width
+
 
 class MaxPool2dExtended(nn.MaxPool2d):
     """Extended 2D max pooling layer mirroring TensorFlow with support for 'same' padding."""
