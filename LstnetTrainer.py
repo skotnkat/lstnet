@@ -24,7 +24,7 @@ import loss_functions
 
 # Constants
 EXPECTED_WEIGHTS_COUNT = 7
-DISCRIMINATOR_UPDATE_FREQUENCY = 2  # Update discriminator every 2nd batch
+CRITIC_UPDATES_PER_GEN = 5  # standard for WGAN-GP is 5
 
 
 @dataclass(slots=True)
@@ -280,16 +280,17 @@ class LstnetTrainer:
             self.model, self.weights, *imgs_mapping, wasserstein=self.wasserstein
         )
 
-        # only for obtaining all losses, no update
-        with torch.no_grad():
-            disc_loss_tensors = loss_functions.compute_discriminator_loss(
-                self.model,
-                self.weights,
-                first_real_img,
-                second_real_img,
-                *imgs_mapping,
-                wasserstein=self.wasserstein,
-            )
+        # only for obtaining all losses, no update -> detach images
+        igms_mapping_detached = tuple(img.detach() for img in imgs_mapping)
+
+        disc_loss_tensors = loss_functions.compute_discriminator_loss(
+            self.model,
+            self.weights,
+            first_real_img,
+            second_real_img,
+            *igms_mapping_detached,
+            wasserstein=self.wasserstein,
+        )
 
         return disc_loss_tensors, enc_gen_loss_tensors, cc_loss_tensors
 
@@ -368,18 +369,16 @@ class LstnetTrainer:
     def _fit_epoch(self) -> float:
         epoch_loss = 0
 
-        for batch_idx, (first_real, _, second_real, _) in enumerate(self.train_loader):
+        for _, (first_real, _, second_real, _) in enumerate(self.train_loader):
             first_real = first_real.to(utils.DEVICE)
             second_real = second_real.to(utils.DEVICE)
 
-            if batch_idx % DISCRIMINATOR_UPDATE_FREQUENCY == 0:
-                disc_loss_tuple, enc_gen_loss_tuple, cc_loss_tuple = self._update_disc(
-                    first_real, second_real
-                )
-            else:
-                disc_loss_tuple, enc_gen_loss_tuple, cc_loss_tuple = (
-                    self._update_enc_gen(first_real, second_real)
-                )
+            for _ in range(CRITIC_UPDATES_PER_GEN):
+                _ = self._update_disc(first_real, second_real)
+
+            disc_loss_tuple, enc_gen_loss_tuple, cc_loss_tuple = self._update_enc_gen(
+                first_real, second_real
+            )
 
             epoch_loss += sum(disc_loss_tuple) + sum(cc_loss_tuple)
 
