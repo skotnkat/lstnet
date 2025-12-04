@@ -195,6 +195,91 @@ class Conv2dExtended(nn.Conv2d):
         return output_height, output_width
 
 
+class Conv2dExtendedStatic(Conv2dExtended):
+    # difference: required input size to pre-compute padding
+    def __init__(
+        self,
+        in_channels: int,
+        *,
+        out_channels: int = 1,
+        kernel_size: Union[int, Tuple[int, int]] = 3,
+        stride: Union[int, Tuple[int, int]] = 1,
+        padding: Union[int, Tuple[int, int]] = 1,
+        dilation: Union[int, Tuple[int, int]] = 1,
+        input_size: Tuple[int, int],
+        groups: int = 1,
+        bias: bool = True,
+        padding_mode: str = "zeros",
+    ):
+
+        super().__init__(
+            in_channels,
+            out_channels=out_channels,
+            kernel_size=kernel_size,
+            stride=stride,
+            padding=padding,
+            dilation=dilation,
+            input_size=input_size,
+            groups=groups,
+            bias=bias,
+            padding_mode=padding_mode,
+        )
+
+    def _pad_input(self, x: Tensor) -> Tensor:
+        """Pads the input tensor for the convolution operation.
+
+        Args:
+            x (Tensor): Input tensor of shape (N, C, H, W).
+
+        Returns:
+            Tensor: Padded input tensor.
+        """
+
+        if not self.is_padding_same:  # valid or number/tuple
+            return x
+
+        padding = self.internal_padding
+
+        x = F.pad(x, padding)
+
+        return x
+
+    def compute_output_size(self, input_size: Tuple[int, int]) -> Tuple[int, int]:
+        """Computes the output size of the convolution layer in advance.
+
+        Args:
+            input_size (Tuple[int, int]): Size of the input tensor (H, W).
+
+        Returns:
+            Tuple[int, int]: Size of the output tensor (H, W).
+        """
+
+        p_total_height = cast(int, self.padding[0])
+        p_total_width = cast(int, self.padding[1])
+
+        if self.is_padding_same:
+            padding = self.internal_padding
+
+            p_total_width = padding[0] + padding[1]  # left + right
+            p_total_height = padding[2] + padding[3]  # top + bottom
+
+        # math.floor
+        output_height = (
+            input_size[0]
+            + p_total_height
+            - self.dilation[0] * (self.kernel_size[0] - 1)
+            - 1
+        ) // self.stride[0] + 1
+        output_width = (
+            input_size[1]
+            + p_total_width
+            - self.dilation[1] * (self.kernel_size[1] - 1)
+            - 1
+        ) // self.stride[1] + 1
+
+        return output_height, output_width
+
+
 class ConvTranspose2dExtended(nn.ConvTranspose2d):
     """
     Extended 2D transposed convolution layer mirroring TensorFlow with support for 'same' padding.
@@ -277,33 +362,6 @@ class ConvTranspose2dExtended(nn.ConvTranspose2d):
         p_height = p_total_height // 2 + p_output_height
 
         return (p_height, p_width), (p_output_height, p_output_width)
-
-    def compute_output_size(self, input_size: Tuple[int, int]) -> Tuple[int, int]:
-        """Computes the output size of the transposed convolution layer in advance.
-
-        Args:
-            input_size (Tuple[int, int]): Size of the input tensor (height, width).
-
-        Returns:
-            Tuple[int, int]: Size of the output tensor (height, width).
-        """
-
-        output_height = (
-            (input_size[0] - 1) * cast(int, self.stride[0])
-            - 2 * cast(int, self.padding[0])
-            + self.dilation[0] * (self.kernel_size[0] - 1)
-            + self.output_padding[0]
-            + 1
-        )
-        output_width = (
-            (input_size[1] - 1) * cast(int, self.stride[1])
-            - 2 * cast(int, self.padding[1])
-            + self.dilation[1] * (self.kernel_size[1] - 1)
-            + self.output_padding[1]
-            + 1
-        )
-
-        return output_height, output_width
 
 
 class MaxPool2dExtended(nn.MaxPool2d):
@@ -460,6 +518,64 @@ class MaxPool2dExtended(nn.MaxPool2d):
             padding = self.internal_padding
             if not self.padding_precomputed:
                 padding = self._compute_padding(input_size)
+
+            p_total_width = padding[0] + padding[1]  # 2*padding
+            p_total_height = padding[2] + padding[3]  # 2*padding
+
+        # math.floor
+        output_height = (
+            input_size[0] + p_total_height - dilation[0] * (kernel_size[0] - 1) - 1
+        ) // stride[0] + 1
+        output_width = (
+            input_size[1] + p_total_width - dilation[1] * (kernel_size[1] - 1) - 1
+        ) // stride[1] + 1
+
+        return output_height, output_width
+
+
+class MaxPool2dExtendedStatic(MaxPool2dExtended):
+    # difference: required input size to pre-compute padding
+    def __init__(
+        self,
+        kernel_size: Union[int, Tuple[int, int]],
+        *,
+        stride: Union[int, Tuple[int, int]] = 1,
+        padding: Union[int, Tuple[int, int]] = 0,
+        dilation: Union[int, Tuple[int, int]] = 1,
+        input_size: Tuple[int, int],
+        **kwargs,
+    ):
+
+        super().__init__(
+            kernel_size,
+            stride=stride,
+            padding=padding,
+            dilation=dilation,
+            input_size=input_size,
+            **kwargs,
+        )
+
+    def _pad_input(self, x: Tensor) -> Tensor:
+        if not self.is_padding_same:  # valid or number/tuple
+            return x
+
+        padding = self.internal_padding
+
+        x = F.pad(x, padding)
+
+        return x
+
+    def compute_output_size(self, input_size: Tuple[int, int]) -> Tuple[int, int]:
+
+        p_total_height = self.padding[0]  # type: ignore
+        p_total_width = self.padding[1]  # type: ignore
+
+        kernel_size = cast(Tuple[int, int], self.kernel_size)
+        stride = cast(Tuple[int, int], self.stride)
+        dilation = cast(Tuple[int, int], self.dilation)
+
+        if self.is_padding_same:
+            padding = self.internal_padding
 
             p_total_width = padding[0] + padding[1]  # 2*padding
             p_total_height = padding[2] + padding[3]  # 2*padding
