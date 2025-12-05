@@ -15,7 +15,7 @@ import optuna
 from dual_domain_dataset import DualDomainDataset
 from models.lstnet import LSTNET
 from data_preparation import get_training_loader, AugmentOps
-from LstnetTrainer import LstnetTrainer, TrainParams
+from LstnetTrainer import LstnetTrainer, WassersteinLstnetTrainer, TrainParams
 import utils
 
 
@@ -158,18 +158,31 @@ def run(
         second_in_channels_num=second_channels,
     )
 
-    utils.init_logs(["train", "val"])
-    trainer = LstnetTrainer(
-        model,
-        weights,
-        train_loader,
-        val_loader=val_loader,
-        train_params=train_params,
-        run_optuna=optuna,
-        optuna_trial=optuna_trial,
-        compile_model=compile_model,
-        wasserstein=wasserstein,
-    )
+    if not wasserstein:
+        trainer = LstnetTrainer(
+            model,
+            weights,
+            train_loader,
+            val_loader=val_loader,
+            train_params=train_params,
+            run_optuna=optuna,
+            optuna_trial=optuna_trial,
+            compile_model=compile_model,
+        )
+
+    else:
+        trainer = WassersteinLstnetTrainer(
+            model,
+            weights,
+            train_loader,
+            val_loader=val_loader,
+            train_params=train_params,
+            run_optuna=optuna,
+            optuna_trial=optuna_trial,
+            compile_model=compile_model,
+        )
+
+    trainer.init_logs(["train", "val"])
     print("Starting train and validate")
     trained_model = trainer.fit()
 
@@ -181,10 +194,10 @@ def run(
     trainer_info["batch_size"] = batch_size
     trainer_info["train_params"] = str(train_params)
 
-    utils.LOSS_LOGS["trainer_info"] = trainer_info
+    trainer.loss_logs["trainer_info"] = trainer_info
 
     if optuna:
-        return trained_model, utils.LOSS_LOGS.copy()
+        return trained_model, trainer.loss_logs.copy()
 
     # Ensure output folder exists
     os.makedirs(output_folder, exist_ok=True)
@@ -193,6 +206,6 @@ def run(
     trained_model.save_model(model_path)
 
     with open(f"{output_folder}/{logs_file_name}", "w", encoding="utf-8") as f:
-        json.dump(utils.LOSS_LOGS, f, indent=2)
+        json.dump(trainer.loss_logs, f, indent=2)
 
     return trained_model
