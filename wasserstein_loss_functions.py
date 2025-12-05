@@ -1,12 +1,28 @@
-from typing import List, Union, overload, Literal
-
+from typing import List, Tuple
+from dataclasses import dataclass
 import torch
+from torch import Tensor
 from models.discriminator import Discriminator
 from models.lstnet import LSTNET
-from torch import Tensor
-from utils import DEVICE
-
 from utils import TensorTriplet
+from loss_functions import WeightIndex
+
+
+@dataclass(slots=True)
+class WasserssteinTerm:
+    critic_loss: Tensor
+    grad_pen: Tensor
+    lambda_gp: float = 10.0
+    weight: float = 1.0
+
+    def total_loss(self) -> Tensor:
+        return self.weight * (-self.critic_loss + self.lambda_gp * self.grad_pen)
+
+    def get_critic_loss_value(self) -> float:
+        return self.critic_loss.item()
+
+    def get_grad_penalty_value(self) -> float:
+        return self.grad_pen.item()
 
 
 def gradient_penalty(
@@ -42,15 +58,17 @@ def gradient_penalty(
 
 
 def disc_wgan_loss(
-    critic: Discriminator, batch_real: Tensor, batch_gen: Tensor
-) -> Tensor:
+    critic: Discriminator, batch_real: Tensor, batch_gen: Tensor, weight: float = 1.0
+) -> WasserssteinTerm:
     wasserstein_term = (
         critic.forward(batch_real).mean() - critic.forward(batch_gen).mean()
     )
     grad_pen = gradient_penalty(
         critic=critic, batch_real=batch_real, batch_gen=batch_gen
     )
-    return -wasserstein_term + 10.0 * grad_pen  # lambda_gp = 10.0
+    return WasserssteinTerm(
+        critic_loss=wasserstein_term, grad_pen=grad_pen, weight=weight
+    )
 
 
 def enc_gen_wgan_loss(critic: Discriminator, batch_gen: Tensor) -> Tensor:
@@ -75,22 +93,32 @@ def enc_gen_wgan_latent_loss(
 
 def compute_discriminator_loss(
     model: LSTNET,
+    weights: List[float],
     first_real_img: Tensor,
     second_real_img: Tensor,
     first_gen_img: Tensor,
     second_gen_img: Tensor,
     first_latent_img: Tensor,
     second_latent_img: Tensor,
-) -> TensorTriplet:
+) -> Tuple[WasserssteinTerm, WasserssteinTerm, WasserssteinTerm]:
 
     first_disc_loss = disc_wgan_loss(
-        model.first_discriminator, first_real_img, first_gen_img
+        model.first_discriminator,
+        first_real_img,
+        first_gen_img,
+        weight=weights[WeightIndex.FIRST_DOMAIN],
     )
     second_disc_loss = disc_wgan_loss(
-        model.second_discriminator, second_real_img, second_gen_img
+        model.second_discriminator,
+        second_real_img,
+        second_gen_img,
+        weight=weights[WeightIndex.SECOND_DOMAIN],
     )
     latent_disc_loss = disc_wgan_loss(
-        model.latent_discriminator, first_latent_img, second_latent_img
+        model.latent_discriminator,
+        first_latent_img,
+        second_latent_img,
+        weight=weights[WeightIndex.LATENT_DOMAIN],
     )
 
     return first_disc_loss, second_disc_loss, latent_disc_loss
@@ -98,6 +126,7 @@ def compute_discriminator_loss(
 
 def compute_enc_gen_loss(
     model: LSTNET,
+    weights: List[float],
     first_gen_img: Tensor,
     second_gen_img: Tensor,
     first_latent_img: Tensor,
@@ -112,4 +141,8 @@ def compute_enc_gen_loss(
         model.latent_discriminator, first_latent_img, second_latent_img
     )
 
-    return first_gen_loss, second_gen_loss, latent_gen_loss
+    return (
+        weights[WeightIndex.FIRST_DOMAIN] * first_gen_loss,
+        weights[WeightIndex.SECOND_DOMAIN] * second_gen_loss,
+        weights[WeightIndex.LATENT_DOMAIN] * latent_gen_loss,
+    )
