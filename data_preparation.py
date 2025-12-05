@@ -154,6 +154,7 @@ def get_a2o_dataset(
     *,
     train_op: bool,
     transform_steps: Optional[Compose] = None,
+    domain_adaptation: bool = False,
 ) -> Dataset[Any]:
     cache_path = kagglehub.dataset_download(A2O_DATASET)
 
@@ -169,6 +170,10 @@ def get_a2o_dataset(
     if dataset.upper() == "ORANGE":
         letter = "B"
         dummy_class = 0
+
+    # Switch Labels
+    if domain_adaptation:
+        dummy_class = 1 - dummy_class
 
     path = f"{cache_path}/{folder}{letter}"
     data = ImageDataset(
@@ -248,6 +253,7 @@ def load_dataset(
     download: bool = True,
     val_data_size: float = 0.4,
     manual_seed: int = 42,
+    domain_adaptation: bool = False,
 ) -> DoubleDataset: ...
 @overload
 def load_dataset(
@@ -259,6 +265,7 @@ def load_dataset(
     download: bool = True,
     val_data_size: float = 0.4,
     manual_seed: int = 42,
+    domain_adaptation: bool = False,
 ) -> SingleDataset: ...
 
 
@@ -272,6 +279,7 @@ def load_dataset(
     download: bool = True,
     val_data_size: float = 0.4,
     manual_seed: int = 42,
+    domain_adaptation: bool = False,  # switch labels for A2O
 ) -> Union[SingleDataset, DoubleDataset]:
     """Loads a dataset from torchvision or a local path.
 
@@ -343,12 +351,18 @@ def load_dataset(
 
         case "APPLE":  # from the a2o dataset
             data = get_a2o_dataset(
-                "APPLE", train_op=train_op, transform_steps=transform_steps
+                "APPLE",
+                train_op=train_op,
+                transform_steps=transform_steps,
+                domain_adaptation=domain_adaptation,
             )
 
         case "ORANGE":  # from the a2o dataset
             data = get_a2o_dataset(
-                "ORANGE", train_op=train_op, transform_steps=transform_steps
+                "ORANGE",
+                train_op=train_op,
+                transform_steps=transform_steps,
+                domain_adaptation=domain_adaptation,
             )
 
         case "A2O":  # Combined Apple and Orange for classification
@@ -776,6 +790,7 @@ def get_testing_loader(
     batch_size: int = 64,
     num_workers: int = 8,
     pin_memory: bool = False,
+    domain_adaptation: bool = False,
 ) -> DataLoader[Any]:
     """Get the data loader of test set for the given dataset (domain name).
 
@@ -792,6 +807,7 @@ def get_testing_loader(
         domain_name,
         train_op=False,
         split_data=False,
+        domain_adaptation=domain_adaptation,
     )
 
     # For testing, no need to shuffle the data
