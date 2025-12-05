@@ -58,7 +58,10 @@ def adapt_domain(
         TensorDataset: The adapted dataset.
     """
     loader = get_testing_loader(
-        orig_domain_name, batch_size=batch_size, num_workers=num_workers
+        orig_domain_name,
+        batch_size=batch_size,
+        num_workers=num_workers,
+        domain_adaptation=True,
     )
 
     _ = model.to(utils.DEVICE)
