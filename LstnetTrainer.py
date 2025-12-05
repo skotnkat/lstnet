@@ -160,12 +160,6 @@ class LstnetTrainer:
         self.optuna_trial = optuna_trial
         self.fin_loss = np.inf
 
-        self.compute_grad_ops = {
-            "disc": [True, False, False],
-            "enc_gen": [False, True, True],
-            "eval": [False, False, False],
-        }
-
         self.loss_types = ["disc_loss", "enc_gen_loss", "cc_loss"]
         self.loss_logs: Dict[str, Dict[str, Dict[str, List[float]]]] = dict()
 
@@ -241,14 +235,15 @@ class LstnetTrainer:
             )
 
         else:
-            with torch.no_grad():
-                disc_loss_tensors = loss_func(
-                    self.model,
-                    self.weights,
-                    first_real_img,
-                    second_real_img,
-                    *imgs_mapping,
-                )
+            imgs_mapping_detached = (img.detach() for img in imgs_mapping)
+            disc_loss_tensors = loss_func(
+                self.model,
+                self.weights,
+                first_real_img,
+                second_real_img,
+                *imgs_mapping_detached,
+            )
+
         return disc_loss_tensors
 
     def _get_enc_gen_losses(
@@ -307,16 +302,20 @@ class LstnetTrainer:
             )
 
         imgs_mapping = self.get_trans_imgs(first_real_img, second_real_img)
-        compute_grads = self.compute_grad_ops[op]
+
+        disc_grad, enc_gen_grad, cc_grad = False, False, False  # for eval
+        if op == "disc":
+            disc_grad = True
+        elif op == "enc_gen":
+            enc_gen_grad = True
+            cc_grad = True
 
         disc_loss = self._get_disc_losses(
-            first_real_img, second_real_img, imgs_mapping, compute_grad=compute_grads[0]
+            first_real_img, second_real_img, imgs_mapping, compute_grad=disc_grad
         )
-        enc_gen_loss = self._get_enc_gen_losses(
-            imgs_mapping, compute_grad=compute_grads[1]
-        )
+        enc_gen_loss = self._get_enc_gen_losses(imgs_mapping, compute_grad=enc_gen_grad)
         cc_loss = self._get_cc_losses(
-            first_real_img, second_real_img, imgs_mapping, compute_grad=compute_grads[2]
+            first_real_img, second_real_img, imgs_mapping, compute_grad=cc_grad
         )
 
         return disc_loss, enc_gen_loss, cc_loss
@@ -505,6 +504,7 @@ class LstnetTrainer:
             ops = ["train", "val"]
 
         for op in ops:
+            self.loss_logs[op] = dict()
             for key in self.loss_types:
                 self.loss_logs[op][key] = dict()
                 values = ["first", "second", "latent"]
@@ -530,7 +530,7 @@ class LstnetTrainer:
                     "second_full_cycle",
                 ]
             for val in values:
-                self.loss_logs[loss_type][f"{val}_loss"].append(0.0)
+                self.loss_logs[op][loss_type][f"{val}_loss"].append(0.0)
 
     def log_epoch_loss(self, loss_values: List[Any], op: str):
         """
@@ -632,7 +632,6 @@ class WassersteinLstnetTrainer(LstnetTrainer):
         disc_loss, enc_gen_loss, cc_loss = self._get_losses(
             first_real_img, second_real_img, op="disc"
         )
-
         disc_losses_all = [loss.total_loss() for loss in disc_loss]
 
         total_disc_loss = functools.reduce(operator.add, disc_losses_all)
