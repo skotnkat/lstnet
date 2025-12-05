@@ -603,15 +603,6 @@ class WassersteinLstnetTrainer(LstnetTrainer):
             compile_model=compile_model,
         )
 
-        # rewrite compiled functions
-        self.compute_grad_ops = {
-            "disc": [True, False, False],  # disc update
-            "enc_gen": [True, True, True],  # enc gen update
-            "eval": [True, False, False],  # evaluation
-        }
-
-        # [disc loss, enc-gen loss, cc loss]
-
         self.wasserstein = True
         self.loss_types = ["disc_loss", "grad_pen", "enc_gen_loss", "cc_loss"]
 
@@ -619,8 +610,14 @@ class WassersteinLstnetTrainer(LstnetTrainer):
     def _convert_losses_to_floats(losses: List[Any]) -> List[Any]:
         disc_loss, enc_gen_loss, cc_loss = losses
 
-        disc_losses_values = tuple(loss.get_critic_loss_value() for loss in disc_loss)
-        grad_penalties = tuple(loss.get_grad_penalty_value() for loss in disc_loss)
+        if isinstance(disc_loss[0], WasserssteinTerm):
+            disc_losses_values = tuple(
+                loss.get_critic_loss_value() for loss in disc_loss
+            )
+            grad_penalties = tuple(loss.get_grad_penalty_value() for loss in disc_loss)
+        else:
+            disc_losses_values = utils.convert_tensor_tuple_to_floats(disc_loss)
+            grad_penalties = (0.0, 0.0, 0.0)
 
         enc_gen_loss_values = utils.convert_tensor_tuple_to_floats(enc_gen_loss)
         cc_loss_values = utils.convert_tensor_tuple_to_floats(cc_loss)
