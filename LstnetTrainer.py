@@ -18,9 +18,10 @@ import optuna
 from dual_domain_dataset import DualDomainDataset
 from models.lstnet import LSTNET
 import utils
-from utils import TensorQuad
+from utils import TensorQuad, FloatTriplet, FloatQuad
 import loss_functions
 import wasserstein_loss_functions
+from wasserstein_loss_functions import WasserssteinTerm
 
 
 # Constants
@@ -55,7 +56,6 @@ class LstnetTrainer:
         run_optuna: bool = False,
         optuna_trial: Optional[optuna.Trial] = None,
         compile_model: bool = False,
-        wasserstein: bool = False,
     ) -> None:
         """Initialize the LSTNET trainer.
 
@@ -141,7 +141,7 @@ class LstnetTrainer:
             )
 
         self.weights = weights
-        self.wasserstein = wasserstein
+        self.wasserstein = False
 
         # Adjust max_patience if not provided (None) -> set to max_epoch_num to never early stop
         self.max_patience = train_params.max_patience
@@ -169,8 +169,8 @@ class LstnetTrainer:
         self.loss_types = ["disc_loss", "enc_gen_loss", "cc_loss"]
         self.loss_logs: Dict[str, Dict[str, Dict[str, List[float]]]] = dict()
 
-        if compile_model:
-            pass  # TO DO
+        if compile_model:  # TO DO
+            pass
 
     def get_trainer_info(self) -> Dict[str, Any]:
         """
@@ -612,6 +612,7 @@ class WassersteinLstnetTrainer(LstnetTrainer):
 
         # [disc loss, enc-gen loss, cc loss]
 
+        self.wasserstein = True
         self.loss_types = ["disc_loss", "grad_pen", "enc_gen_loss", "cc_loss"]
 
     @staticmethod
