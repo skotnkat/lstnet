@@ -23,9 +23,6 @@ NETWORK_NAMES = {
     "latent_discriminator",
 }
 
-
-LOSS_LOGS: Dict[str, Dict[str, Dict[str, Any]]] = dict()
-
 DEVICE: Optional[torch.device] = None
 
 
@@ -108,107 +105,6 @@ def compute_effective_kernel_size(kernel_size: int, dilation: int) -> int:
     """Compute the effective kernel size for convolutional layers."""
 
     return dilation * (kernel_size - 1) + 1
-
-
-def init_logs(ops: Optional[List[str]] = None) -> None:
-    """Initialize logs for training and validation operations."""
-
-    if ops is None:
-        ops = ["train", "val"]
-
-    for op in ops:
-
-        LOSS_LOGS[op] = {
-            "disc_loss": {"first_loss": [], "second_loss": [], "latent_loss": []},
-            "enc_gen_loss": {"first_loss": [], "second_loss": [], "latent_loss": []},
-            "cc_loss": {
-                "first_cycle_loss": [],
-                "second_cycle_loss": [],
-                "first_full_cycle_loss": [],
-                "second_full_cycle_loss": [],
-            },
-        }
-
-
-def init_epoch_loss(op: str = "train"):
-    """
-    Initialize epoch loss for a given operation.
-    The logs need to be initialized first through `init_logs`
-    """
-    op_logs = LOSS_LOGS[op]
-
-    op_logs["disc_loss"]["first_loss"].append(0)
-    op_logs["disc_loss"]["second_loss"].append(0)
-    op_logs["disc_loss"]["latent_loss"].append(0)
-
-    op_logs["enc_gen_loss"]["first_loss"].append(0)
-    op_logs["enc_gen_loss"]["second_loss"].append(0)
-    op_logs["enc_gen_loss"]["latent_loss"].append(0)
-
-    op_logs["cc_loss"]["first_cycle_loss"].append(0)
-    op_logs["cc_loss"]["second_cycle_loss"].append(0)
-    op_logs["cc_loss"]["first_full_cycle_loss"].append(0)
-    op_logs["cc_loss"]["second_full_cycle_loss"].append(0)
-
-
-def log_epoch_loss(
-    disc_loss: FloatTriplet, enc_gen_loss: FloatTriplet, cc_loss: FloatQuad, op: str
-):
-    """
-    Log epoch loss for a given operation.
-
-    Args:
-        disc_loss (FloatTriplet): Discriminator loss.
-            Consist of first, second and latent loss.
-        enc_gen_loss (FloatTriplet): Encoder-Generator loss.
-            Consists of first, second and latent loss.
-        cc_loss (FloatQuad): Cycle consistency loss.
-        first_cycle, second_cycle, first_full_cycle, second_full_cycle).
-            Consists of first_cycle, second_cycle, first_full_cycle, second_full_cycle.
-        op (str): Operation type.
-    """
-
-    op_logs = LOSS_LOGS[op]
-    cur_epoch = len(op_logs["disc_loss"]["first_loss"]) - 1  # last epoch
-
-    op_logs["disc_loss"]["first_loss"][cur_epoch] += disc_loss[0]
-    op_logs["disc_loss"]["second_loss"][cur_epoch] += disc_loss[1]
-    op_logs["disc_loss"]["latent_loss"][cur_epoch] += disc_loss[2]
-
-    op_logs["enc_gen_loss"]["first_loss"][cur_epoch] += enc_gen_loss[0]
-    op_logs["enc_gen_loss"]["second_loss"][cur_epoch] += enc_gen_loss[1]
-    op_logs["enc_gen_loss"]["latent_loss"][cur_epoch] += enc_gen_loss[2]
-
-    op_logs["cc_loss"]["first_cycle_loss"][cur_epoch] += cc_loss[0]
-    op_logs["cc_loss"]["second_cycle_loss"][cur_epoch] += cc_loss[1]
-    op_logs["cc_loss"]["first_full_cycle_loss"][cur_epoch] += cc_loss[2]
-    op_logs["cc_loss"]["second_full_cycle_loss"][cur_epoch] += cc_loss[3]
-
-
-def normalize_epoch_loss(scale, op):
-    """
-    Normalize epoch loss for a given operation.
-
-    Args:
-        scale (float): Scaling factor.
-        op (str): Operation type.
-    """
-
-    op_logs = LOSS_LOGS[op]
-    cur_epoch = len(op_logs["disc_loss"]["first_loss"]) - 1  # last epoch
-
-    op_logs["disc_loss"]["first_loss"][cur_epoch] /= scale
-    op_logs["disc_loss"]["second_loss"][cur_epoch] /= scale
-    op_logs["disc_loss"]["latent_loss"][cur_epoch] /= scale
-
-    op_logs["enc_gen_loss"]["first_loss"][cur_epoch] /= scale
-    op_logs["enc_gen_loss"]["second_loss"][cur_epoch] /= scale
-    op_logs["enc_gen_loss"]["latent_loss"][cur_epoch] /= scale
-
-    op_logs["cc_loss"]["first_cycle_loss"][cur_epoch] /= scale
-    op_logs["cc_loss"]["first_full_cycle_loss"][cur_epoch] /= scale
-    op_logs["cc_loss"]["second_cycle_loss"][cur_epoch] /= scale
-    op_logs["cc_loss"]["second_full_cycle_loss"][cur_epoch] /= scale
 
 
 def check_file_ending(file, ending):

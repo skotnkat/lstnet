@@ -384,12 +384,12 @@ class LstnetTrainer:
 
             epoch_loss += sum(disc_loss_tuple) + sum(cc_loss_tuple)
 
-            utils.log_epoch_loss(
-                disc_loss_tuple, enc_gen_loss_tuple, cc_loss_tuple, "train"
+            self.log_epoch_loss(
+                [disc_loss_tuple, enc_gen_loss_tuple, cc_loss_tuple], "train"
             )
 
         scale = len(self.train_loader)
-        utils.normalize_epoch_loss(scale, "train")
+        self.normalize_epoch_loss(scale, "train")
         epoch_loss /= scale
 
         return epoch_loss
@@ -410,12 +410,13 @@ class LstnetTrainer:
 
             epoch_loss += sum(disc_loss_tuple) + sum(cc_loss_tuple)
 
-            utils.log_epoch_loss(
-                disc_loss_tuple, enc_gen_loss_tuple, cc_loss_tuple, "val"
+            self.log_epoch_loss(
+                [disc_loss_tuple, enc_gen_loss_tuple, cc_loss_tuple],
+                "val",
             )
 
         scale = len(self.val_loader)
-        utils.normalize_epoch_loss(scale, "val")
+        self.normalize_epoch_loss(scale, "val")
         epoch_loss /= scale
 
         return epoch_loss
@@ -440,12 +441,12 @@ class LstnetTrainer:
         epoch_idx = 0  # Init outside loop scope
         for epoch_idx in range(self.max_epoch_num):
             start_time = time.time()
-            utils.init_epoch_loss(op="train")
+            self.init_epoch_loss(op="train")
             epoch_loss = self._run_epoch(val_op=False)
             self.train_loss_list.append(epoch_loss)
 
             if self.run_validation:
-                utils.init_epoch_loss(op="val")
+                self.init_epoch_loss(op="val")
                 epoch_loss = self._run_epoch(val_op=True)
                 self.val_loss_list.append(epoch_loss)
                 # ------------------------------
@@ -474,7 +475,7 @@ class LstnetTrainer:
                     self.optuna_trial.report(epoch_loss, epoch_idx)
                     if self.optuna_trial.should_prune():
                         self.optuna_trial.set_user_attr(
-                            "train_logs", utils.LOSS_LOGS.copy()
+                            "train_logs", self.loss_logs.copy()
                         )
                         raise optuna.TrialPruned()
 
@@ -496,6 +497,88 @@ class LstnetTrainer:
         )
 
         return self.model
+
+    def init_logs(self, ops: Optional[List[str]] = None) -> None:
+        """Initialize logs for training and validation operations."""
+
+        if ops is None:
+            ops = ["train", "val"]
+
+        for op in ops:
+            for key in self.loss_types:
+                self.loss_logs[op][key] = dict()
+                values = ["first", "second", "latent"]
+                if key == "cc_loss":
+                    values = [
+                        "first_cycle",
+                        "second_cycle",
+                        "first_full_cycle",
+                        "second_full_cycle",
+                    ]
+
+                for val in values:
+                    self.loss_logs[op][key][f"{val}_loss"] = []
+
+    def init_epoch_loss(self, op: str) -> None:
+        for loss_type in self.loss_types:
+            values = ["first", "second", "latent"]
+            if loss_type == "cc_loss":
+                values = [
+                    "first_cycle",
+                    "second_cycle",
+                    "first_full_cycle",
+                    "second_full_cycle",
+                ]
+            for val in values:
+                self.loss_logs[loss_type][f"{val}_loss"].append(0.0)
+
+    def log_epoch_loss(self, loss_values: List[Any], op: str):
+        """
+        Log epoch loss for a given operation.
+
+        Args:
+            disc_loss (FloatTriplet): Discriminator loss.
+                Consist of first, second and latent loss.
+            enc_gen_loss (FloatTriplet): Encoder-Generator loss.
+                Consists of first, second and latent loss.
+            cc_loss (FloatQuad): Cycle consistency loss.
+            first_cycle, second_cycle, first_full_cycle, second_full_cycle).
+                Consists of first_cycle, second_cycle, first_full_cycle, second_full_cycle.
+            op (str): Operation type.
+        """
+
+        op_logs = self.loss_logs[op]
+        cur_epoch = len(op_logs[self.loss_types[0]]["first_loss"]) - 1  # last epoch
+
+        for loss_type, loss_value in zip(self.loss_types, loss_values):
+            if loss_type != "cc_loss":
+                op_logs[loss_type]["first_loss"][cur_epoch] += loss_value[0]
+                op_logs[loss_type]["second_loss"][cur_epoch] += loss_value[1]
+                op_logs[loss_type]["latent_loss"][cur_epoch] += loss_value[2]
+
+            else:
+                op_logs[loss_type]["first_cycle_loss"][cur_epoch] += loss_value[0]
+                op_logs[loss_type]["second_cycle_loss"][cur_epoch] += loss_value[1]
+                op_logs[loss_type]["first_full_cycle_loss"][cur_epoch] += loss_value[2]
+                op_logs[loss_type]["second_full_cycle_loss"][cur_epoch] += loss_value[3]
+
+    def normalize_epoch_loss(self, scale, op) -> None:
+        """
+        Normalize epoch loss for a given operation.
+
+        Args:
+            scale (float): Scaling factor.
+            op (str): Operation type.
+        """
+
+        op_logs = self.loss_logs[op]
+        cur_epoch = len(op_logs["disc_loss"]["first_loss"]) - 1  # last epoch
+
+        for loss_type in op_logs.keys():
+            for key in op_logs[loss_type].keys():
+                op_logs[loss_type][key][cur_epoch] /= scale
+
+
 class WassersteinLstnetTrainer(LstnetTrainer):
     def __init__(
         self,
