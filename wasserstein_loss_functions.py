@@ -61,7 +61,7 @@ def disc_wgan_loss(
     critic: Discriminator, batch_real: Tensor, batch_gen: Tensor, weight: float = 1.0
 ) -> WasserssteinTerm:
     wasserstein_term = (
-        critic.forward(batch_real).mean() - critic.forward(batch_gen).mean()
+        critic.forward(batch_gen).mean() - critic.forward(batch_real).mean()
     )
     grad_pen = gradient_penalty(
         critic=critic, batch_real=batch_real, batch_gen=batch_gen
