@@ -15,9 +15,6 @@ from typing import (
 )
 from dataclasses import dataclass
 import os
-import tarfile
-import urllib.request
-import kagglehub
 from PIL import Image
 
 from torchvision import datasets
@@ -25,6 +22,7 @@ from torchvision.transforms.v2 import Compose, RandomAffine, ToImage, ToDtype, N
 from torch.utils.data import ConcatDataset, DataLoader, random_split, Dataset
 import torch
 from dual_domain_dataset import get_dual_domain_dataset, custom_collate_fn
+import download_data
 
 
 SingleLoader: TypeAlias = DataLoader[Any]
@@ -32,9 +30,6 @@ DoubleLoader: TypeAlias = Tuple[DataLoader[Any], DataLoader[Any]]
 
 SingleDataset: TypeAlias = Dataset[Any]
 DoubleDataset: TypeAlias = Tuple[Dataset[Any], Dataset[Any]]
-
-
-A2O_DATASET = "balraj98/apple2orange-dataset"
 
 
 @dataclass(slots=True)
@@ -156,7 +151,7 @@ def get_a2o_dataset(
     transform_steps: Optional[Compose] = None,
     domain_adaptation: bool = False,
 ) -> Dataset[Any]:
-    cache_path = kagglehub.dataset_download(A2O_DATASET)
+    cache_path = download_data.download_a2o_dataset()
 
     if transform_steps is None:
         transform_steps = create_basic_transform(3)
@@ -176,6 +171,7 @@ def get_a2o_dataset(
         dummy_class = 1 - dummy_class
 
     path = f"{cache_path}/{folder}{letter}"
+    print(f"path: {path}")
     data = ImageDataset(
         folder=path,
         transform=transform_steps,
@@ -370,6 +366,20 @@ def load_dataset(
                 train_op=train_op, transform_steps=transform_steps
             )
 
+        case name if name.startswith("VISDA"):
+            if download:
+                download_data.download_visda_dataset(train_op=train_op)
+            subfolder = name[6:].lower()  # get the part after VISDA_
+            data_folder = "data/visda2017/" + subfolder
+
+            if transform_steps is None:
+                transform_steps = create_basic_transform(3)
+
+            data = datasets.ImageFolder(
+                data_folder,
+                transform=transform_steps,
+            )
+
         case _:
             # dataset_name is path
             print(f"Trying to load dataset {dataset_name} locally")
@@ -384,58 +394,6 @@ def load_dataset(
         )
 
     return data
-
-
-# def load_benchmark(
-#     benchmark_name: str,
-#     *,
-#     split_data: bool = False,
-#     train_op: bool = True,
-#     transform_steps: Optional[Compose] = None,
-#     val_data_size: float = 0.4,
-#     manual_seed: int = 42):
-
-#     match benchmark_name:
-#         case "Visda2017":
-#             BASE_PATH = "http://csr.bu.edu/ftp/visda17/clf"
-
-#             FOLDER = "data/visda2017"
-#             os.makedirs(FOLDER, exist_ok=True)
-
-#             # Check if files are already downloaded, if not -> download
-#             if train_op:
-#                 if not os.path.exists(FOLDER + "/source.tar"):
-#                     _ = urllib.request.urlretrieve(
-#                         BASE_PATH + "/train.tar", FOLDER + "/source.tar"
-#                     )
-
-#                 if not os.path.exists(FOLDER + "/target.tar"):
-#                     _ = urllib.request.urlretrieve(
-#                         BASE_PATH + "/validation.tar", FOLDER + "/target.tar"
-#                     )
-
-#                 with tarfile.open(FOLDER + "/source.tar", "r") as tar:
-#                     tar.extractall(path=FOLDER + "/source")
-
-#                 with tarfile.open(FOLDER + "/target.tar", "r") as tar:
-#                     tar.extractall(path=FOLDER + "/target")
-
-#                 # load datasets separately
-#                 source_data = datasets.ImageFolder(FOLDER + "/source", transform=transform_steps)
-#                 target_data = datasets.ImageFolder(FOLDER + "/target", transform=transform_steps)
-#                 if split_data:
-#                     return split_train_val_dataset(
-#                         target_data, val_data_size=val_data_size, manual_seed=manual_seed
-#                     )
-
-#             else:
-#                 if not os.path.exists(FOLDER + "/test.tar"):
-#                     _ = urllib.request.urlretrieve(
-#                         BASE_PATH + "/test.tar", FOLDER + "/test.tar"
-#                     )
-#         case _:
-#             # dataset_name is path
-#             raise NotImplementedError(f"Loading of benchmark {benchmark_name} is not implemented yet.")
 
 
 def split_train_val_dataset(
