@@ -12,6 +12,7 @@ import optuna
 from models.discriminator import Discriminator
 import utils
 from models.extended_layers import Conv2dExtended, MaxPool2dExtended
+from models.resnet_18 import ResNet18
 
 
 class BaseClf(Discriminator):
@@ -199,6 +200,9 @@ def select_classifier(domain_name, params):
 
         case "A2O":
             clf = BaseClf(input_size=(256, 256), in_channels=3, params=params)
+
+        case "VISDA_TARGET":
+            clf = ResNet18(in_channels_num=3, num_classes=12)
 
     if clf is None:
         raise ValueError("No classifier model as loaded.")
