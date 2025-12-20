@@ -18,7 +18,14 @@ import os
 from PIL import Image
 
 from torchvision import datasets
-from torchvision.transforms.v2 import Compose, RandomAffine, ToImage, ToDtype, Normalize
+from torchvision.transforms.v2 import (
+    Compose,
+    RandomAffine,
+    ToImage,
+    ToDtype,
+    Normalize,
+    Resize,
+)
 from torch.utils.data import ConcatDataset, DataLoader, random_split, Dataset
 import torch
 from dual_domain_dataset import get_dual_domain_dataset, custom_collate_fn
@@ -46,9 +53,11 @@ class AugmentOps:
     shift: int = 2
 
 
-def create_augmentation_steps(
-    img_size: int, *, num_channels: int = 1, augment_ops: AugmentOps = AugmentOps()
-) -> Compose:
+def get_augmentation_steps(
+    img_size: Tuple[int, int],
+    *,
+    augment_ops: AugmentOps = AugmentOps(),
+) -> List[Any]:  # TODO: specify correct type
     """
     Creates a series of augmentation steps for image preprocessing.
     Expecting to work with square 2D images.
@@ -62,35 +71,54 @@ def create_augmentation_steps(
     Returns:
         Compose: A composition of image transformation steps.
     """
-    dx_translation = dy_translation = augment_ops.shift / img_size
+    print(f"augment_ops: {augment_ops}")
+    dx_translation = augment_ops.shift / img_size[0]
+    dy_translation = augment_ops.shift / img_size[1]
 
-    return Compose(
-        [
-            ToImage(),
-            RandomAffine(
-                degrees=(-augment_ops.rotation, augment_ops.rotation),
-                translate=(dx_translation, dy_translation),
-                scale=(1 - augment_ops.zoom, 1 + augment_ops.zoom),
-            ),
-            ToDtype(torch.float32, scale=True),
-            Normalize(mean=[0.5] * num_channels, std=[0.5] * num_channels),
-        ]
-    )
+    return [
+        RandomAffine(
+            degrees=(-augment_ops.rotation, augment_ops.rotation),
+            translate=(dx_translation, dy_translation),
+            scale=(1 - augment_ops.zoom, 1 + augment_ops.zoom),
+        )
+    ]
 
 
-def create_basic_transform(num_channels: int = 1) -> Compose:
+def create_transform_steps(
+    num_channels: int = 1,
+    *,
+    img_size: Optional[Tuple[int, int]] = None,
+    augment_ops: Optional[AugmentOps] = None,
+    resize: Optional[int] = None,
+) -> Compose:
     """
     Create a basic transform (type+normalization) for a given channel count.
     Args:
         num_channels (int, optional): The number of channels in the input images. Defaults to 1.
     """
-    return Compose(
+    # TODO: update docstring
+
+    ops: List[Any] = [ToImage()]
+
+    if resize is not None:
+        # Resize images to the specified size (max size) and pad the smaller dimension with 0 to create square (resize, resize)
+        ops.append(Resize(size=resize, max_size=resize))
+        img_size = (resize, resize)
+
+    if augment_ops is not None:
+        if img_size is None:
+            raise ValueError("img_size must be provided when augment_ops is used")
+
+        ops.extend(get_augmentation_steps(img_size, augment_ops=augment_ops))
+
+    ops.extend(
         [
-            ToImage(),
             ToDtype(torch.float32, scale=True),
             Normalize(mean=[0.5] * num_channels, std=[0.5] * num_channels),
         ]
     )
+
+    return Compose(ops)
 
 
 class ImageDataset(Dataset):
@@ -154,7 +182,7 @@ def get_a2o_dataset(
     cache_path = download_data.download_a2o_dataset()
 
     if transform_steps is None:
-        transform_steps = create_basic_transform(3)
+        transform_steps = create_transform_steps(3)
 
     dummy_class = 1
     folder = "test"
@@ -250,6 +278,7 @@ def load_dataset(
     val_data_size: float = 0.4,
     manual_seed: int = 42,
     domain_adaptation: bool = False,
+    resize: Optional[int] = None,
 ) -> DoubleDataset: ...
 @overload
 def load_dataset(
@@ -262,6 +291,7 @@ def load_dataset(
     val_data_size: float = 0.4,
     manual_seed: int = 42,
     domain_adaptation: bool = False,
+    resize: Optional[int] = None,
 ) -> SingleDataset: ...
 
 
@@ -276,6 +306,7 @@ def load_dataset(
     val_data_size: float = 0.4,
     manual_seed: int = 42,
     domain_adaptation: bool = False,  # switch labels for A2O
+    resize: Optional[int] = None,
 ) -> Union[SingleDataset, DoubleDataset]:
     """Loads a dataset from torchvision or a local path.
 
@@ -305,7 +336,7 @@ def load_dataset(
     match dataset_name.upper():
         case "MNIST":
             if transform_steps is None:
-                transform_steps = create_basic_transform(1)
+                transform_steps = create_transform_steps(1, resize=resize)
 
             data = datasets.MNIST(
                 root="./data",
@@ -316,7 +347,7 @@ def load_dataset(
 
         case "USPS":
             if transform_steps is None:
-                transform_steps = create_basic_transform(1)
+                transform_steps = create_transform_steps(1, resize=resize)
 
             data = datasets.USPS(
                 root="./data",
@@ -332,14 +363,14 @@ def load_dataset(
                 split = "train"
 
             if transform_steps is None:
-                transform_steps = create_basic_transform(3)
+                transform_steps = create_transform_steps(3, resize=resize)
 
             data = datasets.SVHN(
                 root="./data", split=split, transform=transform_steps, download=download
             )
 
             if transform_steps is None:
-                transform_steps = create_basic_transform(3)
+                transform_steps = create_transform_steps(3, resize=resize)
 
             data = datasets.SVHN(
                 root="./data", split=split, transform=transform_steps, download=download
@@ -369,11 +400,18 @@ def load_dataset(
         case name if name.startswith("VISDA"):
             if download:
                 download_data.download_visda_dataset(train_op=train_op)
-            subfolder = name[6:].lower()  # get the part after VISDA_
-            data_folder = "data/visda2017/" + subfolder
+
+            subfolder = "train"  #  VISDA_SOURCE
+            if "VISDA_TARGET":
+                subfolder = "validation"
+
+            elif "VISDA_TEST":
+                subfolder = "test"
+
+            data_folder = download_data.DATA_FOLDER + "/" + subfolder
 
             if transform_steps is None:
-                transform_steps = create_basic_transform(3)
+                transform_steps = create_transform_steps(3, resize=resize)
 
             data = datasets.ImageFolder(
                 data_folder,
@@ -441,14 +479,13 @@ def get_dataset_chw(
         Tuple[int, int, int]: The dimensions (C, H, W) of the dataset.
     """
     sample = dataset[0][0]
-
+    print(f"shape: {sample.shape}")
     if square_expected and (sample.shape[1] != sample.shape[2]):
         raise ValueError("Expected square images")
 
     return int(sample.shape[0]), int(sample.shape[1]), int(sample.shape[2])
 
 
-# !!! If set to None/0 -> no augmentation applied (not doubled dataset)
 @overload
 def load_augmented_dataset(
     dataset_name: str,
@@ -459,6 +496,8 @@ def load_augmented_dataset(
     val_data_size: float = 0.4,
     manual_seed: int = 42,
     augment_ops: AugmentOps = AugmentOps(),
+    skip_augmentation: bool = False,
+    resize: Optional[int] = None,
 ) -> SingleDataset: ...
 @overload
 def load_augmented_dataset(
@@ -470,6 +509,8 @@ def load_augmented_dataset(
     val_data_size: float = 0.4,
     manual_seed: int = 42,
     augment_ops: AugmentOps = AugmentOps(),
+    skip_augmentation: bool = False,
+    resize: Optional[int] = None,
 ) -> DoubleDataset: ...
 
 
@@ -482,6 +523,8 @@ def load_augmented_dataset(
     val_data_size: float = 0.4,
     manual_seed: int = 42,
     augment_ops: AugmentOps = AugmentOps(),
+    skip_augmentation: bool = False,
+    resize: Optional[int] = None,
 ) -> Union[SingleDataset, DoubleDataset]:
     """
     Augmented dataset by combining original dataset and augmented dataset.
@@ -510,6 +553,7 @@ def load_augmented_dataset(
         download=download,
         manual_seed=manual_seed,
         val_data_size=val_data_size,
+        resize=resize,
     )
 
     ref_ds = original_data
@@ -521,9 +565,15 @@ def load_augmented_dataset(
         ref_ds, square_expected=True  # type: ignore
     )
 
-    transform_steps = create_augmentation_steps(
-        img_size, num_channels=num_channels, augment_ops=augment_ops
+    transform_steps = create_transform_steps(
+        num_channels,
+        img_size=(img_size, img_size),
+        augment_ops=augment_ops,
+        resize=resize,
     )
+
+    if skip_augmentation:
+        return original_data
 
     augmented_data = load_dataset(
         dataset_name,
@@ -557,6 +607,8 @@ def get_train_val_loaders(
     manual_seed: int = 42,
     val_data_size: float = 0.4,
     augment_ops: AugmentOps = AugmentOps(),
+    skip_augmentation: bool = False,
+    resize: Optional[int] = None,
     batch_size: int = 64,
     num_workers: int = 8,
     pin_memory: bool = False,
@@ -588,6 +640,8 @@ def get_train_val_loaders(
         augment_ops=augment_ops,
         manual_seed=manual_seed,
         val_data_size=val_data_size,
+        skip_augmentation=skip_augmentation,
+        resize=resize,
     )
     second_train, second_val = load_augmented_dataset(
         second_domain_name,
@@ -596,6 +650,8 @@ def get_train_val_loaders(
         augment_ops=augment_ops,
         manual_seed=manual_seed,
         val_data_size=val_data_size,
+        skip_augmentation=skip_augmentation,
+        resize=resize,
     )
 
     val_data = get_dual_domain_dataset(first_val, second_val, supervised)
@@ -638,6 +694,8 @@ def get_training_loader(
     num_workers: int = 8,
     pin_memory: bool = False,
     augment_ops: AugmentOps = AugmentOps(),
+    skip_augmentation: bool = False,
+    resize: Optional[int] = None,
 ) -> SingleLoader: ...
 @overload
 def get_training_loader(
@@ -652,6 +710,8 @@ def get_training_loader(
     num_workers: int = 8,
     pin_memory: bool = False,
     augment_ops: AugmentOps = AugmentOps(),
+    skip_augmentation: bool = False,
+    resize: Optional[int] = None,
 ) -> DoubleLoader: ...
 
 
@@ -667,6 +727,8 @@ def get_training_loader(
     num_workers: int = 8,
     pin_memory: bool = False,
     augment_ops: AugmentOps = AugmentOps(),
+    skip_augmentation: bool = False,
+    resize: Optional[int] = None,
 ) -> Union[SingleLoader, DoubleLoader]:
     """
     Get the data loaders for a dual domain dataset for training phase.
@@ -704,6 +766,8 @@ def get_training_loader(
             batch_size=batch_size,
             num_workers=num_workers,
             augment_ops=augment_ops,
+            skip_augmentation=skip_augmentation,
+            resize=resize,
             pin_memory=pin_memory,
         )
 
@@ -714,6 +778,8 @@ def get_training_loader(
         manual_seed=manual_seed,
         val_data_size=val_data_size,
         augment_ops=augment_ops,
+        skip_augmentation=skip_augmentation,
+        resize=resize,
     )
     second_data = load_augmented_dataset(
         second_domain_name,
@@ -722,6 +788,8 @@ def get_training_loader(
         manual_seed=manual_seed,
         val_data_size=val_data_size,
         augment_ops=augment_ops,
+        skip_augmentation=skip_augmentation,
+        resize=resize,
     )
 
     dual_data = get_dual_domain_dataset(first_data, second_data, supervised)
