@@ -1,5 +1,5 @@
 import torch.nn as nn
-from extended_layers import Conv2dExtended, MaxPool2dExtended
+from models.extended_layers import Conv2dExtended, MaxPool2dExtended
 
 
 class BasicBlock(nn.Module):
