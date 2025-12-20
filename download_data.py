@@ -4,6 +4,8 @@ import urllib.request
 import kagglehub
 
 
+DATA_FOLDER = "data/visda2017"
+
 def download_visda_dataset(train_op: bool = True) -> None:
     """
     Downloads and extracts the VisDA-2017 dataset.
@@ -14,7 +16,7 @@ def download_visda_dataset(train_op: bool = True) -> None:
     """
     VISDA_PATH = "http://csr.bu.edu/ftp/visda17/clf"
 
-    DATA_FOLDER = "data/visda2017"
+
     os.makedirs(DATA_FOLDER, exist_ok=True)
     TRAIN_INPUT_PATH = VISDA_PATH + "/train.tar"
     VALIDATION_INPUT_PATH = VISDA_PATH + "/validation.tar"
@@ -22,8 +24,7 @@ def download_visda_dataset(train_op: bool = True) -> None:
 
     # Check if extracted directories exist, if not check for tar and extract, if not download and extract
     if train_op:
-        source_dir = DATA_FOLDER + "/visda_source"
-        target_dir = DATA_FOLDER + "/visda_target"
+        target_dir = source_dir = DATA_FOLDER
         source_tar = DATA_FOLDER + "/train.tar"
         target_tar = DATA_FOLDER + "/validation.tar"
 
