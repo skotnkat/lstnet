@@ -92,6 +92,8 @@ def add_train_args(parser: argparse.ArgumentParser):
     _ = parser.add_argument("--rotation", type=int, default=10)
     _ = parser.add_argument("--zoom", type=float, default=0.1)
     _ = parser.add_argument("--shift", type=int, default=2)
+    _ = parser.add_argument("--skip_augmentation", action="store_true")
+
     _ = parser.add_argument(
         "--weights",
         type=float,
@@ -99,6 +101,8 @@ def add_train_args(parser: argparse.ArgumentParser):
         default=[20, 20, 30, 100, 100, 100, 100],
         help="List of 7 float weights",
     )
+
+    _ = parser.add_argument("--resize", type=int, default=None)
 
     _ = parser.add_argument(
         "--compile",
@@ -317,6 +321,8 @@ def run_training(
         logs_file_name=cmd_args.logs_file_name,
         manual_seed=cmd_args.manual_seed,
         augm_ops=augm_ops,
+        skip_augmentation=skip_augmentation,
+        resize=resize,
         train_params=train_params,
         compile_model=cmd_args.compile,
         use_checkpoint=cmd_args.use_checkpoint,

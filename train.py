@@ -81,6 +81,8 @@ def run(
     batch_size: int = 64,
     num_workers: int = 8,
     augm_ops: AugmentOps = AugmentOps(),
+    skip_augmentation: bool = False,
+    resize: Optional[int] = None,
     train_params: TrainParams = TrainParams(),
     optuna: bool = False,
     optuna_trial: Optional[optuna.Trial] = None,
@@ -128,6 +130,8 @@ def run(
             num_workers=num_workers,
             pin_memory=pin_memory,
             augment_ops=augm_ops,
+            skip_augmentation=skip_augmentation,
+            resize=resize,
         )
     else:
         train_loader = get_training_loader(
@@ -141,6 +145,8 @@ def run(
             num_workers=num_workers,
             pin_memory=pin_memory,
             augment_ops=augm_ops,
+            skip_augmentation=skip_augmentation,
+            resize=resize,
         )
 
         val_loader = None
