@@ -18,7 +18,6 @@ def download_visda_dataset(train_op: bool = True) -> None:
     """
     VISDA_PATH = "http://csr.bu.edu/ftp/visda17/clf"
 
-
     os.makedirs(DATA_FOLDER, exist_ok=True)
     TRAIN_INPUT_PATH = VISDA_PATH + "/train.tar"
     VALIDATION_INPUT_PATH = VISDA_PATH + "/validation.tar"
@@ -26,7 +25,8 @@ def download_visda_dataset(train_op: bool = True) -> None:
 
     # Check if extracted directories exist, if not check for tar and extract, if not download and extract
     if train_op:
-        target_dir = source_dir = DATA_FOLDER
+        source_dir = os.path.join(DATA_FOLDER, "train")
+        target_dir = os.path.join(DATA_FOLDER, "validation")
         source_tar = DATA_FOLDER + "/train.tar"
         target_tar = DATA_FOLDER + "/validation.tar"
 
@@ -34,21 +34,21 @@ def download_visda_dataset(train_op: bool = True) -> None:
         if not os.path.exists(source_dir):
             if os.path.exists(source_tar):
                 print(
-                    f"Found existing tar file. Extracting {source_tar} to {source_dir}..."
+                    f"Found existing tar file. Extracting {source_tar} to {DATA_FOLDER}..."
                 )
                 with tarfile.open(source_tar, "r") as tar:
-                    tar.extractall(source_dir)
+                    tar.extractall(DATA_FOLDER)
                 os.remove(source_tar)
-                print(f"Training data extracted to visda_source and tar file removed.")
+                print(f"Training data extracted to {source_dir} and tar file removed.")
             else:
                 print(f"Downloading training data to {source_tar}...")
                 _ = urllib.request.urlretrieve(TRAIN_INPUT_PATH, source_tar)
                 print("Download complete.")
-                print(f"Extracting {source_tar} to {source_dir}...")
+                print(f"Extracting {source_tar} to {DATA_FOLDER}...")
                 with tarfile.open(source_tar, "r") as tar:
-                    tar.extractall(source_dir)
+                    tar.extractall(DATA_FOLDER)
                 os.remove(source_tar)
-                print(f"Training data extracted to visda_source and tar file removed.")
+                print(f"Training data extracted to {source_dir} and tar file removed.")
         else:
             print(f"Training data already exists at {source_dir}")
 
