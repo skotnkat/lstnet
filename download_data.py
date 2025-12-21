@@ -1,10 +1,12 @@
 import os
+import shutil
 import tarfile
 import urllib.request
 import kagglehub
 
 
 DATA_FOLDER = "data/visda2017"
+
 
 def download_visda_dataset(train_op: bool = True) -> None:
     """
@@ -54,24 +56,24 @@ def download_visda_dataset(train_op: bool = True) -> None:
         if not os.path.exists(target_dir):
             if os.path.exists(target_tar):
                 print(
-                    f"Found existing tar file. Extracting {target_tar} to {target_dir}..."
+                    f"Found existing tar file. Extracting {target_tar} to {DATA_FOLDER}..."
                 )
                 with tarfile.open(target_tar, "r") as tar:
-                    tar.extractall(target_dir)
+                    tar.extractall(DATA_FOLDER)
                 os.remove(target_tar)
                 print(
-                    f"Validation data extracted to visda_target and tar file removed."
+                    f"Validation data extracted to {target_dir} and tar file removed."
                 )
             else:
                 print(f"Downloading validation data to {target_tar}...")
                 _ = urllib.request.urlretrieve(VALIDATION_INPUT_PATH, target_tar)
                 print("Download complete.")
-                print(f"Extracting {target_tar} to {target_dir}...")
+                print(f"Extracting {target_tar} to {DATA_FOLDER}...")
                 with tarfile.open(target_tar, "r") as tar:
-                    tar.extractall(target_dir)
+                    tar.extractall(DATA_FOLDER)
                 os.remove(target_tar)
                 print(
-                    f"Validation data extracted to visda_target and tar file removed."
+                    f"Validation data extracted to {target_dir} and tar file removed."
                 )
         else:
             print(f"Validation data already exists at {target_dir}")
@@ -103,8 +105,10 @@ def download_visda_dataset(train_op: bool = True) -> None:
             print(f"Test data already exists at {test_dir}")
 
 
-def download_a2o_dataset() -> str:
+def download_a2o_dataset(target_path) -> None:
     A2O_DATASET = "balraj98/apple2orange-dataset"
     cache_path = kagglehub.dataset_download(A2O_DATASET)
 
-    return cache_path
+    _ = shutil.move(cache_path, target_path)
+
+

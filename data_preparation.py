@@ -179,7 +179,8 @@ def get_a2o_dataset(
     transform_steps: Optional[Compose] = None,
     domain_adaptation: bool = False,
 ) -> Dataset[Any]:
-    cache_path = download_data.download_a2o_dataset()
+    target_path = "data/a2o_dataset"
+    download_data.download_a2o_dataset(target_path)
 
     if transform_steps is None:
         transform_steps = create_transform_steps(3)
@@ -198,7 +199,7 @@ def get_a2o_dataset(
     if domain_adaptation:
         dummy_class = 1 - dummy_class
 
-    path = f"{cache_path}/{folder}{letter}"
+    path = f"{target_path}/{folder}{letter}"
     print(f"path: {path}")
     data = ImageDataset(
         folder=path,
