@@ -446,6 +446,29 @@ def load_dataset(
             if train_op:
                 data = train_data
 
+        case name if name.startswith("HOME_OFFICE"):
+            target_path = "data/home_office"
+            if download:
+                download_data.download_home_office_dataset(target_path)
+
+            subfolder = "Art"
+            if "HOME_OFFICE_CLIPART":
+                subfolder = "Clipart"
+            elif "HOME_OFFICE_REALWORLD":
+                subfolder = "Real World"
+
+            # TODO: refactor to not do the same code twice
+            data_folder = f"{target_path}/{subfolder}"
+            data = datasets.ImageFolder(data_folder, transform=transform_steps)
+
+            train_data, test_data = split_train_val_dataset(
+                data, val_data_size=0.25, manual_seed=manual_seed
+            )  # splitting to train and test
+
+            data = test_data
+            if train_op:
+                data = train_data
+
         case _:
             # dataset_name is path
             print(f"Trying to load dataset {dataset_name} locally")

@@ -118,3 +118,9 @@ def download_office_31_dataset(target_path) -> None:
 
     _ = shutil.move(cache_path, target_path)
 
+
+def download_home_office_dataset(target_path) -> None:
+    OFFICE_HOME_DATASET = "karntiwari/home-office-dataset"
+    cache_path = kagglehub.dataset_download(OFFICE_HOME_DATASET)
+
+    _ = shutil.move(cache_path, target_path)
