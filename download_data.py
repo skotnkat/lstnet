@@ -112,3 +112,9 @@ def download_a2o_dataset(target_path) -> None:
     _ = shutil.move(cache_path, target_path)
 
 
+def download_office_31_dataset(target_path) -> None:
+    OFFICE_31_DATASET = "eduardolawsondasilva/office-31"
+    cache_path = kagglehub.dataset_download(OFFICE_31_DATASET)
+
+    _ = shutil.move(cache_path, target_path)
+

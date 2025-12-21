@@ -419,6 +419,33 @@ def load_dataset(
                 transform=transform_steps,
             )
 
+        case name if name.startswith("OFFICE_31"):
+            target_path = "data/office_31"
+            if download:
+                download_data.download_office_31_dataset(target_path)
+
+            subfolder = "amazon/images"
+
+            if "OFFICE_31_WEBCAM":
+                subfolder = "webcam/images"
+
+            elif "OFFICE_31_DSLR":
+                subfolder = "dslr/images"
+
+            if transform_steps is None:
+                transform_steps = create_transform_steps(3, resize=resize)
+
+            data_folder = f"{target_path}/{subfolder}"
+            data = datasets.ImageFolder(data_folder, transform=transform_steps)
+
+            train_data, test_data = split_train_val_dataset(
+                data, val_data_size=0.25, manual_seed=manual_seed
+            )  # splitting to train and test
+
+            data = test_data
+            if train_op:
+                data = train_data
+
         case _:
             # dataset_name is path
             print(f"Trying to load dataset {dataset_name} locally")
