@@ -107,6 +107,11 @@ def download_visda_dataset(train_op: bool = True) -> None:
 
 def download_a2o_dataset(target_path) -> None:
     A2O_DATASET = "balraj98/apple2orange-dataset"
+
+    if os.path.exists(target_path):
+        print(f"A2O dataset already exists at {target_path}")
+        return
+
     cache_path = kagglehub.dataset_download(A2O_DATASET)
 
     _ = shutil.move(cache_path, target_path)
@@ -114,6 +119,11 @@ def download_a2o_dataset(target_path) -> None:
 
 def download_office_31_dataset(target_path) -> None:
     OFFICE_31_DATASET = "eduardolawsondasilva/office-31"
+
+    if os.path.exists(target_path):
+        print(f"Office 31 dataset already exists at {target_path}")
+        return
+
     cache_path = kagglehub.dataset_download(OFFICE_31_DATASET)
 
     _ = shutil.move(cache_path, target_path)
@@ -121,6 +131,11 @@ def download_office_31_dataset(target_path) -> None:
 
 def download_home_office_dataset(target_path) -> None:
     OFFICE_HOME_DATASET = "karntiwari/home-office-dataset"
+
+    if os.path.exists(target_path):
+        print(f"Home Office dataset already exists at {target_path}")
+        return
+
     cache_path = kagglehub.dataset_download(OFFICE_HOME_DATASET)
 
     _ = shutil.move(cache_path, target_path)
