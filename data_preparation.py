@@ -25,6 +25,7 @@ from torchvision.transforms.v2 import (
     ToDtype,
     Normalize,
     Resize,
+    RandomResizedCrop,
 )
 from torch.utils.data import ConcatDataset, DataLoader, random_split, Dataset
 import torch
@@ -80,6 +81,17 @@ def get_augmentation_steps(
             degrees=(-augment_ops.rotation, augment_ops.rotation),
             translate=(dx_translation, dy_translation),
             scale=(1 - augment_ops.zoom, 1 + augment_ops.zoom),
+        )
+    ]
+
+
+def get_random_crop_steps():
+    return [
+        RandomResizedCrop(
+            size=224,  # Output size 224×224
+            scale=(0.8, 1.0),  # Crop 80-100% of area
+            ratio=(1.0, 1.0),  # Keep square aspect ratio
+            antialias=True,
         )
     ]
 
