@@ -204,6 +204,12 @@ def select_classifier(domain_name, params):
         case "VISDA_TARGET":
             clf = ResNet18(in_channels_num=3, num_classes=12)
 
+        case name if name.startswith("OFFICE_31"):
+            clf = ResNet18(in_channels_num=3, num_classes=31)
+
+        case name if name.startswith("HOME_OFFICE"):
+            clf = ResNet18(in_channels_num=3, num_classes=65)
+
     if clf is None:
         raise ValueError("No classifier model loaded.")
 
