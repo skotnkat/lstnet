@@ -8,7 +8,7 @@ import json
 import torch
 from torch import Tensor
 
-from lion_pytorch import Lion
+# from lion_pytorch import Lion
 
 PARAMS_FILE_PATH = None
 NETWORK_NAMES = {
@@ -255,8 +255,13 @@ def init_optimizer(
             model_params, lr, betas=betas, weight_decay=weight_decay
         )
 
-    elif optim_name == "Lion":
-        optim = Lion(model_params, lr, betas=betas, weight_decay=weight_decay)
+    # elif optim_name == "Lion":
+    #     optim = Lion(model_params, lr, betas=betas, weight_decay=weight_decay)
+
+    elif optim_name == "SGD":
+        optim = torch.optim.SGD(
+            model_params, lr, momentum=betas[0], weight_decay=weight_decay
+        )
 
     else:
         err_msg = f"Given optimizer name {optim_name} is not internally implemented yet"
