@@ -58,6 +58,7 @@ def get_augmentation_steps(
     img_size: Tuple[int, int],
     *,
     augment_ops: AugmentOps = AugmentOps(),
+    fill: Union[int, Tuple[int, int, int]] = 0,
 ) -> List[Any]:  # TODO: specify correct type
     """
     Creates a series of augmentation steps for image preprocessing.
@@ -81,6 +82,7 @@ def get_augmentation_steps(
             degrees=(-augment_ops.rotation, augment_ops.rotation),
             translate=(dx_translation, dy_translation),
             scale=(1 - augment_ops.zoom, 1 + augment_ops.zoom),
+            fill=fill
         )
     ]
 
@@ -121,7 +123,10 @@ def create_transform_steps(
         if img_size is None:
             raise ValueError("img_size must be provided when augment_ops is used")
 
-        ops.extend(get_augmentation_steps(img_size, augment_ops=augment_ops))
+        fill = 0
+        if num_channels == 3:
+            fill = (127, 127, 127)
+        ops.extend(get_augmentation_steps(img_size, augment_ops=augment_ops, fill=fill))
 
     ops.extend(
         [
