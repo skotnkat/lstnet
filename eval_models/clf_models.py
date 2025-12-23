@@ -205,7 +205,7 @@ def select_classifier(domain_name, params):
             clf = ResNet18(in_channels_num=3, num_classes=12)
 
     if clf is None:
-        raise ValueError("No classifier model as loaded.")
+        raise ValueError("No classifier model loaded.")
 
     return clf.to(utils.DEVICE)
 
