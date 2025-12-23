@@ -64,8 +64,10 @@ def get_clf(
     clf_params: Optional[List[Any]] = None,
 ):
     # Load Parameters File
-    if params_path is None and clf_params is None:
-        raise ValueError("Either params_path or clf_params must be provided.")
+    # if params_path is None and clf_params is None:
+    #     raise ValueError("Either params_path or clf_params must be provided.")
+
+    # TODO: Fix for Base clfs and SVHN: should pass, however for resnet not
 
     if clf_params is not None:
         params = clf_params
