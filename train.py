@@ -41,6 +41,7 @@ def run(
     optuna_trial: Optional[optuna.Trial] = None,
     compile_model: bool = False,
     use_checkpoint: bool = False,
+    use_svhn_extra: bool = False,
 ) -> LSTNET: ...
 @overload
 def run(
@@ -64,6 +65,7 @@ def run(
     optuna_trial: Optional[optuna.Trial] = None,
     compile_model: bool = False,
     use_checkpoint: bool = False,
+    use_svhn_extra: bool = False,
 ) -> Tuple[LSTNET, Dict[str, Any]]: ...
 def run(
     first_domain_name: str,
@@ -88,6 +90,7 @@ def run(
     optuna_trial: Optional[optuna.Trial] = None,
     compile_model: bool = False,
     use_checkpoint: bool = False,
+    use_svhn_extra: bool = False,
 ) -> Union[LSTNET, Tuple[LSTNET, Dict[str, Any]]]:
     """Train the LSTNET model.
 
@@ -108,6 +111,7 @@ def run(
         augm_ops (AugmentOps, optional): Data augmentation operations. Defaults to AugmentOps().
         train_params (TrainParams, optional): Training hyperparameters. Defaults to TrainParams().
         use_checkpoint (bool, optional): Enable gradient checkpointing. Defaults to False.
+        use_svhn_extra (bool, optional): For SVHN, include extra training data. Defaults to False.
 
     Returns:
         LSTNET: The trained LSTNET model.
@@ -132,6 +136,7 @@ def run(
             augment_ops=augm_ops,
             skip_augmentation=skip_augmentation,
             resize=resize,
+            use_svhn_extra=use_svhn_extra,
         )
     else:
         train_loader = get_training_loader(
@@ -147,6 +152,7 @@ def run(
             augment_ops=augm_ops,
             skip_augmentation=skip_augmentation,
             resize=resize,
+            use_svhn_extra=use_svhn_extra,
         )
 
         val_loader = None
