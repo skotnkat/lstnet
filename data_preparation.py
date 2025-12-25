@@ -837,6 +837,7 @@ def get_train_val_loaders(
     batch_size: int = 64,
     num_workers: int = 8,
     pin_memory: bool = False,
+    use_svhn_extra: bool = False,
 ) -> DoubleLoader:
     """
     Get training and validation data loaders for dual domain datasets.
