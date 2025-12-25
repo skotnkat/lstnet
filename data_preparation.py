@@ -78,7 +78,6 @@ def get_augmentation_steps(
     Returns:
         Compose: A composition of image transformation steps.
     """
-    print(f"augment_ops: {augment_ops}")
     dx_translation = augment_ops.shift / img_size[0]
     dy_translation = augment_ops.shift / img_size[1]
 
@@ -552,7 +551,6 @@ def get_dataset_chw(
         Tuple[int, int, int]: The dimensions (C, H, W) of the dataset.
     """
     sample = dataset[0][0]
-    print(f"shape: {sample.shape}")
     if square_expected and (sample.shape[1] != sample.shape[2]):
         raise ValueError("Expected square images")
 
