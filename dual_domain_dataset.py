@@ -5,11 +5,12 @@ Module is implementing class to handle two corresponding datasets
 In supervised manner, it ensures that images with the same labels are paired together.
 """
 
-from typing import Tuple, List, Dict
+from typing import Tuple, List, Dict, Optional, Any
 
 import torch
 from torch import Tensor
-from torch.utils.data import Dataset
+from torch.utils.data import Dataset, ConcatDataset
+from torchvision.transforms import Compose
 
 
 class DualDomainDataset(Dataset[Tuple[Tensor, int, Tensor, int]]):
@@ -22,24 +23,58 @@ class DualDomainDataset(Dataset[Tuple[Tensor, int, Tensor, int]]):
         self,
         first_data: Dataset[Tuple[Tensor, int]],
         second_data: Dataset[Tuple[Tensor, int]],
+        first_transform: Optional[Compose] = None,
+        second_transform: Optional[
+            Compose
+        ] = None,  # Augmentation is skipped when None is apssed
     ) -> None:
         """Initialize the dual domain dataset.
 
         Args:
             first_data (Dataset[Tuple[Tensor, int]]): The first dataset.
             second_data (Dataset[Tuple[Tensor, int]]): The second dataset.
+            repeat_transform (Optional[Compose], optional): Transform to apply to augmented
+                version of the bigger dataset. If provided, the bigger dataset will be
+                doubled (original + augmented). Defaults to None.
         """
-        self.first_data: Dataset[Tuple[Tensor, int]] = first_data
-        self.second_data: Dataset[Tuple[Tensor, int]] = second_data
+        # Get original sizes
+        first_size_original: int = len(first_data)  # type: ignore
+        second_size_original: int = len(second_data)  # type: ignore
 
-        # Pylance gives an error here, but len() works for Dataset
-        self.first_size: int = len(self.first_data)  # type: ignore
-        self.second_size: int = len(self.second_data)  # type:ignore
-
-        if self.first_size == 0 or self.second_size == 0:
+        if first_size_original == 0 or second_size_original == 0:
             raise ValueError("Datasets must not be empty.")
 
+        # Determine which dataset is smaller
+        first_is_smaller = first_size_original < second_size_original
+
+        # If repeat_transform is provided, augment the bigger dataset (double its size)
+        if first_is_smaller:
+            self.first_data = first_data
+            self.repeat_transform = first_transform
+            if second_transform is not None:
+                augmented_second = AugmentedDataset(second_data, second_transform)
+                self.second_data = ConcatDataset([second_data, augmented_second])
+            else:
+                self.second_data = second_data
+
+        else:
+            self.second_data = second_data
+            self.repeat_transform = second_transform
+
+            if first_transform is not None:
+                augmented_first = AugmentedDataset(first_data, first_transform)
+                self.first_data = ConcatDataset([first_data, augmented_first])
+            else:
+                self.first_data = first_data
+
+        # Update sizes after potential augmentation
+        self.first_size: int = len(self.first_data)  # type: ignore
+        self.second_size: int = len(self.second_data)  # type: ignore
         self.max_size: int = max(self.first_size, self.second_size)
+
+        # Track which is smaller and store transform for repeat cycles
+        self.first_is_smaller = self.first_size < self.second_size
+        self.smaller_size = min(self.first_size, self.second_size)
 
     def __len__(self) -> int:
         """Return the maximum size of the two datasets."""
@@ -58,6 +93,11 @@ class DualDomainDataset(Dataset[Tuple[Tensor, int, Tensor, int]]):
         first_idx: int = idx % self.first_size
         second_idx: int = idx % self.second_size
 
+        # Check if we're in a repeat cycle (beyond the smaller dataset's size)
+        repeat_flag: bool = (idx >= self.smaller_size) and (
+            self.repeat_transform is not None
+        )
+
         first_img: Tensor
         first_label: int
         first_img, first_label = self.first_data[first_idx]
@@ -65,6 +105,13 @@ class DualDomainDataset(Dataset[Tuple[Tensor, int, Tensor, int]]):
         second_img: Tensor
         second_label: int
         second_img, second_label = self.second_data[second_idx]
+
+        # Apply repeat_transform to the smaller dataset when it cycles
+        if repeat_flag:
+            if self.first_is_smaller:
+                first_img = self.repeat_transform(first_img)
+            else:
+                second_img = self.repeat_transform(second_img)
 
         # Temporary type check for different dataset implementations
         if not isinstance(first_label, int) or not isinstance(second_label, int):
@@ -118,19 +165,23 @@ class DualDomainSupervisedDataset(DualDomainDataset):
         self,
         first_data: Dataset[Tuple[Tensor, int]],
         second_data: Dataset[Tuple[Tensor, int]],
+        first_transform: Optional[Compose] = None,
+        second_transform: Optional[Compose] = None,
     ) -> None:
         """Initialize the dual domain supervised dataset.
 
         Args:
             first_data (Dataset[Tuple[Tensor, int]]): The first dataset.
             second_data (Dataset[Tuple[Tensor, int]]): The second dataset.
+            first_transform (Optional[Compose], optional): Transform for first dataset. Defaults to None.
+            second_transform (Optional[Compose], optional): Transform for second dataset. Defaults to None.
 
         Raises:
             ValueError: If the first dataset is smaller than the second one.
             KeyError: If a label in the second dataset is not present in the first dataset.
             KeyError: If a label in the second dataset is missing.
         """
-        super().__init__(first_data, second_data)
+        super().__init__(first_data, second_data, first_transform, second_transform)
 
         if self.first_size < self.second_size:
             raise ValueError("First dataset cannot be smaller than the second one.")
@@ -242,6 +293,8 @@ def get_dual_domain_dataset(
     first_data: Dataset[Tuple[Tensor, int]],
     second_data: Dataset[Tuple[Tensor, int]],
     supervised: bool = False,
+    first_transform: Optional[Compose] = None,
+    second_transform: Optional[Compose] = None,
 ) -> DualDomainDataset:
     """
     Combine two datasets into a single dual domain dataset.
@@ -250,14 +303,45 @@ def get_dual_domain_dataset(
         first_data (Dataset[Tuple[Tensor, int]]): The first domain dataset.
         second_data (Dataset[Tuple[Tensor, int]]): The second domain dataset.
         supervised (bool, optional): Whether to use supervised learning. Defaults to False.
+        first_transform (Optional[Compose], optional): Transform to apply to first dataset augmentation.
+            Defaults to None.
+        second_transform (Optional[Compose], optional): Transform to apply to second dataset augmentation.
+            Defaults to None.
 
     Returns:
         DualDomainDataset: The dual domain dataset.
     """
     if supervised:
-        dual_data = DualDomainSupervisedDataset(first_data, second_data)
+        dual_data = DualDomainSupervisedDataset(
+            first_data, second_data, first_transform, second_transform
+        )
 
     else:
-        dual_data = DualDomainDataset(first_data, second_data)
+        dual_data = DualDomainDataset(
+            first_data, second_data, first_transform, second_transform
+        )
 
     return dual_data
+
+
+class AugmentedDataset(Dataset[Tuple[Tensor, int]]):
+    """Wrapper to apply transform to an existing dataset."""
+
+    def __init__(
+        self, base_dataset: Dataset[Tuple[Tensor, int]], transform: Optional[Compose]
+    ):
+        self.base_dataset = base_dataset
+        self.transform = transform
+
+    def __len__(self) -> int:
+        return len(self.base_dataset)  # type: ignore
+
+    def __getitem__(self, idx: int) -> Tuple[Tensor, int]:
+        img, label = self.base_dataset[idx]
+        if self.transform:
+            img = self.transform(img)
+        return img, label
+
+
+def augment_dataset(dataset, transform) -> Dataset[Any]:
+    pass
