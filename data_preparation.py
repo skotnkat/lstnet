@@ -29,7 +29,11 @@ from torchvision.transforms.v2 import (
 )
 from torch.utils.data import ConcatDataset, DataLoader, random_split, Dataset
 import torch
-from dual_domain_dataset import get_dual_domain_dataset, custom_collate_fn
+from dual_domain_dataset import (
+    get_dual_domain_dataset,
+    custom_collate_fn,
+    AugmentedDataset,
+)
 import download_data
 
 
@@ -82,11 +86,11 @@ def get_augmentation_steps(
             degrees=(-augment_ops.rotation, augment_ops.rotation),
             translate=(dx_translation, dy_translation),
             scale=(1 - augment_ops.zoom, 1 + augment_ops.zoom),
-            fill=fill
         )
     ]
 
 
+# TODO: incorporate into the create_transform_steps function
 def get_random_crop_steps():
     return [
         RandomResizedCrop(
@@ -124,9 +128,13 @@ def create_transform_steps(
             raise ValueError("img_size must be provided when augment_ops is used")
 
         fill = 0
-        if num_channels == 3:
+        if num_channels == 3:  # Do not augment by black only
             fill = (127, 127, 127)
+
         ops.extend(get_augmentation_steps(img_size, augment_ops=augment_ops, fill=fill))
+
+    # TODO: run this only for home-office etc.
+    # ops.extend(get_random_crop_steps())
 
     ops.extend(
         [
@@ -633,6 +641,9 @@ def load_augmented_dataset(
         ref_ds, square_expected=True  # type: ignore
     )
 
+    if skip_augmentation:
+        return original_data
+
     transform_steps = create_transform_steps(
         num_channels,
         img_size=(img_size, img_size),
@@ -640,31 +651,119 @@ def load_augmented_dataset(
         resize=resize,
     )
 
-    if skip_augmentation:
-        return original_data
-
-    augmented_data = load_dataset(
-        dataset_name,
-        train_op=train_op,
-        download=False,
-        split_data=split_data,
-        transform_steps=transform_steps,
-        manual_seed=manual_seed,
-        val_data_size=val_data_size,
-    )
-
     if not split_data:
         assert not isinstance(original_data, tuple)
-        assert not isinstance(augmented_data, tuple)
 
+        # Use AugmentedDataset wrapper instead of loading twice
+        augmented_data = AugmentedDataset(original_data, transform_steps)
         return ConcatDataset([original_data, augmented_data])
 
     orig_train, orig_val = original_data
-    augm_train, _ = augmented_data
 
+    # Use AugmentedDataset wrapper instead of loading twice
+    augm_train = AugmentedDataset(orig_train, transform_steps)
     train_data: Dataset[Any] = ConcatDataset([orig_train, augm_train])
 
     return train_data, orig_val
+
+
+def load_dual_domain_dataset(
+    first_domain_name: str,
+    second_domain_name: str,
+    supervised: bool = False,
+    *,
+    train_op: bool = True,
+    split_data: bool = False,
+    manual_seed: int = 42,
+    val_data_size: float = 0.4,
+    augment_ops: AugmentOps = AugmentOps(),
+    skip_augmentation: bool = False,
+    resize: Optional[int] = None,
+) -> Union[DualDomainDataset, Tuple[DualDomainDataset, DualDomainDataset]]:
+    """
+    Load two datasets and combine them into a DualDomainDataset with augmentation.
+    DualDomainDataset handles augmentation internally (doubles bigger dataset, transforms smaller on repeat).
+
+    Args:
+        first_domain_name (str): The name of the first domain dataset.
+        second_domain_name (str): The name of the second domain dataset.
+        supervised (bool, optional): Whether to use supervised learning. Defaults to False.
+        train_op (bool, optional): Whether to load training data. Defaults to True.
+        split_data (bool, optional): Whether to split into train/val. Defaults to False.
+        manual_seed (int, optional): Random seed. Defaults to 42.
+        val_data_size (float, optional): Validation split proportion. Defaults to 0.4.
+        augment_ops (AugmentOps, optional): Augmentation parameters. Defaults to AugmentOps().
+        skip_augmentation (bool, optional): Skip augmentation. Defaults to False.
+        resize (Optional[int], optional): Resize images. Defaults to None.
+
+    Returns:
+        Union[DualDomainDataset, Tuple[DualDomainDataset, DualDomainDataset]]:
+            Single DualDomainDataset or (train, val) tuple.
+    """
+    # Load datasets without augmentation - DualDomainDataset will handle it
+    first_data = load_dataset(
+        first_domain_name,
+        train_op=train_op,
+        split_data=split_data,
+        manual_seed=manual_seed,
+        val_data_size=val_data_size,
+        resize=resize,
+    )
+    second_data = load_dataset(
+        second_domain_name,
+        train_op=train_op,
+        split_data=split_data,
+        manual_seed=manual_seed,
+        val_data_size=val_data_size,
+        resize=resize,
+    )
+
+    # Create transforms for DualDomainDataset
+    first_transform = None
+    second_transform = None
+    if not skip_augmentation:
+        # Get reference datasets for determining dimensions
+        first_ref = first_data[0] if split_data else first_data
+        second_ref = second_data[0] if split_data else second_data
+
+        # Get dimensions for creating transforms
+        first_channels, first_img_size, _ = get_dataset_chw(
+            first_ref, square_expected=True
+        )
+        second_channels, second_img_size, _ = get_dataset_chw(
+            second_ref, square_expected=True
+        )
+
+        first_transform = create_transform_steps(
+            first_channels,
+            img_size=(first_img_size, first_img_size),
+            augment_ops=augment_ops,
+            resize=resize,
+        )
+        second_transform = create_transform_steps(
+            second_channels,
+            img_size=(second_img_size, second_img_size),
+            augment_ops=augment_ops,
+            resize=resize,
+        )
+
+    if not split_data:
+        return get_dual_domain_dataset(
+            first_data, second_data, supervised, first_transform, second_transform
+        )
+
+    # Handle split data case
+    first_train, first_val = first_data
+    second_train, second_val = second_data
+
+    train_dual = get_dual_domain_dataset(
+        first_train, second_train, supervised, first_transform, second_transform
+    )
+    val_dual = get_dual_domain_dataset(
+        first_val, second_val, supervised, first_transform, second_transform
+    )
+
+    return train_dual, val_dual
 
 
 def get_train_val_loaders(
@@ -701,29 +800,18 @@ def get_train_val_loaders(
         Tuple[DataLoader[Any], DataLoader[Any]]: The training and validation data loaders.
     """
 
-    first_train, first_val = load_augmented_dataset(
+    train_data, val_data = load_dual_domain_dataset(
         first_domain_name,
-        train_op=True,
-        split_data=True,
-        augment_ops=augment_ops,
-        manual_seed=manual_seed,
-        val_data_size=val_data_size,
-        skip_augmentation=skip_augmentation,
-        resize=resize,
-    )
-    second_train, second_val = load_augmented_dataset(
         second_domain_name,
+        supervised,
         train_op=True,
         split_data=True,
-        augment_ops=augment_ops,
         manual_seed=manual_seed,
         val_data_size=val_data_size,
+        augment_ops=augment_ops,
         skip_augmentation=skip_augmentation,
         resize=resize,
     )
-
-    val_data = get_dual_domain_dataset(first_val, second_val, supervised)
-    train_data = get_dual_domain_dataset(first_train, second_train, supervised)
 
     train_loader = get_data_loader(
         train_data,
@@ -839,18 +927,10 @@ def get_training_loader(
             pin_memory=pin_memory,
         )
 
-    first_data = load_augmented_dataset(
+    dual_data = load_dual_domain_dataset(
         first_domain_name,
-        train_op=True,
-        split_data=False,
-        manual_seed=manual_seed,
-        val_data_size=val_data_size,
-        augment_ops=augment_ops,
-        skip_augmentation=skip_augmentation,
-        resize=resize,
-    )
-    second_data = load_augmented_dataset(
         second_domain_name,
+        supervised,
         train_op=True,
         split_data=False,
         manual_seed=manual_seed,
@@ -859,8 +939,6 @@ def get_training_loader(
         skip_augmentation=skip_augmentation,
         resize=resize,
     )
-
-    dual_data = get_dual_domain_dataset(first_data, second_data, supervised)
 
     # Respect the provided pin_memory value; set True at call sites if training on GPU.
 
