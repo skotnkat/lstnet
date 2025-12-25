@@ -395,13 +395,6 @@ def load_dataset(
                 root="./data", split=split, transform=transform_steps, download=download
             )
 
-            if transform_steps is None:
-                transform_steps = create_transform_steps(3, resize=resize)
-
-            data = datasets.SVHN(
-                root="./data", split=split, transform=transform_steps, download=download
-            )
-
         case "APPLE":  # from the a2o dataset
             data = get_a2o_dataset(
                 "APPLE",
@@ -667,6 +660,61 @@ def load_augmented_dataset(
     return train_data, orig_val
 
 
+def add_svhn_extra_to_dataset(
+    data: Union[SingleDataset, DoubleDataset],
+    domain_name: str,
+    split_data: bool,
+    augmentation_transform: Optional[Compose],
+    resize: Optional[int] = None,
+) -> Tuple[Union[SingleDataset, DoubleDataset], Optional[Compose]]:
+    """Add SVHN extra dataset to the training data with proper augmentation handling.
+
+    Args:
+        data: The dataset (or tuple of train/val datasets if split_data=True)
+        domain_name: Name of the domain to check if it's SVHN
+        split_data: Whether data is split into (train, val)
+        augmentation_transform: Transform to use for augmenting train data (not extra)
+        resize: Optional resize parameter for loading extra data
+
+    Returns:
+        Tuple of (modified_data, modified_transform):
+            - modified_data: Data with extra added and train augmented
+            - modified_transform: None (since we handle augmentation manually)
+    """
+    if "SVHN" not in domain_name.upper():
+        # Not SVHN, return unchanged
+        return data, augmentation_transform
+
+    # Load extra dataset
+    transform_steps = create_transform_steps(3, resize=resize)
+    extra_data = datasets.SVHN(
+        root="./data", split="extra", transform=transform_steps, download=True
+    )
+
+    if split_data:
+        train_data, val_data = data  # type: ignore
+        # Manually augment train_data, then add extra (no augmentation)
+        if augmentation_transform is not None:
+            augmented_train = AugmentedDataset(train_data, augmentation_transform)
+            train_data = ConcatDataset([train_data, augmented_train, extra_data])
+        else:
+            train_data = ConcatDataset([train_data, extra_data])
+        print(f"SVHN: train augmented + {len(extra_data)} extra (no aug) + val")
+        return (
+            train_data,
+            val_data,
+        ), None  # Return None to disable DualDomainDataset auto-augmentation
+    else:
+        # No split - augment data, then add extra
+        if augmentation_transform is not None:
+            augmented_data = AugmentedDataset(data, augmentation_transform)  # type: ignore
+            data = ConcatDataset([data, augmented_data, extra_data])  # type: ignore
+        else:
+            data = ConcatDataset([data, extra_data])  # type: ignore
+        print(f"SVHN: train augmented + {len(extra_data)} extra (no aug)")
+        return data, None  # Return None to disable DualDomainDataset auto-augmentation
+
+
 def load_dual_domain_dataset(
     first_domain_name: str,
     second_domain_name: str,
@@ -679,6 +727,7 @@ def load_dual_domain_dataset(
     augment_ops: AugmentOps = AugmentOps(),
     skip_augmentation: bool = False,
     resize: Optional[int] = None,
+    use_svhn_extra: bool = False,
 ) -> Union[DualDomainDataset, Tuple[DualDomainDataset, DualDomainDataset]]:
     """
     Load two datasets and combine them into a DualDomainDataset with augmentation.
@@ -695,12 +744,13 @@ def load_dual_domain_dataset(
         augment_ops (AugmentOps, optional): Augmentation parameters. Defaults to AugmentOps().
         skip_augmentation (bool, optional): Skip augmentation. Defaults to False.
         resize (Optional[int], optional): Resize images. Defaults to None.
+        use_svhn_extra (bool, optional): For SVHN, include extra training data. Defaults to False.
 
     Returns:
         Union[DualDomainDataset, Tuple[DualDomainDataset, DualDomainDataset]]:
             Single DualDomainDataset or (train, val) tuple.
     """
-    # Load datasets without augmentation - DualDomainDataset will handle it
+    # Load datasets without augmentation - we'll handle augmentation and SVHN extra below
     first_data = load_dataset(
         first_domain_name,
         train_op=train_op,
@@ -718,7 +768,7 @@ def load_dual_domain_dataset(
         resize=resize,
     )
 
-    # Create transforms for DualDomainDataset
+    # Create transforms for DualDomainDataset FIRST (before adding extra)
     first_transform = None
     second_transform = None
     if not skip_augmentation:
@@ -745,6 +795,16 @@ def load_dual_domain_dataset(
             img_size=(second_img_size, second_img_size),
             augment_ops=augment_ops,
             resize=resize,
+        )
+
+    # Handle SVHN extra dataset AFTER creating transforms
+    # Manually augment train data, then add extra without augmentation
+    if use_svhn_extra and train_op:
+        first_data, first_transform = add_svhn_extra_to_dataset(
+            first_data, first_domain_name, split_data, first_transform, resize
+        )
+        second_data, second_transform = add_svhn_extra_to_dataset(
+            second_data, second_domain_name, split_data, second_transform, resize
         )
 
     if not split_data:
@@ -811,6 +871,7 @@ def get_train_val_loaders(
         augment_ops=augment_ops,
         skip_augmentation=skip_augmentation,
         resize=resize,
+        use_svhn_extra=use_svhn_extra,
     )
 
     train_loader = get_data_loader(
@@ -852,6 +913,7 @@ def get_training_loader(
     augment_ops: AugmentOps = AugmentOps(),
     skip_augmentation: bool = False,
     resize: Optional[int] = None,
+    use_svhn_extra: bool = False,
 ) -> SingleLoader: ...
 @overload
 def get_training_loader(
@@ -868,6 +930,7 @@ def get_training_loader(
     augment_ops: AugmentOps = AugmentOps(),
     skip_augmentation: bool = False,
     resize: Optional[int] = None,
+    use_svhn_extra: bool = False,
 ) -> DoubleLoader: ...
 
 
@@ -885,6 +948,7 @@ def get_training_loader(
     augment_ops: AugmentOps = AugmentOps(),
     skip_augmentation: bool = False,
     resize: Optional[int] = None,
+    use_svhn_extra: bool = False,
 ) -> Union[SingleLoader, DoubleLoader]:
     """
     Get the data loaders for a dual domain dataset for training phase.
@@ -907,6 +971,7 @@ def get_training_loader(
         num_workers (int, optional): The number of worker processes for data loading. Defaults to 8.
         pin_memory (bool, optional): Whether to pin memory for faster data transfer to the GPU.
             Defaults to False.
+        use_svhn_extra (bool, optional): For SVHN, include extra training data. Defaults to False.
 
     Returns:
         DataLoader: The training data loader(s).
@@ -925,6 +990,7 @@ def get_training_loader(
             skip_augmentation=skip_augmentation,
             resize=resize,
             pin_memory=pin_memory,
+            use_svhn_extra=use_svhn_extra,
         )
 
     dual_data = load_dual_domain_dataset(
@@ -938,6 +1004,7 @@ def get_training_loader(
         augment_ops=augment_ops,
         skip_augmentation=skip_augmentation,
         resize=resize,
+        use_svhn_extra=use_svhn_extra,
     )
 
     # Respect the provided pin_memory value; set True at call sites if training on GPU.

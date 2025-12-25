@@ -93,6 +93,11 @@ def add_train_args(parser: argparse.ArgumentParser):
     _ = parser.add_argument("--zoom", type=float, default=0.1)
     _ = parser.add_argument("--shift", type=int, default=2)
     _ = parser.add_argument("--skip_augmentation", action="store_true")
+    _ = parser.add_argument(
+        "--use_svhn_extra",
+        action="store_true",
+        help="For SVHN dataset, include the extra training data (not augmented).",
+    )
 
     _ = parser.add_argument(
         "--weights",
@@ -322,6 +327,7 @@ def run_training(
         manual_seed=cmd_args.manual_seed,
         augm_ops=augm_ops,
         skip_augmentation=cmd_args.skip_augmentation,
+        use_svhn_extra=cmd_args.use_svhn_extra,
         resize=cmd_args.resize,
         train_params=train_params,
         compile_model=cmd_args.compile,
