@@ -900,6 +900,8 @@ def get_train_val_loaders(
     )
 
     print("Obtained Data Loader for both training and validation")
+    print(f"Number of batches in train: {len(train_loader)}")
+    print(f"Number of batches in val: {len(val_loader)}")
 
     return train_loader, val_loader
 
