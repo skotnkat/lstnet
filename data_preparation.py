@@ -33,6 +33,7 @@ from dual_domain_dataset import (
     get_dual_domain_dataset,
     custom_collate_fn,
     AugmentedDataset,
+    DualDomainDataset,
 )
 import download_data
 
@@ -681,9 +682,6 @@ def add_svhn_extra_to_dataset(
             - modified_data: Data with extra added and train augmented
             - modified_transform: None (since we handle augmentation manually)
     """
-    if "SVHN" not in domain_name.upper():
-        # Not SVHN, return unchanged
-        return data, augmentation_transform
 
     # Load extra dataset
     transform_steps = create_transform_steps(3, resize=resize)
