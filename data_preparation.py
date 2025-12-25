@@ -357,6 +357,9 @@ def load_dataset(
         Union[Dataset[Any], Tuple[Dataset[Any], Dataset[Any]]]: The loaded dataset(s).
             Either whole training dataset or a tuple of (training, validation) datasets.
     """
+    print(
+        f"Loading dataset: {dataset_name} with train_op: {train_op} and split_data: {split_data}"
+    )
 
     # load data from torchvision datasets
     data: Dataset[Any]
