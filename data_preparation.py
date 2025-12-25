@@ -799,12 +799,18 @@ def load_dual_domain_dataset(
     # Handle SVHN extra dataset AFTER creating transforms
     # Manually augment train data, then add extra without augmentation
     if use_svhn_extra and train_op:
-        first_data, first_transform = add_svhn_extra_to_dataset(
-            first_data, first_domain_name, split_data, first_transform, resize
-        )
-        second_data, second_transform = add_svhn_extra_to_dataset(
-            second_data, second_domain_name, split_data, second_transform, resize
-        )
+
+        if first_domain_name.upper() == "SVHN":
+            first_data, first_transform = add_svhn_extra_to_dataset(
+                first_data, first_domain_name, split_data, first_transform, resize
+            )
+
+        elif second_domain_name.upper() == "SVHN":
+            second_data, second_transform = add_svhn_extra_to_dataset(
+                second_data, second_domain_name, split_data, second_transform, resize
+            )
+        else:
+            print("No SVHN domain to add the 'extra' dataset to.")
 
     if not split_data:
         return get_dual_domain_dataset(
