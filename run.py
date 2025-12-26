@@ -21,6 +21,8 @@ from models.lstnet import LSTNET
 import lstnet_optuna
 
 
+# TODO: remove the --compile logic (makes it too complex for users -> drop last causes issue with comparability)
+
 def add_common_args(parser: argparse.ArgumentParser):
     """Add arguments common to all operations."""
     _ = parser.add_argument(
