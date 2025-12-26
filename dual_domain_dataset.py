@@ -44,7 +44,7 @@ class DualDomainDataset(Dataset[Tuple[Tensor, int, Tensor, int]]):
         if first_size_original == 0 or second_size_original == 0:
             raise ValueError("Datasets must not be empty.")
         
-        if self.first_size < self.second_size:
+        if first_size_original < second_size_original:
             raise ValueError("First dataset cannot be smaller than the second one.")
 
         # Determine which dataset is smaller
@@ -205,9 +205,6 @@ class DualDomainSupervisedDataset(DualDomainDataset):
             KeyError: If a label in the second dataset is missing.
         """
         super().__init__(first_data, second_data, first_transform, second_transform)
-
-        if self.first_size < self.second_size:
-            raise ValueError("First dataset cannot be smaller than the second one.")
 
         self.first_labels: Tensor = self._extract_labels(self.first_data)
         second_labels: Tensor = self._extract_labels(self.second_data)
