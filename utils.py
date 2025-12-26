@@ -291,14 +291,4 @@ def convert_tensor_tuple_to_floats(
 
     return tuple(t.item() for t in tuple_tensor)
 
-
-def shuffle_indices(bigger_size, smaller_size):
-    repeat_num = bigger_size // smaller_size + 1 
-    
-    smaller_indices = torch.arange(smaller_size).repeat(repeat_num)[:bigger_size]
-    
-    shuffle_perm = torch.randperm(bigger_size)
-    smaller_indices_shuff = smaller_indices[shuffle_perm]
-    
-    return smaller_indices_shuff
     
