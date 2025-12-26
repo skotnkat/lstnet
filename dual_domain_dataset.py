@@ -11,6 +11,7 @@ import torch
 from torch import Tensor
 from torch.utils.data import Dataset
 
+from utils import shuffle_indices
 
 class DualDomainDataset(Dataset[Tuple[Tensor, int, Tensor, int]]):
     """
@@ -38,12 +39,24 @@ class DualDomainDataset(Dataset[Tuple[Tensor, int, Tensor, int]]):
 
         if self.first_size == 0 or self.second_size == 0:
             raise ValueError("Datasets must not be empty.")
+        
+        if self.first_size < self.second_size:
+            raise ValueError("First dataset cannot be smaller than the second one.")
 
         self.max_size: int = max(self.first_size, self.second_size)
+        
+        # To ensure not consistent pairing of images
+        self.second_data_random_sample_idx: List[int] = []
+        self._shuffle_second_indices() 
 
     def __len__(self) -> int:
         """Return the maximum size of the two datasets."""
         return self.max_size
+    
+    def _shuffle_second_indices(self) -> None:
+        """Shuffle indices for the second dataset to ensure random sampling."""
+        self.second_data_random_sample_idx = shuffle_indices(self.first_size, self.second_size)
+        
 
     def __getitem__(self, idx: int) -> Tuple[Tensor, int, Tensor, int]:
         """Get a pair of images and their labels from the two datasets.
@@ -56,7 +69,9 @@ class DualDomainDataset(Dataset[Tuple[Tensor, int, Tensor, int]]):
                 A tuple containing the images and their labels from both datasets.
         """
         first_idx: int = idx % self.first_size
-        second_idx: int = idx % self.second_size
+        
+        
+        second_idx: int = self.second_data_random_sample_idx[idx]
 
         first_img: Tensor
         first_label: int
@@ -174,6 +189,7 @@ class DualDomainSupervisedDataset(DualDomainDataset):
             label_pointers[label] = (pos + 1) % len(label_indices[label])
 
         self.second_rank = torch.tensor(rank, dtype=torch.long)
+        
 
     def __getitem__(self, idx: int) -> Tuple[Tensor, int, Tensor, int]:
         """
