@@ -824,8 +824,10 @@ def load_dual_domain_dataset(
     train_dual = get_dual_domain_dataset(
         first_train, second_train, supervised, first_transform, second_transform
     )
+    
+    # Transformations are not applied to validation data
     val_dual = get_dual_domain_dataset(
-        first_val, second_val, supervised, first_transform, second_transform
+        first_val, second_val, supervised
     )
 
     return train_dual, val_dual
