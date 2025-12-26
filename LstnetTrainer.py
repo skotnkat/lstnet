@@ -476,7 +476,6 @@ class LstnetTrainer:
 
                 # ------------------------------
 
-            da
             end_time = time.time()
 
             if not self.run_optuna:

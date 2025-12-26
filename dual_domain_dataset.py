@@ -11,8 +11,6 @@ import torch
 from torch import Tensor
 from torch.utils.data import Dataset
 
-from utils import shuffle_indices
-
 class DualDomainDataset(Dataset[Tuple[Tensor, int, Tensor, int]]):
     """
     Dataset class to handle two corresponding datasets of different sizes
@@ -55,8 +53,11 @@ class DualDomainDataset(Dataset[Tuple[Tensor, int, Tensor, int]]):
     
     def _shuffle_second_indices(self) -> None:
         """Shuffle indices for the second dataset to ensure random sampling."""
-        self.second_data_random_sample_idx = shuffle_indices(self.first_size, self.second_size)
-        
+        repeat_num = self.first_size // self.second_size + 1 
+        smaller_indices = torch.arange(self.second_size).repeat(repeat_num)[:self.first_size]
+    
+        shuffle_perm = torch.randperm(self.first_size)
+        self.second_data_random_sample_idx = smaller_indices[shuffle_perm]
 
     def __getitem__(self, idx: int) -> Tuple[Tensor, int, Tensor, int]:
         """Get a pair of images and their labels from the two datasets.
