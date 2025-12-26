@@ -232,18 +232,7 @@ class DualDomainSupervisedDataset(DualDomainDataset):
             if len(indices) == 0:
                 raise KeyError(f"Label {label} is missing in the second dataset.")
 
-        label_pointers: Dict[int, int] = {label: 0 for label in unique_labels}
-        rank: List[int] = []
-
-        for label in self.first_labels:
-            label = int(label.item())
-            pos = label_pointers[label]
-            second_idx_for_label: int = self.label_indices[label][pos]
-
-            rank.append(second_idx_for_label)
-
-            label_pointers[label] = (pos + 1) % len(self.label_indices[label])
-        self.second_rank = torch.empty(len(self.first_data), dtype=torch.long)
+        self.second_rank = torch.empty(len(self.first_size), dtype=torch.long)
         self._build_pairing()
         
     def _build_pairing(self) -> None:
