@@ -352,6 +352,7 @@ class LstnetTrainer:
     def _run_eval_loop(
         self, first_real_img: Tensor, second_real_img: Tensor
     ) -> Tuple[FloatTriplet, FloatTriplet, FloatQuad]:
+        self.model.eval()
         with torch.no_grad():
             disc_loss_tuple, enc_gen_loss_tuple, cc_loss_tuple = self.eval_forward(
                 first_real_img, second_real_img
@@ -420,6 +421,7 @@ class LstnetTrainer:
 
             return self._run_eval_epoch()
 
+        self.model.train()
         return self._fit_epoch()
 
     def fit(self) -> LSTNET:
