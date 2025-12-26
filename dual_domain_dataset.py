@@ -252,6 +252,7 @@ class DualDomainSupervisedDataset(DualDomainDataset):
         second_label: int
         second_img, second_label = self.second_data[second_idx]
 
+        repeat_flag: bool = (idx >= self.smaller_size) and (self.repeat_transform is not None)
         # Temporary type check for different dataset implementations
         if not isinstance(first_label, int) or not isinstance(second_label, int):
             raise TypeError("Labels must be of type int.")
