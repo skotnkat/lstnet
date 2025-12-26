@@ -26,7 +26,7 @@ class DualDomainDataset(Dataset[Tuple[Tensor, int, Tensor, int]]):
         first_transform: Optional[Compose] = None,
         second_transform: Optional[
             Compose
-        ] = None,  # Augmentation is skipped when None is apssed
+        ] = None,  # Augmentation is skipped when None is passed
     ) -> None:
         """Initialize the dual domain dataset.
 
@@ -47,24 +47,28 @@ class DualDomainDataset(Dataset[Tuple[Tensor, int, Tensor, int]]):
         # Determine which dataset is smaller
         first_is_smaller = first_size_original < second_size_original
 
-        # If repeat_transform is provided, augment the bigger dataset (double its size)
+        # If a transform is provided for the bigger dataset, augment it (double its size).
+        # If the transform is None, the bigger dataset remains unchanged (no doubling).
         if first_is_smaller:
             self.first_data = first_data
             self.repeat_transform = first_transform
+            # Bigger side is `second_data` here; only double if a transform is provided.
             if second_transform is not None:
                 augmented_second = AugmentedDataset(second_data, second_transform)
                 self.second_data = ConcatDataset([second_data, augmented_second])
             else:
+                print("Warning: No transform provided for the bigger dataset (second domain); skipping augmentation.")
                 self.second_data = second_data
 
         else:
             self.second_data = second_data
             self.repeat_transform = second_transform
-
+            # Bigger side is `first_data` here; only double if a transform is provided.
             if first_transform is not None:
                 augmented_first = AugmentedDataset(first_data, first_transform)
                 self.first_data = ConcatDataset([first_data, augmented_first])
             else:
+                print("Warning: No transform provided for the bigger dataset (first domain); skipping augmentation.")
                 self.first_data = first_data
 
         # Update sizes after potential augmentation
@@ -75,6 +79,8 @@ class DualDomainDataset(Dataset[Tuple[Tensor, int, Tensor, int]]):
         # Track which is smaller and store transform for repeat cycles
         self.first_is_smaller = self.first_size < self.second_size
         self.smaller_size = min(self.first_size, self.second_size)
+        
+        print(f"Repeat transformation for smaller dataset: {self.repeat_transform}")
 
     def __len__(self) -> int:
         """Return the maximum size of the two datasets."""
@@ -97,6 +103,8 @@ class DualDomainDataset(Dataset[Tuple[Tensor, int, Tensor, int]]):
         repeat_flag: bool = (idx >= self.smaller_size) and (
             self.repeat_transform is not None
         )
+        
+        print(f"Index: {idx}, First idx: {first_idx}, Second idx: {second_idx}, Repeat flag: {repeat_flag}")
 
         first_img: Tensor
         first_label: int
@@ -252,7 +260,11 @@ class DualDomainSupervisedDataset(DualDomainDataset):
         second_label: int
         second_img, second_label = self.second_data[second_idx]
 
+        # Apply repeat transform on smaller side (second domain) when cycling beyond its size.
         repeat_flag: bool = (idx >= self.smaller_size) and (self.repeat_transform is not None)
+        if repeat_flag:
+            second_img = self.repeat_transform(second_img)
+
         # Temporary type check for different dataset implementations
         if not isinstance(first_label, int) or not isinstance(second_label, int):
             raise TypeError("Labels must be of type int.")
