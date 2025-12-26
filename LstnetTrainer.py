@@ -436,6 +436,9 @@ class LstnetTrainer:
             utils.init_epoch_loss(op="train")
             epoch_loss = self._run_epoch(val_op=False)
             self.train_loss_list.append(epoch_loss)
+            
+            # Reshuffle second dataset indices for next epoch to avoid consistent pairs of images
+            self.train_loader.dataset._shuffle_second_indices()
 
             if self.run_validation:
                 utils.init_epoch_loss(op="val")
@@ -473,6 +476,7 @@ class LstnetTrainer:
 
                 # ------------------------------
 
+            da
             end_time = time.time()
 
             if not self.run_optuna:
@@ -482,6 +486,8 @@ class LstnetTrainer:
 
             if torch.cuda.is_available():
                 torch.cuda.empty_cache()
+                
+            
 
         _ = self.model.to("cpu")
         self.fin_loss = (
