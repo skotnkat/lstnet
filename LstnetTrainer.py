@@ -352,6 +352,7 @@ class LstnetTrainer:
     def _run_eval_loop(
         self, first_real_img: Tensor, second_real_img: Tensor
     ) -> Tuple[FloatTriplet, FloatTriplet, FloatQuad]:
+        self.model.eval()
         with torch.no_grad():
             disc_loss_tuple, enc_gen_loss_tuple, cc_loss_tuple = self.eval_forward(
                 first_real_img, second_real_img
@@ -420,6 +421,7 @@ class LstnetTrainer:
 
             return self._run_eval_epoch()
 
+        self.model.train()
         return self._fit_epoch()
 
     def fit(self) -> LSTNET:
@@ -436,6 +438,9 @@ class LstnetTrainer:
             utils.init_epoch_loss(op="train")
             epoch_loss = self._run_epoch(val_op=False)
             self.train_loss_list.append(epoch_loss)
+            
+            # Reshuffle second dataset indices for next epoch to avoid consistent pairs of images
+            self.train_loader.dataset._shuffle_second_indices()
 
             if self.run_validation:
                 utils.init_epoch_loss(op="val")
@@ -482,6 +487,8 @@ class LstnetTrainer:
 
             if torch.cuda.is_available():
                 torch.cuda.empty_cache()
+                
+            
 
         _ = self.model.to("cpu")
         self.fin_loss = (
