@@ -95,6 +95,7 @@ def add_train_args(parser: argparse.ArgumentParser):
     _ = parser.add_argument("--zoom", type=float, default=0.1)
     _ = parser.add_argument("--shift", type=int, default=2)
     _ = parser.add_argument("--skip_augmentation", action="store_true")
+    _ = parser.add_argument("--use_svhn_extra", action="store_true")
 
     _ = parser.add_argument(
         "--weights",
@@ -327,6 +328,7 @@ def run_training(
         train_params=train_params,
         compile_model=cmd_args.compile,
         use_checkpoint=cmd_args.use_checkpoint,
+        use_svhn_extra=cmd_args.use_svhn_extra,
     )
 
     if return_model:
