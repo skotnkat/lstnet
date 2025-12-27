@@ -694,7 +694,7 @@ def load_augmented_dataset(
 
     return train_data, orig_val
 
-
+#TODO: remove drop last from the logic
 def get_train_val_loaders(
     first_domain_name: str,
     second_domain_name: str,
@@ -739,6 +739,7 @@ def get_train_val_loaders(
         val_data_size=val_data_size,
         skip_augmentation=skip_augmentation,
         resize=resize,
+        use_svhn_extra=use_svhn_extra,
     )
     second_train, second_val = load_augmented_dataset(
         second_domain_name,
@@ -749,6 +750,7 @@ def get_train_val_loaders(
         val_data_size=val_data_size,
         skip_augmentation=skip_augmentation,
         resize=resize,
+        use_svhn_extra=use_svhn_extra,
     )
 
     val_data = get_dual_domain_dataset(first_val, second_val, supervised)
@@ -761,7 +763,7 @@ def get_train_val_loaders(
         shuffle=True,
         pin_memory=pin_memory,
         collate_fn=custom_collate_fn,
-        drop_last=True,  # To ensure consistent batch sizes during training
+        drop_last=False
     )
     val_loader = get_data_loader(
         val_data,
@@ -770,7 +772,7 @@ def get_train_val_loaders(
         shuffle=False,
         pin_memory=pin_memory,
         collate_fn=custom_collate_fn,
-        drop_last=False,  # Getting all data in validation
+        drop_last=False
     )
 
     print("Obtained Data Loader for both training and validation")
@@ -793,6 +795,7 @@ def get_training_loader(
     augment_ops: AugmentOps = AugmentOps(),
     skip_augmentation: bool = False,
     resize: Optional[int] = None,
+    use_svhn_extra: bool = False,
 ) -> SingleLoader: ...
 @overload
 def get_training_loader(
@@ -809,6 +812,7 @@ def get_training_loader(
     augment_ops: AugmentOps = AugmentOps(),
     skip_augmentation: bool = False,
     resize: Optional[int] = None,
+    use_svhn_extra: bool = False,
 ) -> DoubleLoader: ...
 
 
@@ -826,6 +830,7 @@ def get_training_loader(
     augment_ops: AugmentOps = AugmentOps(),
     skip_augmentation: bool = False,
     resize: Optional[int] = None,
+    use_svhn_extra: bool = False,
 ) -> Union[SingleLoader, DoubleLoader]:
     """
     Get the data loaders for a dual domain dataset for training phase.
@@ -866,6 +871,7 @@ def get_training_loader(
             skip_augmentation=skip_augmentation,
             resize=resize,
             pin_memory=pin_memory,
+            use_svhn_extra=use_svhn_extra,
         )
 
     first_data = load_augmented_dataset(
@@ -877,6 +883,7 @@ def get_training_loader(
         augment_ops=augment_ops,
         skip_augmentation=skip_augmentation,
         resize=resize,
+        use_svhn_extra=use_svhn_extra,
     )
     second_data = load_augmented_dataset(
         second_domain_name,
@@ -887,6 +894,7 @@ def get_training_loader(
         augment_ops=augment_ops,
         skip_augmentation=skip_augmentation,
         resize=resize,
+        use_svhn_extra=use_svhn_extra,
     )
 
     dual_data = get_dual_domain_dataset(first_data, second_data, supervised)
