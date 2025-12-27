@@ -443,10 +443,10 @@ def load_dataset(
 
             subfolder = "amazon/images"
 
-            if "OFFICE_31_WEBCAM":
+            if name == "OFFICE_31_WEBCAM":
                 subfolder = "webcam/images"
 
-            elif "OFFICE_31_DSLR":
+            elif name == "OFFICE_31_DSLR":
                 subfolder = "dslr/images"
 
             if transform_steps is None:
@@ -469,9 +469,9 @@ def load_dataset(
                 download_data.download_home_office_dataset(target_path)
 
             subfolder = "Art"
-            if "HOME_OFFICE_CLIPART":
+            if name == "HOME_OFFICE_CLIPART":
                 subfolder = "Clipart"
-            elif "HOME_OFFICE_REALWORLD":
+            elif name == "HOME_OFFICE_REALWORLD":
                 subfolder = "Real World"
 
             # TODO: refactor to not do the same code twice
