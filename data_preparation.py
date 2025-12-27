@@ -557,7 +557,7 @@ def get_dataset_chw(
 def get_svhn_extra_dataset():
     transform_steps = create_transform_steps(3)
     data = datasets.SVHN(
-        root="./data", split="extra", transform=transform_steps
+        root="./data", split="extra", transform=transform_steps, download=True
     )
     
     return data
