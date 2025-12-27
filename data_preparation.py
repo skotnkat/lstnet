@@ -666,12 +666,11 @@ def load_augmented_dataset(
     )
         
 
-    if use_svhn_extra and dataset_name.upper() != "SVHN":
-        raise ValueError("use_svhn_extra can only be True for SVHN dataset")
-    
-    else:
-        svhn_extra_data = get_svhn_extra_dataset()
+    if use_svhn_extra:
+        svhn_extra_data = get_svhn_extra_dataset() 
         
+        if dataset_name.upper() != "SVHN":
+            raise ValueError("use_svhn_extra can only be True for SVHN dataset")
         
     if not split_data:
         assert not isinstance(original_data, tuple)
