@@ -739,7 +739,7 @@ def get_train_val_loaders(
         val_data_size=val_data_size,
         skip_augmentation=skip_augmentation,
         resize=resize,
-        use_svhn_extra=use_svhn_extra,
+        use_svhn_extra=use_svhn_extra if first_domain_name.upper() == "SVHN" else False,
     )
     second_train, second_val = load_augmented_dataset(
         second_domain_name,
@@ -750,7 +750,7 @@ def get_train_val_loaders(
         val_data_size=val_data_size,
         skip_augmentation=skip_augmentation,
         resize=resize,
-        use_svhn_extra=use_svhn_extra,
+        use_svhn_extra=use_svhn_extra if second_domain_name.upper() == "SVHN" else False,
     )
 
     val_data = get_dual_domain_dataset(first_val, second_val, supervised)
@@ -883,7 +883,7 @@ def get_training_loader(
         augment_ops=augment_ops,
         skip_augmentation=skip_augmentation,
         resize=resize,
-        use_svhn_extra=use_svhn_extra,
+        use_svhn_extra=use_svhn_extra if first_domain_name.upper() == "SVHN" else False,
     )
     second_data = load_augmented_dataset(
         second_domain_name,
@@ -894,7 +894,7 @@ def get_training_loader(
         augment_ops=augment_ops,
         skip_augmentation=skip_augmentation,
         resize=resize,
-        use_svhn_extra=use_svhn_extra,
+        use_svhn_extra=use_svhn_extra if second_domain_name.upper() == "SVHN" else False,
     )
 
     dual_data = get_dual_domain_dataset(first_data, second_data, supervised)
