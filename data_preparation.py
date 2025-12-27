@@ -57,8 +57,8 @@ class AugmentOps:
 def get_augmentation_steps(
     img_size: Tuple[int, int],
     *,
-    augment_ops: AugmentOps = AugmentOps(),
-    fill: Union[int, Tuple[int, int, int]] = 0,
+    augment_ops: Optional[AugmentOps] = None,
+    fill: Union[int, Tuple[int, ...]] = 0,
 ) -> List[Any]:  # TODO: specify correct type
     """
     Creates a series of augmentation steps for image preprocessing.
@@ -103,7 +103,7 @@ def create_transform_steps(
     *,
     img_size: Optional[Tuple[int, int]] = None,
     augment_ops: Optional[AugmentOps] = None,
-    resize: Optional[int] = None,
+    resize: Optional[Tuple[int, int]] = None,
 ) -> Compose:
     """
     Create a basic transform (type+normalization) for a given channel count.
@@ -116,8 +116,8 @@ def create_transform_steps(
 
     if resize is not None:
         # Resize images to the specified size (max size) and pad the smaller dimension with 0 to create square (resize, resize)
-        ops.append(Resize(size=resize, max_size=resize))
-        img_size = (resize, resize)
+        ops.append(Resize(resize))
+        img_size = resize
 
     if augment_ops is not None:
         if img_size is None:
@@ -554,6 +554,14 @@ def get_dataset_chw(
     return int(sample.shape[0]), int(sample.shape[1]), int(sample.shape[2])
 
 
+def get_svhn_extra_dataset():
+    transform_steps = create_transform_steps(3)
+    data = datasets.SVHN(
+        root="./data", split="extra", transform=transform_steps
+    )
+    
+    return data
+
 @overload
 def load_augmented_dataset(
     dataset_name: str,
@@ -566,6 +574,7 @@ def load_augmented_dataset(
     augment_ops: AugmentOps = AugmentOps(),
     skip_augmentation: bool = False,
     resize: Optional[int] = None,
+    use_svhn_extra: bool = False,
 ) -> SingleDataset: ...
 @overload
 def load_augmented_dataset(
@@ -579,6 +588,7 @@ def load_augmented_dataset(
     augment_ops: AugmentOps = AugmentOps(),
     skip_augmentation: bool = False,
     resize: Optional[int] = None,
+    use_svhn_extra: bool = False,
 ) -> DoubleDataset: ...
 
 
@@ -593,6 +603,7 @@ def load_augmented_dataset(
     augment_ops: AugmentOps = AugmentOps(),
     skip_augmentation: bool = False,
     resize: Optional[int] = None,
+    use_svhn_extra: bool = False,
 ) -> Union[SingleDataset, DoubleDataset]:
     """
     Augmented dataset by combining original dataset and augmented dataset.
@@ -652,17 +663,34 @@ def load_augmented_dataset(
         manual_seed=manual_seed,
         val_data_size=val_data_size,
     )
+        
 
+    if use_svhn_extra and dataset_name.upper() != "SVHN":
+        raise ValueError("use_svhn_extra can only be True for SVHN dataset")
+    
+    else:
+        svhn_extra_data = get_svhn_extra_dataset()
+        
+        
     if not split_data:
         assert not isinstance(original_data, tuple)
         assert not isinstance(augmented_data, tuple)
-
-        return ConcatDataset([original_data, augmented_data])
+        
+        all_data = ConcatDataset([original_data, augmented_data])
+        
+        if use_svhn_extra:
+            all_data = ConcatDataset([all_data, svhn_extra_data])
+            
+        return all_data
 
     orig_train, orig_val = original_data
     augm_train, _ = augmented_data
 
     train_data: Dataset[Any] = ConcatDataset([orig_train, augm_train])
+    
+    if use_svhn_extra:
+        train_data = ConcatDataset([train_data, svhn_extra_data])
+    
 
     return train_data, orig_val
 
@@ -680,6 +708,7 @@ def get_train_val_loaders(
     batch_size: int = 64,
     num_workers: int = 8,
     pin_memory: bool = False,
+    use_svhn_extra: bool = False,
 ) -> DoubleLoader:
     """
     Get training and validation data loaders for dual domain datasets.

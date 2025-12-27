@@ -88,6 +88,7 @@ def run(
     optuna_trial: Optional[optuna.Trial] = None,
     compile_model: bool = False,
     use_checkpoint: bool = False,
+    use_svhn_extra: bool = False,
 ) -> Union[LSTNET, Tuple[LSTNET, Dict[str, Any]]]:
     """Train the LSTNET model.
 
@@ -132,6 +133,7 @@ def run(
             augment_ops=augm_ops,
             skip_augmentation=skip_augmentation,
             resize=resize,
+            use_svhn_extra=use_svhn_extra,
         )
     else:
         train_loader = get_training_loader(
@@ -147,6 +149,7 @@ def run(
             augment_ops=augm_ops,
             skip_augmentation=skip_augmentation,
             resize=resize,
+            use_svhn_extra=use_svhn_extra,
         )
 
         val_loader = None
