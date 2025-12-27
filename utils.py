@@ -7,8 +7,7 @@ from typing import Dict, Any, List, Tuple, Union, Optional, TypeAlias
 import json
 import torch
 from torch import Tensor
-
-# from lion_pytorch import Lion
+from lion_pytorch import Lion
 
 PARAMS_FILE_PATH = None
 NETWORK_NAMES = {
@@ -255,8 +254,8 @@ def init_optimizer(
             model_params, lr, betas=betas, weight_decay=weight_decay
         )
 
-    # elif optim_name == "Lion":
-    #     optim = Lion(model_params, lr, betas=betas, weight_decay=weight_decay)
+    elif optim_name == "Lion":
+        optim = Lion(model_params, lr, betas=betas, weight_decay=weight_decay)
 
     elif optim_name == "SGD":
         optim = torch.optim.SGD(
@@ -296,7 +295,6 @@ def convert_tensor_tuple_to_floats(
 
     return tuple(t.item() for t in tuple_tensor)
 
-
 def print_gpu_memory(prefix: str = ""):
     if not torch.cuda.is_available():
         print(f"{prefix}CUDA not available.")
@@ -313,3 +311,4 @@ def print_gpu_memory(prefix: str = ""):
     print(
         f"[{prefix}]: alloc={alloc:.1f}MB | reserv={reserv:.1f}MB | free~={free:.1f}MB | total={total:.1f}MB"
     )
+

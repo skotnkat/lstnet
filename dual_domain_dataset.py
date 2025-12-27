@@ -11,7 +11,6 @@ import torch
 from torch import Tensor
 from torch.utils.data import Dataset
 
-
 class DualDomainDataset(Dataset[Tuple[Tensor, int, Tensor, int]]):
     """
     Dataset class to handle two corresponding datasets of different sizes
@@ -38,12 +37,27 @@ class DualDomainDataset(Dataset[Tuple[Tensor, int, Tensor, int]]):
 
         if self.first_size == 0 or self.second_size == 0:
             raise ValueError("Datasets must not be empty.")
+        
+        if self.first_size < self.second_size:
+            raise ValueError("First dataset cannot be smaller than the second one.")
 
         self.max_size: int = max(self.first_size, self.second_size)
+        
+        # To ensure not consistent pairing of images
+        self.second_data_random_sample_idx: List[int] = []
+        self._shuffle_second_indices() 
 
     def __len__(self) -> int:
         """Return the maximum size of the two datasets."""
         return self.max_size
+    
+    def _shuffle_second_indices(self) -> None:
+        """Shuffle indices for the second dataset to ensure random sampling."""
+        repeat_num = self.first_size // self.second_size + 1 
+        smaller_indices = torch.arange(self.second_size).repeat(repeat_num)[:self.first_size]
+    
+        shuffle_perm = torch.randperm(self.first_size)
+        self.second_data_random_sample_idx = smaller_indices[shuffle_perm]
 
     def __getitem__(self, idx: int) -> Tuple[Tensor, int, Tensor, int]:
         """Get a pair of images and their labels from the two datasets.
@@ -56,7 +70,9 @@ class DualDomainDataset(Dataset[Tuple[Tensor, int, Tensor, int]]):
                 A tuple containing the images and their labels from both datasets.
         """
         first_idx: int = idx % self.first_size
-        second_idx: int = idx % self.second_size
+        
+        
+        second_idx: int = self.second_data_random_sample_idx[idx]
 
         first_img: Tensor
         first_label: int
@@ -131,17 +147,17 @@ class DualDomainSupervisedDataset(DualDomainDataset):
             KeyError: If a label in the second dataset is missing.
         """
         super().__init__(first_data, second_data)
-
+        
         if self.first_size < self.second_size:
             raise ValueError("First dataset cannot be smaller than the second one.")
 
-        first_labels: Tensor = self._extract_labels(self.first_data)
+        self.first_labels: Tensor = self._extract_labels(self.first_data)
         second_labels: Tensor = self._extract_labels(self.second_data)
         second_indices_shuffled: List[int] = torch.randperm(len(self.second_data)).tolist()  # type: ignore
 
-        unique_labels: List[int] = torch.unique(first_labels).tolist()  # type: ignore
-
-        label_indices: Dict[int, List[int]] = {
+        unique_labels: List[int] = torch.unique(self.first_labels).tolist()  # type: ignore
+        
+        self.label_indices: Dict[int, List[int]] = {
             label: [] for label in unique_labels
         }  # for every target get list of indices
 
@@ -149,7 +165,7 @@ class DualDomainSupervisedDataset(DualDomainDataset):
             label = second_labels[idx]
 
             try:
-                label_indices[int(label.item())].append(idx)
+                self.label_indices[int(label.item())].append(idx)
             except KeyError as e:
                 raise KeyError(
                     f"Label {label} in the second dataset is not present in the first dataset. \
@@ -157,24 +173,39 @@ class DualDomainSupervisedDataset(DualDomainDataset):
                 ) from e
 
         # Check if any label is missing
-        for label, indices in label_indices.items():
+        for label, indices in self.label_indices.items():
             if len(indices) == 0:
                 raise KeyError(f"Label {label} is missing in the second dataset.")
 
+        self.second_rank: Tensor = torch.empty(self.first_size, dtype=torch.long)
+        self._build_pairing()
+        
+    def _build_pairing(self) -> None:
+        unique_labels = list(self.label_indices.keys())
         label_pointers: Dict[int, int] = {label: 0 for label in unique_labels}
         rank: List[int] = []
 
-        for label in first_labels:
+        for label in self.first_labels:
             label = int(label.item())
             pos = label_pointers[label]
-            second_idx_for_label: int = label_indices[label][pos]
+            second_idx_for_label: int = self.label_indices[label][pos]
 
             rank.append(second_idx_for_label)
 
-            label_pointers[label] = (pos + 1) % len(label_indices[label])
+            label_pointers[label] = (pos + 1) % len(self.label_indices[label])
 
         self.second_rank = torch.tensor(rank, dtype=torch.long)
+        
 
+    def _shuffle_second_indices(self):
+        for label in self.label_indices.keys():
+            indices = self.label_indices[label]
+            
+            shuffled_positions = torch.randperm(len(indices)).tolist()
+            self.label_indices[label] = [indices[i] for i in shuffled_positions]
+            
+        self._build_pairing()
+        
     def __getitem__(self, idx: int) -> Tuple[Tensor, int, Tensor, int]:
         """
         Get a pair of images and their labels from both datasets.
