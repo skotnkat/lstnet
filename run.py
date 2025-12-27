@@ -105,7 +105,7 @@ def add_train_args(parser: argparse.ArgumentParser):
         help="List of 7 float weights",
     )
 
-    _ = parser.add_argument("--resize", type=int, default=None)
+    _ = parser.add_argument("--resize", type=int, nargs=2, default=None)
 
     _ = parser.add_argument(
         "--compile",
