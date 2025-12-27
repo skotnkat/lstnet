@@ -3,13 +3,13 @@
         {"out_channels" : 64, "kernel_size" : 7 , "stride" :  1, "padding" :  "same"},
         {"out_channels" : 128, "kernel_size" : 5 , "stride" :  2, "padding" :  "same"},
         {"out_channels" : 256, "kernel_size" : 3 , "stride" :  2, "padding" :  "same"},
-        {"out_channels" : 512, "kernel_size" : 3 , "stride" :  2, "padding" :  "same"}
+        {"out_channels" : 512, "kernel_size" : 3 , "stride" :  1, "padding" :  "same"}
     ],
     "second_encoder" : [
         {"out_channels" : 64, "kernel_size" : 7 , "stride" :  1, "padding" :  "same"},
         {"out_channels" : 128, "kernel_size" : 5 , "stride" :  2, "padding" :  "same"},
         {"out_channels" : 256, "kernel_size" : 3 , "stride" :  2, "padding" :  "same"},
-        {"out_channels" : 512, "kernel_size" : 3 , "stride" :  2, "padding" :  "same"}
+        {"out_channels" : 512, "kernel_size" : 3 , "stride" :  1, "padding" :  "same"}
 
     ],
     "shared_encoder" : [
@@ -22,7 +22,7 @@
         {"out_channels" : 256, "kernel_size" : 3 , "stride" :  2, "padding" :  "same"},
         {"out_channels" : 128, "kernel_size" : 5 , "stride" :  2, "padding" :  "same"},
         {"out_channels" : 64, "kernel_size" : 3 , "stride" :  1, "padding" :  "same"},
-        {"out_channels" :  3, "kernel_size" :  1, "stride" :  1, "padding" :  "same"}
+        {"out_channels" :  3, "kernel_size" :  1, "stride" :  1, "padding" :  "valid"}
     ],
 
     "second_generator" : [
@@ -30,7 +30,7 @@
         {"out_channels" : 256, "kernel_size" : 3 , "stride" :  2, "padding" :  "same"},
         {"out_channels" : 128, "kernel_size" : 5 , "stride" :  2, "padding" :  "same"},
         {"out_channels" : 64, "kernel_size" : 3 , "stride" :  1, "padding" :  "same"},
-        {"out_channels" :  3, "kernel_size" :  1, "stride" :  1, "padding" :  "same"}
+        {"out_channels" :  3, "kernel_size" :  1, "stride" :  1, "padding" :  "valid"}
     ],
 
     "shared_generator" : [
