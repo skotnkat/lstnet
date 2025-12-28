@@ -147,9 +147,6 @@ class DualDomainSupervisedDataset(DualDomainDataset):
             KeyError: If a label in the second dataset is missing.
         """
         super().__init__(first_data, second_data)
-        
-        if self.first_size < self.second_size:
-            raise ValueError("First dataset cannot be smaller than the second one.")
 
         self.first_labels: Tensor = self._extract_labels(self.first_data)
         second_labels: Tensor = self._extract_labels(self.second_data)
@@ -198,6 +195,10 @@ class DualDomainSupervisedDataset(DualDomainDataset):
         
 
     def _shuffle_second_indices(self):
+        # Only shuffle if label_indices has been properly initialized
+        if not hasattr(self, 'label_indices') or not self.label_indices:
+            return
+            
         for label in self.label_indices.keys():
             indices = self.label_indices[label]
             
