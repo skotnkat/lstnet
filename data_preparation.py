@@ -464,7 +464,7 @@ def load_dataset(
                 data = train_data
 
         case name if name.startswith("HOME_OFFICE"):
-            target_path = "data/home_office"
+            target_path = "data/home_office/OfficeHomeDataset_10072016"
             if download:
                 download_data.download_home_office_dataset(target_path)
 
@@ -474,6 +474,9 @@ def load_dataset(
             elif name == "HOME_OFFICE_REALWORLD":
                 subfolder = "Real World"
 
+            if transform_steps is None:
+                transform_steps = create_transform_steps(3)  # TODO: add resize
+                
             # TODO: refactor to not do the same code twice
             data_folder = f"{target_path}/{subfolder}"
             data = datasets.ImageFolder(data_folder, transform=transform_steps)
