@@ -14,7 +14,7 @@ from torch.utils.data import TensorDataset
 import utils
 import train
 import domain_adaptation
-from data_preparation import AugmentOps
+from data_preparation import AugmentOps, ResizeOps
 from LstnetTrainer import TrainParams
 
 from models.lstnet import LSTNET
@@ -94,6 +94,12 @@ def add_train_args(parser: argparse.ArgumentParser):
     _ = parser.add_argument("--rotation", type=int, default=10)
     _ = parser.add_argument("--zoom", type=float, default=0.1)
     _ = parser.add_argument("--shift", type=int, default=2)
+    
+    _ = parser.add_argument("--resize_target_size", type=int, default=None)
+    _ = parser.add_argument("--pad_mode", type=str, default="edge")
+    _ = parser.add_argument("--random_crop_resize", action="store_true")
+    _ = parser.add_argument("--resize_init_size", type=int, default=256)
+    
     
     #TODO: rename to augmentation_inplace (as it is applied, but the data data is not doubled)
     _ = parser.add_argument("--skip_augmentation", action="store_true")
@@ -319,6 +325,7 @@ def run_training(
     
     if cmd_args.rotation == 0 and cmd_args.zoom == 0.0 and cmd_args.shift == 0:
         augm_ops = None
+            init_size=cmd_args.resize_init_size,
 
     model = train.run(
         cmd_args.first_domain,
@@ -336,7 +343,7 @@ def run_training(
         manual_seed=cmd_args.manual_seed,
         augm_ops=augm_ops,
         skip_augmentation=cmd_args.skip_augmentation,
-        resize=cmd_args.resize,
+        resize_ops=resize_ops,
         train_params=train_params,
         compile_model=cmd_args.compile,
         use_checkpoint=cmd_args.use_checkpoint,

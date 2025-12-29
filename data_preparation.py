@@ -25,14 +25,16 @@ from torchvision.transforms.v2 import (
     ToImage,
     ToDtype,
     Normalize,
-    Resize,
-    RandomResizedCrop,
+    Lambda, 
+    RandomCrop
 )
 from torch.utils.data import ConcatDataset, DataLoader, random_split, Dataset, Subset
 import torch
 from dual_domain_dataset import get_dual_domain_dataset, custom_collate_fn
 import download_data
 import random
+
+import torchvision.transforms.functional as F
 
 
 SingleLoader: TypeAlias = DataLoader[Any]
@@ -55,6 +57,18 @@ class AugmentOps:
     zoom: float = 0.1
     shift: int = 2
 
+
+@dataclass(slots=True)
+class ResizeOps:
+    target_size: int = 224
+    init_size: int = 256
+    pad_mode: str = 'edge'
+    random_crop_resize: bool = False
+    
+    def __post_init__(self):
+        if self.target_size > self.init_size:
+            raise ValueError(f"target_size ({self.target_size}) should be less than or equal to init_size ({self.init_size})")
+        
 
 def get_augmentation_steps(
     img_size: Tuple[int, int],
@@ -89,15 +103,39 @@ def get_augmentation_steps(
     ]
 
 
-def get_random_crop_steps():
-    return [
-        RandomResizedCrop(
-            size=224,  # Output size 224×224
-            scale=(0.8, 1.0),  # Crop 80-100% of area
-            ratio=(1.0, 1.0),  # Keep square aspect ratio
-            antialias=True,
-        )
-    ]
+def resize_with_padding(
+    img: torch.Tensor,
+    target_size: int,
+    pad_mode: str = 'edge',
+) -> torch.Tensor:
+    """
+    Resize image to fit within target_size while preserving aspect ratio,
+    then pad to create a square image.
+    
+    Args:
+        img: Input image tensor (C, H, W)
+        target_size: Target square size (e.g., 256 or 224)
+        pad_mode: Padding mode - 'edge', 'reflect', 'symmetric', or 'constant'
+    
+    Returns:
+        Square image tensor (C, target_size, target_size)
+    """
+    
+    _, height, width = img.shape
+    
+    # Calculate scale to fit within target_size
+    scale = target_size / max(height, width)
+    new_height, new_width = int(height * scale), int(width * scale)
+    
+    # Resize maintaining aspect ratio
+    img = F.resize(img, [new_height, new_width], antialias=True)
+    
+    # Calculate padding needed to fill into square
+    pad_h = target_size - new_height
+    pad_w = target_size - new_width
+    padding = [pad_w // 2, pad_h // 2, pad_w - pad_w // 2, pad_h - pad_h // 2]
+    
+    return F.pad(img, padding, padding_mode=pad_mode)
 
 
 def create_transform_steps(
@@ -105,7 +143,7 @@ def create_transform_steps(
     *,
     img_size: Optional[Tuple[int, int]] = None,
     augment_ops: Optional[AugmentOps] = None,
-    resize: Optional[Tuple[int, int]] = None,
+    resize_ops: Optional[ResizeOps] = None,
 ) -> Compose:
     """
     Create a basic transform (type+normalization) for a given channel count.
@@ -116,10 +154,21 @@ def create_transform_steps(
 
     ops: List[Any] = [ToImage()]
 
-    if resize is not None:
+    if resize_ops is not None:
+        first_size = resize_ops.target_size
+        if resize_ops.random_crop_resize is True:
+            first_size = resize_ops.init_size
         # Resize images to the specified size (max size) and pad the smaller dimension with 0 to create square (resize, resize)
-        ops.append(Resize(resize))
-        img_size = resize
+        ops.append(
+            Lambda(lambda img: resize_with_padding(img, first_size, pad_mode=resize_ops.pad_mode))
+            )
+        
+        if resize_ops.random_crop_resize is True:
+            ops.append(
+                RandomCrop(resize_ops.target_size)
+            )
+            
+            img_size = (resize_ops.target_size, resize_ops.target_size)
 
     if augment_ops is not None:
         if img_size is None:
@@ -298,8 +347,7 @@ def load_dataset(
     val_data_size: float = 0.4,
     manual_seed: int = 42,
     domain_adaptation: bool = False,
-    resize: Optional[int] = None,
-    max_records: Optional[int] = None,
+    resize_ops: Optional[ResizeOps] = None,
 ) -> DoubleDataset: ...
 @overload
 def load_dataset(
@@ -313,7 +361,7 @@ def load_dataset(
     manual_seed: int = 42,
     domain_adaptation: bool = False,
     resize: Optional[int] = None,
-    max_records: Optional[int] = None,
+    resize_ops: Optional[ResizeOps] = None,
 ) -> SingleDataset: ...
 
 
@@ -328,8 +376,7 @@ def load_dataset(
     val_data_size: float = 0.4,
     manual_seed: int = 42,
     domain_adaptation: bool = False,  # switch labels for A2O
-    resize: Optional[int] = None,
-    max_records: Optional[int] = None,
+    resize_ops: Optional[ResizeOps] = None,
 ) -> Union[SingleDataset, DoubleDataset]:
     """Loads a dataset from torchvision or a local path.
 
@@ -348,9 +395,8 @@ def load_dataset(
             Applied only when split_data is True. Defaults to 0.4.
         manual_seed (int, optional): The seed for random number generation.
             Defaults to 42.
-        max_records (int, optional): Maximum number of records to use from the dataset.
-            If None, all records are used. Defaults to None.
-
+        resize_ops: Optional[ResizeOps] = None,
+            Resize operations to apply during data loading.
     Returns:
         Union[Dataset[Any], Tuple[Dataset[Any], Dataset[Any]]]: The loaded dataset(s).
             Either whole training dataset or a tuple of (training, validation) datasets.
@@ -361,7 +407,7 @@ def load_dataset(
     match dataset_name.upper():
         case "MNIST":
             if transform_steps is None:
-                transform_steps = create_transform_steps(1, resize=resize)
+                transform_steps = create_transform_steps(1, resize_ops=resize_ops)
 
             data = datasets.MNIST(
                 root="./data",
@@ -372,7 +418,7 @@ def load_dataset(
 
         case "USPS":
             if transform_steps is None:
-                transform_steps = create_transform_steps(1, resize=resize)
+                transform_steps = create_transform_steps(1, resize_ops=resize_ops)
 
             data = datasets.USPS(
                 root="./data",
@@ -383,7 +429,7 @@ def load_dataset(
 
         case "SVHN":
             if transform_steps is None:
-                transform_steps = create_transform_steps(3, resize=resize)
+                transform_steps = create_transform_steps(3, resize_ops=resize_ops)
 
             if op.startswith("extra"):
                 train_op = True if op == "extra_train" else False
@@ -439,7 +485,7 @@ def load_dataset(
             data_folder = download_data.DATA_FOLDER + "/" + subfolder
 
             if transform_steps is None:
-                transform_steps = create_transform_steps(3, resize=resize)
+                transform_steps = create_transform_steps(3, resize_ops=resize_ops)
 
             data = datasets.ImageFolder(
                 data_folder,
@@ -460,7 +506,7 @@ def load_dataset(
                 subfolder = "dslr/images"
 
             if transform_steps is None:
-                transform_steps = create_transform_steps(3, resize=resize)
+                transform_steps = create_transform_steps(3, resize_ops=resize_ops)
 
             data_folder = f"{target_path}/{subfolder}"
             data = datasets.ImageFolder(data_folder, transform=transform_steps)
@@ -485,7 +531,7 @@ def load_dataset(
                 subfolder = "Real World"
 
             if transform_steps is None:
-                transform_steps = create_transform_steps(3)  # TODO: add resize
+                transform_steps = create_transform_steps(3, resize_ops=resize_ops)  # TODO: add resize
                 
             # TODO: refactor to not do the same code twice
             data_folder = f"{target_path}/{subfolder}"
@@ -506,13 +552,6 @@ def load_dataset(
             print(
                 f"Dataset loaded, number of records: {len(data)}, shape: {data[0][0].shape}"  # type: ignore  (has len())
             )
-
-    # Limit dataset size if max_records is specified
-    if max_records is not None and len(data) > max_records:  # type: ignore  (has len())
-        from torch.utils.data import Subset
-        indices = list(range(max_records))
-        data = Subset(data, indices)
-        print(f"Dataset limited to {max_records} records")
 
     if split_data:
         return split_train_val_dataset(
