@@ -662,6 +662,27 @@ def get_balanced_subset(
     
     return Subset(dataset, selected_indices)
 
+
+def get_augmented_datasets_based_on_splits(orig_data: Union[SingleDataset, DoubleDataset], augm_data: Union[SingleDataset, DoubleDataset], split_data: bool, inplace_augmentation: bool) -> Union[SingleDataset, DoubleDataset]:
+    if split_data:
+        train_orig, val_orig = orig_data  # type: ignore
+        train_augm, _ = augm_data  # type: ignore
+        
+        if inplace_augmentation:
+            return train_augm, val_orig
+
+        else:
+            train_data: Dataset[Any] = ConcatDataset([train_orig, train_augm])
+            return train_data, val_orig
+    
+    if inplace_augmentation:
+        return augm_data  # type: ignore
+        
+    
+    data = ConcatDataset([orig_data, augm_data])  # type: ignore
+    return data
+        
+
 @overload
 def load_augmented_dataset(
     dataset_name: str,
@@ -671,9 +692,9 @@ def load_augmented_dataset(
     download: bool = True,
     val_data_size: float = 0.4,
     manual_seed: int = 42,
-    skip_augmentation: bool = False,
-    resize: Optional[int] = None,
     augment_ops: Optional[AugmentOps] = None,
+    resize_ops: Optional[ResizeOps] = None,
+    inplace_augmentation: bool = False,
     use_svhn_extra: bool = False,
 ) -> SingleDataset: ...
 @overload
@@ -685,9 +706,9 @@ def load_augmented_dataset(
     download: bool = True,
     val_data_size: float = 0.4,
     manual_seed: int = 42,
-    skip_augmentation: bool = False,
-    resize: Optional[int] = None,
     augment_ops: Optional[AugmentOps] = None,
+    resize_ops: Optional[ResizeOps] = None,
+    inplace_augmentation: bool = False,
     use_svhn_extra: bool = False,
 ) -> DoubleDataset: ...
 
@@ -700,9 +721,9 @@ def load_augmented_dataset(
     download: bool = True,
     val_data_size: float = 0.4,
     manual_seed: int = 42,
-    skip_augmentation: bool = False,
-    resize: Optional[int] = None,
     augment_ops: Optional[AugmentOps] = None,
+    resize_ops: Optional[ResizeOps] = None,
+    inplace_augmentation: bool = False,
     use_svhn_extra: bool = False,
 ) -> Union[SingleDataset, DoubleDataset]:
     """
@@ -732,8 +753,15 @@ def load_augmented_dataset(
         if dataset_name.upper() != "SVHN":
             raise ValueError("use_svhn_extra can only be True for SVHN dataset")
         
-        
     
+    #TODO: resolve inplace versus not inplace augmentation logic
+    augm_resize_ops = resize_ops
+    orig_resize_ops = resize_ops
+    if (resize_ops is not None) and (resize_ops.random_crop_resize is True):        
+        orig_resize_ops = resize_ops
+        orig_resize_ops.random_crop_resize = False  # Do not apply random crop to original data
+    
+
     original_data = load_dataset(
         dataset_name,
         op=op,
@@ -741,7 +769,7 @@ def load_augmented_dataset(
         download=download,
         manual_seed=manual_seed,
         val_data_size=val_data_size,
-        resize=resize,
+        resize_ops=orig_resize_ops
     )
 
     ref_ds = original_data
@@ -752,51 +780,35 @@ def load_augmented_dataset(
     num_channels, img_size, _ = get_dataset_chw(
         ref_ds, square_expected=True  # type: ignore
     )
-
+    
     transform_steps = create_transform_steps(
         num_channels,
         img_size=(img_size, img_size),
         augment_ops=augment_ops,
-        resize=resize,
+        resize_ops=augm_resize_ops,
     )
+
 
     augmented_data = load_dataset(
         dataset_name,
         op=op,
         download=False,
         split_data=split_data,
-        transform_steps=transform_steps,
+        transform_steps=transform_steps,  # resize ops are specified in the transform steps
         manual_seed=manual_seed,
-        val_data_size=val_data_size,
+        val_data_size=val_data_size
     )
     
+    #TODO: temporary solution
+    if use_svhn_extra:
+        #TODO: fix if not split
+        train_augmented, val_augmented = augmented_data
+        train_augmented_balanced = get_balanced_subset(train_augmented, manual_seed=manual_seed)
+        print(f"After balancing, training set size: {len(train_augmented_balanced)}")
+        return train_augmented_balanced, val_augmented
     
     
-    if skip_augmentation:  # more like inplace augmentation
-        if use_svhn_extra:
-            #TODO: fix if not split
-            train_augmented, val_augmented = augmented_data
-            train_augmented_balanced = get_balanced_subset(train_augmented, manual_seed=manual_seed)
-            print(f"After balancing, training set size: {len(train_augmented_balanced)}")
-            return train_augmented_balanced, val_augmented
-        
-
-
-    if not split_data:
-        assert not isinstance(original_data, tuple)
-        assert not isinstance(augmented_data, tuple)
-        
-        data = ConcatDataset([original_data, augmented_data])
-            
-        return data
-
-    orig_train, orig_val = original_data
-    augm_train, _ = augmented_data
-
-    train_data: Dataset[Any] = ConcatDataset([orig_train, augm_train])
-    
-
-    return train_data, orig_val
+    return get_augmented_datasets_based_on_splits(original_data, augmented_data, split_data, inplace_augmentation)
 
 #TODO: remove drop last from the logic
 def get_train_val_loaders(
@@ -806,9 +818,9 @@ def get_train_val_loaders(
     *,
     manual_seed: int = 42,
     val_data_size: float = 0.4,
-    skip_augmentation: bool = False,
-    resize: Optional[int] = None,
     augment_ops: Optional[AugmentOps] = None,
+    resize_ops: Optional[ResizeOps] = None,
+    inplace_augmentation: bool = False,
     batch_size: int = 64,
     num_workers: int = 8,
     pin_memory: bool = False,
@@ -834,7 +846,6 @@ def get_train_val_loaders(
         Tuple[DataLoader[Any], DataLoader[Any]]: The training and validation data loaders.
     """
 
-    print("Skipping first domain augmnetation")
     first_train, first_val = load_augmented_dataset(
         first_domain_name,
         train_op=True,
@@ -842,8 +853,8 @@ def get_train_val_loaders(
         augment_ops=augment_ops,
         manual_seed=manual_seed,
         val_data_size=val_data_size,
-        skip_augmentation=True,
-        resize=resize,
+        inplace_augmentation=inplace_augmentation,
+        resize_ops=resize_ops,
         use_svhn_extra=use_svhn_extra if first_domain_name.upper() == "SVHN" else False,
     )
     second_train, second_val = load_augmented_dataset(
@@ -853,8 +864,8 @@ def get_train_val_loaders(
         augment_ops=augment_ops,
         manual_seed=manual_seed,
         val_data_size=val_data_size,
-        skip_augmentation=skip_augmentation,
-        resize=resize,
+        inplace_augmentation=inplace_augmentation,
+        resize_ops=resize_ops,
         use_svhn_extra=use_svhn_extra if second_domain_name.upper() == "SVHN" else False,
     )
 
@@ -897,9 +908,9 @@ def get_training_loader(
     batch_size: int = 64,
     num_workers: int = 8,
     pin_memory: bool = False,
-    skip_augmentation: bool = False,
-    resize: Optional[int] = None,
     augment_ops: Optional[AugmentOps] = None,
+    resize_ops: Optional[ResizeOps] = None,
+    inplace_augmentation: bool = False,
     use_svhn_extra: bool = False,
 ) -> SingleLoader: ...
 @overload
@@ -914,9 +925,9 @@ def get_training_loader(
     batch_size: int = 64,
     num_workers: int = 8,
     pin_memory: bool = False,
-    skip_augmentation: bool = False,
-    resize: Optional[int] = None,
     augment_ops: Optional[AugmentOps] = None,
+    resize_ops: Optional[ResizeOps] = None,
+    inplace_augmentation: bool = False,
     use_svhn_extra: bool = False,
 ) -> DoubleLoader: ...
 
@@ -932,9 +943,9 @@ def get_training_loader(
     batch_size: int = 64,
     num_workers: int = 8,
     pin_memory: bool = False,
-    augment_ops: AugmentOps = AugmentOps(),
-    skip_augmentation: bool = False,
-    resize: Optional[int] = None,
+    augment_ops: Optional[AugmentOps] = None,
+    resize_ops: Optional[ResizeOps] = None,
+    inplace_augmentation: bool = False,
     use_svhn_extra: bool = False,
 ) -> Union[SingleLoader, DoubleLoader]:
     """
@@ -973,13 +984,12 @@ def get_training_loader(
             batch_size=batch_size,
             num_workers=num_workers,
             augment_ops=augment_ops,
-            skip_augmentation=skip_augmentation,
-            resize=resize,
+            inplace_augmentation=inplace_augmentation,
+            resize_ops=resize_ops,
             pin_memory=pin_memory,
             use_svhn_extra=use_svhn_extra,
         )
 
-    print(f'Skippin augmentation for first domain: {first_domain_name}')
     first_data = load_augmented_dataset(
         first_domain_name,
         train_op=True,
@@ -987,8 +997,8 @@ def get_training_loader(
         manual_seed=manual_seed,
         val_data_size=val_data_size,
         augment_ops=augment_ops,
-        skip_augmentation=True,
-        resize=resize,
+        inplace_augmentation=inplace_augmentation,
+        resize_ops=resize_ops,
         use_svhn_extra=use_svhn_extra if first_domain_name.upper() == "SVHN" else False,
     )
     second_data = load_augmented_dataset(
@@ -998,8 +1008,8 @@ def get_training_loader(
         manual_seed=manual_seed,
         val_data_size=val_data_size,
         augment_ops=augment_ops,
-        skip_augmentation=skip_augmentation,
-        resize=resize,
+        inplace_augmentation=inplace_augmentation,
+        resize_ops=resize_ops,
         use_svhn_extra=use_svhn_extra if second_domain_name.upper() == "SVHN" else False,
     )
 

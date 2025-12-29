@@ -14,7 +14,6 @@ import optuna
 
 from dual_domain_dataset import DualDomainDataset
 from models.lstnet import LSTNET
-from data_preparation import get_training_loader, AugmentOps
 from data_preparation import get_training_loader, AugmentOps, ResizeOps
 from LstnetTrainer import LstnetTrainer, TrainParams
 import utils
