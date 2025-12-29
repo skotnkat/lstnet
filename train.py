@@ -15,6 +15,7 @@ import optuna
 from dual_domain_dataset import DualDomainDataset
 from models.lstnet import LSTNET
 from data_preparation import get_training_loader, AugmentOps
+from data_preparation import get_training_loader, AugmentOps, ResizeOps
 from LstnetTrainer import LstnetTrainer, TrainParams
 import utils
 
@@ -36,6 +37,7 @@ def run(
     batch_size: int = 64,
     num_workers: int = 8,
     augm_ops: Optional[AugmentOps] = None,
+    resize_ops: Optional[ResizeOps] = None,
     train_params: TrainParams = TrainParams(),
     optuna: Literal[False] = False,
     optuna_trial: Optional[optuna.Trial] = None,
@@ -59,6 +61,7 @@ def run(
     batch_size: int = 64,
     num_workers: int = 8,
     augm_ops: Optional[AugmentOps] = None,
+    resize_ops: Optional[ResizeOps] = None,
     train_params: TrainParams = TrainParams(),
     optuna: Literal[True],
     optuna_trial: Optional[optuna.Trial] = None,
@@ -81,6 +84,7 @@ def run(
     batch_size: int = 64,
     num_workers: int = 8,
     augm_ops: Optional[AugmentOps] = None,
+    resize_ops: Optional[ResizeOps] = None,
     skip_augmentation: bool = False,
     resize: Optional[int] = None,
     train_params: TrainParams = TrainParams(),
@@ -132,7 +136,7 @@ def run(
             pin_memory=pin_memory,
             augment_ops=augm_ops,
             skip_augmentation=skip_augmentation,
-            resize=resize,
+            resize_ops=resize_ops,
             use_svhn_extra=use_svhn_extra,
         )
     else:
@@ -148,7 +152,7 @@ def run(
             pin_memory=pin_memory,
             augment_ops=augm_ops,
             skip_augmentation=skip_augmentation,
-            resize=resize,
+            resize_ops=resize_ops,
             use_svhn_extra=use_svhn_extra,
         )
 
