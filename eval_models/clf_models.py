@@ -12,6 +12,7 @@ import optuna
 from models.discriminator import Discriminator
 import utils
 from models.extended_layers import Conv2dExtended, MaxPool2dExtended
+from models.resnet_18 import ResNet18
 
 
 class BaseClf(Discriminator):
@@ -42,6 +43,35 @@ class BaseClf(Discriminator):
         )
 
         self.criterion = nn.CrossEntropyLoss()
+
+        return last_layer
+
+
+class A2OClf(BaseClf):
+    def __init__(self, params):
+        self.input_size = (256, 256)
+        self.in_channels_num = 3
+
+        super().__init__(
+            self.input_size,
+            self.in_channels_num,
+            params,
+        )
+
+    def _create_last_layer(self):
+        last_layer = nn.Sequential(
+            nn.Flatten(),
+            nn.Dropout(self.dense_layer_params["dropout_p"]),
+            nn.Linear(
+                in_features=self.dense_layer_params["in_features"],
+                out_features=10,
+            ),
+            nn.ReLU(),
+            nn.Linear(in_features=10, out_features=1),
+            nn.Sigmoid(),
+        )
+
+        self.criterion = nn.BCELoss()
 
         return last_layer
 
@@ -168,8 +198,20 @@ def select_classifier(domain_name, params):
         case "SVHN":
             clf = SvhnClf(params=params)
 
+        case "A2O":
+            clf = BaseClf(input_size=(256, 256), in_channels=3, params=params)
+
+        case "VISDA_TARGET":
+            clf = ResNet18(in_channels_num=3, num_classes=12)
+
+        case name if name.startswith("OFFICE_31"):
+            clf = ResNet18(in_channels_num=3, num_classes=31)
+
+        case name if name.startswith("HOME_OFFICE"):
+            clf = ResNet18(in_channels_num=3, num_classes=65)
+
     if clf is None:
-        raise ValueError("No classifier model as loaded.")
+        raise ValueError("No classifier model loaded.")
 
     return clf.to(utils.DEVICE)
 
@@ -220,6 +262,9 @@ class ClfTrainer:
             x = x.to(utils.DEVICE, non_blocking=True)
             y = y.to(utils.DEVICE, non_blocking=True)
 
+            if isinstance(self.clf, A2OClf):
+                y = y.float().unsqueeze(1)
+
             self.optimizer.zero_grad()
             outputs = self.clf.forward(x)
 
@@ -232,8 +277,14 @@ class ClfTrainer:
                 loss.item()
             )  # reduction='sum' -> already returns sum of the losses
 
-            preds = outputs.argmax(dim=1)
-            acc = (preds == y).sum()
+            if isinstance(self.clf, A2OClf):
+                preds = (outputs >= 0.5).float()
+                acc = (preds == y).sum()
+
+            else:
+                preds = outputs.argmax(dim=1)
+                acc = (preds == y).sum()
+
             acc_total += acc.item()
             num_samples += y.size(0)
 
