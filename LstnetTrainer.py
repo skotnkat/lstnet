@@ -112,16 +112,14 @@ class LstnetTrainer:
                 mode='min',
                 factor=train_params.scheduler_factor,
                 patience=train_params.scheduler_patience,
-                min_lr=train_params.scheduler_min_lr,
-                verbose=True
+                min_lr=train_params.scheduler_min_lr
             )
             self.enc_gen_scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
                 self.enc_gen_optim,
                 mode='min',
                 factor=train_params.scheduler_factor,
                 patience=train_params.scheduler_patience,
-                min_lr=train_params.scheduler_min_lr,
-                verbose=True
+                min_lr=train_params.scheduler_min_lr
             )
 
         self.train_loader = train_loader
