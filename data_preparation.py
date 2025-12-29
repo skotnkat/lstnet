@@ -16,6 +16,7 @@ from typing import (
 from dataclasses import dataclass
 import os
 from PIL import Image
+from collections import defaultdict
 
 from torchvision import datasets
 from torchvision.transforms.v2 import (
@@ -27,10 +28,11 @@ from torchvision.transforms.v2 import (
     Resize,
     RandomResizedCrop,
 )
-from torch.utils.data import ConcatDataset, DataLoader, random_split, Dataset
+from torch.utils.data import ConcatDataset, DataLoader, random_split, Dataset, Subset
 import torch
 from dual_domain_dataset import get_dual_domain_dataset, custom_collate_fn
 import download_data
+import random
 
 
 SingleLoader: TypeAlias = DataLoader[Any]
@@ -383,12 +385,14 @@ def load_dataset(
             if transform_steps is None:
                 transform_steps = create_transform_steps(3, resize=resize)
 
+            if op.startswith("extra"):
+                train_op = True if op == "extra_train" else False
+                op = "extra"
             data = datasets.SVHN(
                 root="./data", split=op, transform=transform_steps, download=download
             )
             
             if op == "extra":
-                print("Loading SVHN extra dataset")
                 train_data, test_data = split_train_val_dataset(
                     data, val_data_size=0.2, manual_seed=manual_seed
                 )  # splitting to train and test
@@ -570,6 +574,55 @@ def get_dataset_chw(
     return int(sample.shape[0]), int(sample.shape[1]), int(sample.shape[2])
 
 
+def get_balanced_subset(
+    dataset: Dataset[Any],
+    *,
+    manual_seed: int = 42,
+) -> Dataset[Any]:
+    """
+    Create a balanced subset from a dataset with equal number of samples per class.
+    
+    Args:
+        dataset (Dataset[Any]): The source dataset to sample from.
+        samples_per_class (int): Number of samples to select from each class.
+        manual_seed (int, optional): Seed for reproducibility. Defaults to 42.
+    
+    Returns:
+        Dataset[Any]: A Subset with balanced class distribution.
+        
+    """
+
+    
+    random.seed(manual_seed)
+    
+    # Organize indices by class label
+    class_indices = defaultdict(list)
+    for idx in range(len(dataset)):  # type: ignore
+        _, label = dataset[idx]
+        class_indices[label].append(idx)
+        
+    samples_per_class = min(len(indices) for indices in class_indices.values())
+    print(f"Balancing to smallest class size: {samples_per_class} samples per class")
+    
+    # Sample equally from each class
+    selected_indices = []
+    for label, indices in sorted(class_indices.items()):
+        if len(indices) < samples_per_class:
+            raise ValueError(
+                f"Class {label} has only {len(indices)} samples, "
+                f"but {samples_per_class} requested"
+            )
+        sampled = random.sample(indices, samples_per_class)
+        selected_indices.extend(sampled)
+    
+    # Shuffle the combined indices
+    random.shuffle(selected_indices)
+    
+    print(f"Created balanced subset with {len(selected_indices)} samples "
+          f"({samples_per_class} per class, {len(class_indices)} classes)")
+    
+    return Subset(dataset, selected_indices)
+
 @overload
 def load_augmented_dataset(
     dataset_name: str,
@@ -632,10 +685,19 @@ def load_augmented_dataset(
         Union[Dataset[Any], Tuple[Dataset[Any], Dataset[Any]]]: The loaded augmented dataset(s).
     """
     print(f"Loading dataset: {dataset_name}")
-
+    op = "train" if train_op else "test"
+    
+    if use_svhn_extra:
+        op = "extra_" + op 
+        
+        if dataset_name.upper() != "SVHN":
+            raise ValueError("use_svhn_extra can only be True for SVHN dataset")
+        
+        
+    
     original_data = load_dataset(
         dataset_name,
-        op="train" if train_op else "test",
+        op=op,
         split_data=split_data,
         download=download,
         manual_seed=manual_seed,
@@ -661,7 +723,7 @@ def load_augmented_dataset(
 
     augmented_data = load_dataset(
         dataset_name,
-        op="train" if train_op else "test",
+        op=op,
         download=False,
         split_data=split_data,
         transform_steps=transform_steps,
@@ -669,16 +731,18 @@ def load_augmented_dataset(
         val_data_size=val_data_size,
     )
     
+    
+    
     if skip_augmentation:  # more like inplace augmentation
-        return augmented_data
+        if use_svhn_extra:
+            #TODO: fix if not split
+            train_augmented, val_augmented = augmented_data
+            train_augmented_balanced = get_balanced_subset(train_augmented, manual_seed=manual_seed)
+            print(f"After balancing, training set size: {len(train_augmented_balanced)}")
+            return train_augmented_balanced, val_augmented
         
 
-    if use_svhn_extra:
-        train_op = "extra"
-        
-        if dataset_name.upper() != "SVHN":
-            raise ValueError("use_svhn_extra can only be True for SVHN dataset")
-        
+
     if not split_data:
         assert not isinstance(original_data, tuple)
         assert not isinstance(augmented_data, tuple)
@@ -939,7 +1003,7 @@ def get_testing_loader(
 
     data = load_dataset(
         domain_name,
-        train_op="test",
+        op="test",
         split_data=False,
         domain_adaptation=domain_adaptation,
     )
