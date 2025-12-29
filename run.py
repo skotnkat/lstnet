@@ -316,6 +316,9 @@ def run_training(
     augm_ops = AugmentOps(
         rotation=cmd_args.rotation, zoom=cmd_args.zoom, shift=cmd_args.shift
     )
+    
+    if cmd_args.rotation == 0 and cmd_args.zoom == 0.0 and cmd_args.shift == 0:
+        augm_ops = None
 
     model = train.run(
         cmd_args.first_domain,
