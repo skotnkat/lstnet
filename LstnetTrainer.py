@@ -37,6 +37,10 @@ class TrainParams:
     lr: float = 1e-3
     betas: Tuple[float, float] = (0.8, 0.999)
     weight_decay: float = 0.01
+    use_scheduler: bool = False
+    scheduler_factor: float = 0.1
+    scheduler_patience: int = 5
+    scheduler_min_lr: float = 1e-6
 
 
 class LstnetTrainer:
@@ -96,6 +100,28 @@ class LstnetTrainer:
             betas=self.betas,
             weight_decay=self.weight_decay,
         )
+
+        # Initialize learning rate schedulers
+        self.use_scheduler = train_params.use_scheduler
+        self.disc_scheduler = None
+        self.enc_gen_scheduler = None
+        if self.use_scheduler:
+            self.disc_scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
+                self.disc_optim,
+                mode='min',
+                factor=train_params.scheduler_factor,
+                patience=train_params.scheduler_patience,
+                min_lr=train_params.scheduler_min_lr,
+                verbose=True
+            )
+            self.enc_gen_scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
+                self.enc_gen_optim,
+                mode='min',
+                factor=train_params.scheduler_factor,
+                patience=train_params.scheduler_patience,
+                min_lr=train_params.scheduler_min_lr,
+                verbose=True
+            )
 
         self.train_loader = train_loader
         self.val_loader = val_loader
@@ -183,6 +209,7 @@ class LstnetTrainer:
             "betas": self.betas,
             "weight_decay": self.weight_decay,
             "run_optuna": self.run_optuna,
+            "use_scheduler": self.use_scheduler,
         }
 
     def disc_forward(
@@ -443,6 +470,12 @@ class LstnetTrainer:
                 utils.init_epoch_loss(op="val")
                 epoch_loss = self._run_epoch(val_op=True)
                 self.val_loss_list.append(epoch_loss)
+                
+                # Update learning rate schedulers based on validation loss
+                if self.use_scheduler:
+                    self.disc_scheduler.step(epoch_loss)
+                    self.enc_gen_scheduler.step(epoch_loss)
+                
                 # ------------------------------
                 # Early stopping check
                 if epoch_loss < self.best_val_loss:
