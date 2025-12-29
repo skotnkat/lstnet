@@ -3,3 +3,5 @@ matplotlib
 optuna
 lion_pytorch  # not in conda install via pip
 plotly  # for visualizations in optuna
+kagglehub
+scipy
