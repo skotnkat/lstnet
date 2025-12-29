@@ -6,6 +6,7 @@ From which other classes like Encoder, Generator and Discriminator inherit.
 from typing import Any, Callable, Dict, List, Tuple, Sequence
 from abc import ABC, abstractmethod
 import torch.nn as nn
+import torch.utils.checkpoint as checkpoint
 
 from torch import Tensor
 
@@ -20,6 +21,7 @@ class LstnetComponent(ABC, nn.Module):
         params: Sequence[Any],
         *,
         skip_last_layer: bool = False,
+        use_checkpoint: bool = False,
         **kwargs: Any,
     ) -> None:
         super().__init__()  # type: ignore
@@ -27,6 +29,7 @@ class LstnetComponent(ABC, nn.Module):
         self.layers: nn.Sequential = nn.Sequential()
         self.output_sizes: List[Tuple[int, int]] = []
         self.params = params
+        self.use_checkpoint = use_checkpoint
 
         stand_layers_num: int = len(self.params) - skip_last_layer
         for i in range(stand_layers_num):
@@ -47,8 +50,10 @@ class LstnetComponent(ABC, nn.Module):
         Returns:
             Tensor: Output tensor after passing through all layers.
         """
-
-        return self.layers(x)
+        if self.use_checkpoint and self.training:
+            return checkpoint.checkpoint(self.layers, x, use_reentrant=False)
+        else:
+            return self.layers(x)
 
     def _add_layer(
         self,

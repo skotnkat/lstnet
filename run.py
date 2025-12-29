@@ -94,6 +94,11 @@ def add_train_args(parser: argparse.ArgumentParser):
     _ = parser.add_argument("--rotation", type=int, default=10)
     _ = parser.add_argument("--zoom", type=float, default=0.1)
     _ = parser.add_argument("--shift", type=int, default=2)
+    
+    #TODO: rename to augmentation_inplace (as it is applied, but the data data is not doubled)
+    _ = parser.add_argument("--skip_augmentation", action="store_true")
+    _ = parser.add_argument("--use_svhn_extra", action="store_true")
+
     _ = parser.add_argument(
         "--weights",
         type=float,
@@ -101,11 +106,24 @@ def add_train_args(parser: argparse.ArgumentParser):
         default=[20, 20, 30, 100, 100, 100, 100],
         help="List of 7 float weights",
     )
+    
+    _ = parser.add_argument(
+        "--use_scheduler",
+        action="store_true",
+        help="If set, learning rate scheduler will be used during training.",
+    )
+
+    _ = parser.add_argument("--resize", type=int, nargs=2, default=None)
 
     _ = parser.add_argument(
         "--compile",
         action="store_true",
         help="If set, the model will be compiled before training (pytorch compile).",
+    )
+    _ = parser.add_argument(
+        "--use_checkpoint",
+        action="store_true",
+        help="If set, gradient checkpointing will be enabled to reduce GPU memory usage.",
     )
 
     _ = parser.add_argument("--optuna", action="store_true")
@@ -291,6 +309,7 @@ def run_training(
         lr=cmd_args.learning_rate,
         betas=tuple(cmd_args.betas),
         weight_decay=cmd_args.weight_decay,
+        use_scheduler=cmd_args.use_scheduler,
     )
 
     # Create AugmentOps object from args
@@ -313,8 +332,12 @@ def run_training(
         logs_file_name=cmd_args.logs_file_name,
         manual_seed=cmd_args.manual_seed,
         augm_ops=augm_ops,
+        skip_augmentation=cmd_args.skip_augmentation,
+        resize=cmd_args.resize,
         train_params=train_params,
         compile_model=cmd_args.compile,
+        use_checkpoint=cmd_args.use_checkpoint,
+        use_svhn_extra=cmd_args.use_svhn_extra
     )
 
     if return_model:

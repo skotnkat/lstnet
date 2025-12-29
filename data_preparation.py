@@ -2,14 +2,35 @@
 Module for preparing datasets for training, evaluation and testing for the LSTNET model.
 """
 
-from typing import Literal, Union, Tuple, Any, overload, TypeAlias, Optional, Callable
+from typing import (
+    Literal,
+    Union,
+    Tuple,
+    Any,
+    overload,
+    TypeAlias,
+    Optional,
+    Callable,
+    List,
+)
 from dataclasses import dataclass
+import os
+from PIL import Image
 
 from torchvision import datasets
-from torchvision.transforms.v2 import Compose, RandomAffine, ToImage, ToDtype, Normalize
+from torchvision.transforms.v2 import (
+    Compose,
+    RandomAffine,
+    ToImage,
+    ToDtype,
+    Normalize,
+    Resize,
+    RandomResizedCrop,
+)
 from torch.utils.data import ConcatDataset, DataLoader, random_split, Dataset
 import torch
 from dual_domain_dataset import get_dual_domain_dataset, custom_collate_fn
+import download_data
 
 
 SingleLoader: TypeAlias = DataLoader[Any]
@@ -33,9 +54,12 @@ class AugmentOps:
     shift: int = 2
 
 
-def create_augmentation_steps(
-    img_size: int, *, num_channels: int = 1, augment_ops: AugmentOps = AugmentOps()
-) -> Compose:
+def get_augmentation_steps(
+    img_size: Tuple[int, int],
+    *,
+    augment_ops: Optional[AugmentOps] = None,
+    fill: Union[int, Tuple[int, ...]] = 0,
+) -> List[Any]:  # TODO: specify correct type
     """
     Creates a series of augmentation steps for image preprocessing.
     Expecting to work with square 2D images.
@@ -49,35 +73,173 @@ def create_augmentation_steps(
     Returns:
         Compose: A composition of image transformation steps.
     """
-    dx_translation = dy_translation = augment_ops.shift / img_size
+    print(f"augment_ops: {augment_ops}")
+    dx_translation = augment_ops.shift / img_size[0]
+    dy_translation = augment_ops.shift / img_size[1]
 
-    return Compose(
-        [
-            ToImage(),
-            RandomAffine(
-                degrees=(-augment_ops.rotation, augment_ops.rotation),
-                translate=(dx_translation, dy_translation),
-                scale=(1 - augment_ops.zoom, 1 + augment_ops.zoom),
-            ),
-            ToDtype(torch.float32, scale=True),
-            Normalize(mean=[0.5] * num_channels, std=[0.5] * num_channels),
-        ]
-    )
+    return [
+        RandomAffine(
+            degrees=(-augment_ops.rotation, augment_ops.rotation),
+            translate=(dx_translation, dy_translation),
+            scale=(1 - augment_ops.zoom, 1 + augment_ops.zoom),
+            fill=fill
+        )
+    ]
 
 
-def create_basic_transform(num_channels: int = 1) -> Compose:
+def get_random_crop_steps():
+    return [
+        RandomResizedCrop(
+            size=224,  # Output size 224×224
+            scale=(0.8, 1.0),  # Crop 80-100% of area
+            ratio=(1.0, 1.0),  # Keep square aspect ratio
+            antialias=True,
+        )
+    ]
+
+
+def create_transform_steps(
+    num_channels: int = 1,
+    *,
+    img_size: Optional[Tuple[int, int]] = None,
+    augment_ops: Optional[AugmentOps] = None,
+    resize: Optional[Tuple[int, int]] = None,
+) -> Compose:
     """
     Create a basic transform (type+normalization) for a given channel count.
     Args:
         num_channels (int, optional): The number of channels in the input images. Defaults to 1.
     """
-    return Compose(
+    # TODO: update docstring
+
+    ops: List[Any] = [ToImage()]
+
+    if resize is not None:
+        # Resize images to the specified size (max size) and pad the smaller dimension with 0 to create square (resize, resize)
+        ops.append(Resize(resize))
+        img_size = resize
+
+    if augment_ops is not None:
+        if img_size is None:
+            raise ValueError("img_size must be provided when augment_ops is used")
+
+        fill = 0
+        if num_channels == 3:
+            fill = (127, 127, 127)
+        ops.extend(get_augmentation_steps(img_size, augment_ops=augment_ops, fill=fill))
+
+    ops.extend(
         [
-            ToImage(),
             ToDtype(torch.float32, scale=True),
             Normalize(mean=[0.5] * num_channels, std=[0.5] * num_channels),
         ]
     )
+
+    return Compose(ops)
+
+
+class ImageDataset(Dataset):
+    def __init__(
+        self,
+        folder,
+        transform=None,
+        extensions: List[str] = [".jpg"],
+        rgb: bool = True,
+        dummy_class: int = 1,
+    ):
+        """
+        Args:
+            folder: Folder path to load images from
+            transform: Optional torchvision transforms to apply
+        """
+        self.image_paths = []
+        self.transform = transform
+        self.rgb = rgb
+        self.extensions = extensions
+        self.dummy_class = dummy_class
+
+        # Collect all image paths from the folder
+        if not os.path.exists(folder):
+            print(f"Warning: {folder} does not exist")
+        else:
+            for filename in os.listdir(folder):
+                if any(filename.lower().endswith(ext) for ext in self.extensions):
+                    self.image_paths.append(os.path.join(folder, filename))
+
+        print(f"Found {len(self.image_paths)} images in {folder}")
+
+        self.image_paths.sort()
+
+    def __len__(self):
+        return len(self.image_paths)
+
+    def __getitem__(self, idx):
+        img_path = self.image_paths[idx]
+
+        # Load image
+        image = Image.open(img_path)
+
+        if self.rgb:
+            image = image.convert("RGB")
+
+        # Apply transforms
+        if self.transform:
+            image = self.transform(image)
+
+        return image, self.dummy_class
+
+
+def get_a2o_dataset(
+    dataset: str,
+    *,
+    train_op: bool,
+    transform_steps: Optional[Compose] = None,
+    domain_adaptation: bool = False,
+) -> Dataset[Any]:
+    target_path = "data/a2o_dataset"
+    download_data.download_a2o_dataset(target_path)
+
+    if transform_steps is None:
+        transform_steps = create_transform_steps(3)
+
+    dummy_class = 1
+    folder = "test"
+    if train_op:
+        folder = "train"
+
+    letter = "A"
+    if dataset.upper() == "ORANGE":
+        letter = "B"
+        dummy_class = 0
+
+    # Switch Labels
+    if domain_adaptation:
+        dummy_class = 1 - dummy_class
+
+    path = f"{target_path}/{folder}{letter}"
+    print(f"path: {path}")
+    data = ImageDataset(
+        folder=path,
+        transform=transform_steps,
+        dummy_class=dummy_class,
+    )
+
+    return data
+
+
+def get_a2o_clf_dataset(
+    *,
+    train_op: bool,
+    transform_steps: Optional[Compose] = None,
+) -> Dataset[Any]:
+    apple_data = get_a2o_dataset(
+        "APPLE", train_op=train_op, transform_steps=transform_steps
+    )
+    orange_data = get_a2o_dataset(
+        "ORANGE", train_op=train_op, transform_steps=transform_steps
+    )
+
+    return ConcatDataset([apple_data, orange_data])
 
 
 def get_data_loader(
@@ -128,22 +290,28 @@ def load_dataset(
     dataset_name: str,
     *,
     split_data: Literal[True],
-    train_op: bool = True,
+    op: str = "train",
     transform_steps: Optional[Compose] = None,
     download: bool = True,
     val_data_size: float = 0.4,
     manual_seed: int = 42,
+    domain_adaptation: bool = False,
+    resize: Optional[int] = None,
+    max_records: Optional[int] = None,
 ) -> DoubleDataset: ...
 @overload
 def load_dataset(
     dataset_name: str,
     *,
     split_data: Literal[False],
-    train_op: bool = True,
+    op: str = "train",
     transform_steps: Optional[Compose] = None,
     download: bool = True,
     val_data_size: float = 0.4,
     manual_seed: int = 42,
+    domain_adaptation: bool = False,
+    resize: Optional[int] = None,
+    max_records: Optional[int] = None,
 ) -> SingleDataset: ...
 
 
@@ -152,11 +320,14 @@ def load_dataset(
     dataset_name: str,
     *,
     split_data: bool = False,
-    train_op: bool = True,
+    op: str = "train",
     transform_steps: Optional[Compose] = None,
     download: bool = True,
     val_data_size: float = 0.4,
     manual_seed: int = 42,
+    domain_adaptation: bool = False,  # switch labels for A2O
+    resize: Optional[int] = None,
+    max_records: Optional[int] = None,
 ) -> Union[SingleDataset, DoubleDataset]:
     """Loads a dataset from torchvision or a local path.
 
@@ -175,50 +346,169 @@ def load_dataset(
             Applied only when split_data is True. Defaults to 0.4.
         manual_seed (int, optional): The seed for random number generation.
             Defaults to 42.
+        max_records (int, optional): Maximum number of records to use from the dataset.
+            If None, all records are used. Defaults to None.
 
     Returns:
         Union[Dataset[Any], Tuple[Dataset[Any], Dataset[Any]]]: The loaded dataset(s).
             Either whole training dataset or a tuple of (training, validation) datasets.
     """
-
+    train_op = op.lower() == "train"
     # load data from torchvision datasets
     data: Dataset[Any]
-    if dataset_name.upper() == "MNIST":
-        if transform_steps is None:
-            transform_steps = create_basic_transform(1)
+    match dataset_name.upper():
+        case "MNIST":
+            if transform_steps is None:
+                transform_steps = create_transform_steps(1, resize=resize)
 
-        data = datasets.MNIST(
-            root="./data", train=train_op, transform=transform_steps, download=download
-        )
+            data = datasets.MNIST(
+                root="./data",
+                train=train_op,
+                transform=transform_steps,
+                download=download,
+            )
 
-    elif dataset_name.upper() == "USPS":
-        if transform_steps is None:
-            transform_steps = create_basic_transform(1)
+        case "USPS":
+            if transform_steps is None:
+                transform_steps = create_transform_steps(1, resize=resize)
 
-        data = datasets.USPS(
-            root="./data", train=train_op, transform=transform_steps, download=download
-        )
+            data = datasets.USPS(
+                root="./data",
+                train=train_op,
+                transform=transform_steps,
+                download=download,
+            )
 
-    elif dataset_name.upper() == "SVHN":
-        # Different way of getting train/test sets
-        split = "test"
-        if train_op:
-            split = "train"
+        case "SVHN":
+            if transform_steps is None:
+                transform_steps = create_transform_steps(3, resize=resize)
 
-        if transform_steps is None:
-            transform_steps = create_basic_transform(3)
+            data = datasets.SVHN(
+                root="./data", split=op, transform=transform_steps, download=download
+            )
+            
+            if op == "extra":
+                print("Loading SVHN extra dataset")
+                train_data, test_data = split_train_val_dataset(
+                    data, val_data_size=0.2, manual_seed=manual_seed
+                )  # splitting to train and test
 
-        data = datasets.SVHN(
-            root="./data", split=split, transform=transform_steps, download=download
-        )
+                if train_op:
+                    data = train_data
 
-    # dataset_name is path
-    else:
-        print(f"Trying to load dataset {dataset_name} locally")
-        data = torch.load(dataset_name)  # type: ignore
-        print(
-            f"Dataset loaded, number of records: {len(data)}, shape: {data[0][0].shape}"  # type: ignore  (has len())
-        )
+                else:
+                    data = test_data
+
+
+        case "APPLE":  # from the a2o dataset
+            data = get_a2o_dataset(
+                "APPLE",
+                train_op=train_op,
+                transform_steps=transform_steps,
+                domain_adaptation=domain_adaptation,
+            )
+
+        case "ORANGE":  # from the a2o dataset
+            data = get_a2o_dataset(
+                "ORANGE",
+                train_op=train_op,
+                transform_steps=transform_steps,
+                domain_adaptation=domain_adaptation,
+            )
+
+        case "A2O":  # Combined Apple and Orange for classification
+            data = get_a2o_clf_dataset(
+                train_op=train_op, transform_steps=transform_steps
+            )
+
+        case name if name.startswith("VISDA"):
+            if download:
+                download_data.download_visda_dataset(train_op=train_op)
+
+            subfolder = "train"  #  VISDA_SOURCE
+            if "VISDA_TARGET":
+                subfolder = "validation"
+
+            elif "VISDA_TEST":
+                subfolder = "test"
+
+            data_folder = download_data.DATA_FOLDER + "/" + subfolder
+
+            if transform_steps is None:
+                transform_steps = create_transform_steps(3, resize=resize)
+
+            data = datasets.ImageFolder(
+                data_folder,
+                transform=transform_steps,
+            )
+
+        case name if name.startswith("OFFICE_31"):
+            target_path = "data/office_31"
+            if download:
+                download_data.download_office_31_dataset(target_path)
+
+            subfolder = "amazon/images"
+
+            if name == "OFFICE_31_WEBCAM":
+                subfolder = "webcam/images"
+
+            elif name == "OFFICE_31_DSLR":
+                subfolder = "dslr/images"
+
+            if transform_steps is None:
+                transform_steps = create_transform_steps(3, resize=resize)
+
+            data_folder = f"{target_path}/{subfolder}"
+            data = datasets.ImageFolder(data_folder, transform=transform_steps)
+
+            train_data, test_data = split_train_val_dataset(
+                data, val_data_size=0.25, manual_seed=manual_seed
+            )  # splitting to train and test
+
+            data = test_data
+            if train_op:
+                data = train_data
+
+        case name if name.startswith("HOME_OFFICE"):
+            target_path = "data/home_office/OfficeHomeDataset_10072016"
+            if download:
+                download_data.download_home_office_dataset(target_path)
+
+            subfolder = "Art"
+            if name == "HOME_OFFICE_CLIPART":
+                subfolder = "Clipart"
+            elif name == "HOME_OFFICE_REALWORLD":
+                subfolder = "Real World"
+
+            if transform_steps is None:
+                transform_steps = create_transform_steps(3)  # TODO: add resize
+                
+            # TODO: refactor to not do the same code twice
+            data_folder = f"{target_path}/{subfolder}"
+            data = datasets.ImageFolder(data_folder, transform=transform_steps)
+
+            train_data, test_data = split_train_val_dataset(
+                data, val_data_size=0.25, manual_seed=manual_seed
+            )  # splitting to train and test
+
+            data = test_data
+            if train_op:
+                data = train_data
+
+        case _:
+            # dataset_name is path
+            print(f"Trying to load dataset {dataset_name} locally")
+            data = torch.load(dataset_name)  # type: ignore
+            print(
+                f"Dataset loaded, number of records: {len(data)}, shape: {data[0][0].shape}"  # type: ignore  (has len())
+            )
+
+    # Limit dataset size if max_records is specified
+    if max_records is not None and len(data) > max_records:  # type: ignore  (has len())
+        from torch.utils.data import Subset
+        indices = list(range(max_records))
+        data = Subset(data, indices)
+        print(f"Dataset limited to {max_records} records")
 
     if split_data:
         return split_train_val_dataset(
@@ -273,7 +563,7 @@ def get_dataset_chw(
         Tuple[int, int, int]: The dimensions (C, H, W) of the dataset.
     """
     sample = dataset[0][0]
-
+    print(f"shape: {sample.shape}")
     if square_expected and (sample.shape[1] != sample.shape[2]):
         raise ValueError("Expected square images")
 
@@ -290,6 +580,9 @@ def load_augmented_dataset(
     val_data_size: float = 0.4,
     manual_seed: int = 42,
     augment_ops: AugmentOps = AugmentOps(),
+    skip_augmentation: bool = False,
+    resize: Optional[int] = None,
+    use_svhn_extra: bool = False,
 ) -> SingleDataset: ...
 @overload
 def load_augmented_dataset(
@@ -301,6 +594,9 @@ def load_augmented_dataset(
     val_data_size: float = 0.4,
     manual_seed: int = 42,
     augment_ops: AugmentOps = AugmentOps(),
+    skip_augmentation: bool = False,
+    resize: Optional[int] = None,
+    use_svhn_extra: bool = False,
 ) -> DoubleDataset: ...
 
 
@@ -313,6 +609,9 @@ def load_augmented_dataset(
     val_data_size: float = 0.4,
     manual_seed: int = 42,
     augment_ops: AugmentOps = AugmentOps(),
+    skip_augmentation: bool = False,
+    resize: Optional[int] = None,
+    use_svhn_extra: bool = False,
 ) -> Union[SingleDataset, DoubleDataset]:
     """
     Augmented dataset by combining original dataset and augmented dataset.
@@ -336,11 +635,12 @@ def load_augmented_dataset(
 
     original_data = load_dataset(
         dataset_name,
-        train_op=train_op,
+        op="train" if train_op else "test",
         split_data=split_data,
         download=download,
         manual_seed=manual_seed,
         val_data_size=val_data_size,
+        resize=resize,
     )
 
     ref_ds = original_data
@@ -352,34 +652,50 @@ def load_augmented_dataset(
         ref_ds, square_expected=True  # type: ignore
     )
 
-    transform_steps = create_augmentation_steps(
-        img_size, num_channels=num_channels, augment_ops=augment_ops
+    transform_steps = create_transform_steps(
+        num_channels,
+        img_size=(img_size, img_size),
+        augment_ops=augment_ops,
+        resize=resize,
     )
 
     augmented_data = load_dataset(
         dataset_name,
-        train_op=train_op,
+        op="train" if train_op else "test",
         download=False,
         split_data=split_data,
         transform_steps=transform_steps,
         manual_seed=manual_seed,
         val_data_size=val_data_size,
     )
+    
+    if skip_augmentation:  # more like inplace augmentation
+        return augmented_data
+        
 
+    if use_svhn_extra:
+        train_op = "extra"
+        
+        if dataset_name.upper() != "SVHN":
+            raise ValueError("use_svhn_extra can only be True for SVHN dataset")
+        
     if not split_data:
         assert not isinstance(original_data, tuple)
         assert not isinstance(augmented_data, tuple)
-
-        return ConcatDataset([original_data, augmented_data])
+        
+        data = ConcatDataset([original_data, augmented_data])
+            
+        return data
 
     orig_train, orig_val = original_data
     augm_train, _ = augmented_data
 
     train_data: Dataset[Any] = ConcatDataset([orig_train, augm_train])
+    
 
     return train_data, orig_val
 
-
+#TODO: remove drop last from the logic
 def get_train_val_loaders(
     first_domain_name: str,
     second_domain_name: str,
@@ -388,9 +704,12 @@ def get_train_val_loaders(
     manual_seed: int = 42,
     val_data_size: float = 0.4,
     augment_ops: AugmentOps = AugmentOps(),
+    skip_augmentation: bool = False,
+    resize: Optional[int] = None,
     batch_size: int = 64,
     num_workers: int = 8,
     pin_memory: bool = False,
+    use_svhn_extra: bool = False,
 ) -> DoubleLoader:
     """
     Get training and validation data loaders for dual domain datasets.
@@ -412,6 +731,7 @@ def get_train_val_loaders(
         Tuple[DataLoader[Any], DataLoader[Any]]: The training and validation data loaders.
     """
 
+    print("Skipping first domain augmnetation")
     first_train, first_val = load_augmented_dataset(
         first_domain_name,
         train_op=True,
@@ -419,6 +739,9 @@ def get_train_val_loaders(
         augment_ops=augment_ops,
         manual_seed=manual_seed,
         val_data_size=val_data_size,
+        skip_augmentation=True,
+        resize=resize,
+        use_svhn_extra=use_svhn_extra if first_domain_name.upper() == "SVHN" else False,
     )
     second_train, second_val = load_augmented_dataset(
         second_domain_name,
@@ -427,6 +750,9 @@ def get_train_val_loaders(
         augment_ops=augment_ops,
         manual_seed=manual_seed,
         val_data_size=val_data_size,
+        skip_augmentation=skip_augmentation,
+        resize=resize,
+        use_svhn_extra=use_svhn_extra if second_domain_name.upper() == "SVHN" else False,
     )
 
     val_data = get_dual_domain_dataset(first_val, second_val, supervised)
@@ -439,7 +765,7 @@ def get_train_val_loaders(
         shuffle=True,
         pin_memory=pin_memory,
         collate_fn=custom_collate_fn,
-        drop_last=True,  # To ensure consistent batch sizes during training
+        drop_last=False
     )
     val_loader = get_data_loader(
         val_data,
@@ -448,7 +774,7 @@ def get_train_val_loaders(
         shuffle=False,
         pin_memory=pin_memory,
         collate_fn=custom_collate_fn,
-        drop_last=False,  # Getting all data in validation
+        drop_last=False
     )
 
     print("Obtained Data Loader for both training and validation")
@@ -469,6 +795,9 @@ def get_training_loader(
     num_workers: int = 8,
     pin_memory: bool = False,
     augment_ops: AugmentOps = AugmentOps(),
+    skip_augmentation: bool = False,
+    resize: Optional[int] = None,
+    use_svhn_extra: bool = False,
 ) -> SingleLoader: ...
 @overload
 def get_training_loader(
@@ -483,6 +812,9 @@ def get_training_loader(
     num_workers: int = 8,
     pin_memory: bool = False,
     augment_ops: AugmentOps = AugmentOps(),
+    skip_augmentation: bool = False,
+    resize: Optional[int] = None,
+    use_svhn_extra: bool = False,
 ) -> DoubleLoader: ...
 
 
@@ -498,6 +830,9 @@ def get_training_loader(
     num_workers: int = 8,
     pin_memory: bool = False,
     augment_ops: AugmentOps = AugmentOps(),
+    skip_augmentation: bool = False,
+    resize: Optional[int] = None,
+    use_svhn_extra: bool = False,
 ) -> Union[SingleLoader, DoubleLoader]:
     """
     Get the data loaders for a dual domain dataset for training phase.
@@ -535,9 +870,13 @@ def get_training_loader(
             batch_size=batch_size,
             num_workers=num_workers,
             augment_ops=augment_ops,
+            skip_augmentation=skip_augmentation,
+            resize=resize,
             pin_memory=pin_memory,
+            use_svhn_extra=use_svhn_extra,
         )
 
+    print(f'Skippin augmentation for first domain: {first_domain_name}')
     first_data = load_augmented_dataset(
         first_domain_name,
         train_op=True,
@@ -545,6 +884,9 @@ def get_training_loader(
         manual_seed=manual_seed,
         val_data_size=val_data_size,
         augment_ops=augment_ops,
+        skip_augmentation=True,
+        resize=resize,
+        use_svhn_extra=use_svhn_extra if first_domain_name.upper() == "SVHN" else False,
     )
     second_data = load_augmented_dataset(
         second_domain_name,
@@ -553,6 +895,9 @@ def get_training_loader(
         manual_seed=manual_seed,
         val_data_size=val_data_size,
         augment_ops=augment_ops,
+        skip_augmentation=skip_augmentation,
+        resize=resize,
+        use_svhn_extra=use_svhn_extra if second_domain_name.upper() == "SVHN" else False,
     )
 
     dual_data = get_dual_domain_dataset(first_data, second_data, supervised)
@@ -579,6 +924,7 @@ def get_testing_loader(
     batch_size: int = 64,
     num_workers: int = 8,
     pin_memory: bool = False,
+    domain_adaptation: bool = False,
 ) -> DataLoader[Any]:
     """Get the data loader of test set for the given dataset (domain name).
 
@@ -593,8 +939,9 @@ def get_testing_loader(
 
     data = load_dataset(
         domain_name,
-        train_op=False,
+        train_op="test",
         split_data=False,
+        domain_adaptation=domain_adaptation,
     )
 
     # For testing, no need to shuffle the data

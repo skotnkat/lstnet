@@ -7,7 +7,6 @@ from typing import Dict, Any, List, Tuple, Union, Optional, TypeAlias
 import json
 import torch
 from torch import Tensor
-
 from lion_pytorch import Lion
 
 PARAMS_FILE_PATH = None
@@ -258,6 +257,11 @@ def init_optimizer(
     elif optim_name == "Lion":
         optim = Lion(model_params, lr, betas=betas, weight_decay=weight_decay)
 
+    elif optim_name == "SGD":
+        optim = torch.optim.SGD(
+            model_params, lr, momentum=betas[0], weight_decay=weight_decay
+        )
+
     else:
         err_msg = f"Given optimizer name {optim_name} is not internally implemented yet"
         print(f"Error message: {err_msg}")
@@ -291,4 +295,20 @@ def convert_tensor_tuple_to_floats(
 
     return tuple(t.item() for t in tuple_tensor)
 
-    
+def print_gpu_memory(prefix: str = ""):
+    if not torch.cuda.is_available():
+        print(f"{prefix}CUDA not available.")
+        return
+
+    d = torch.device("cuda")
+    torch.cuda.synchronize(d)
+
+    alloc = torch.cuda.memory_allocated(d) / 1024**2
+    reserv = torch.cuda.memory_reserved(d) / 1024**2
+    total = torch.cuda.get_device_properties(d).total_memory / 1024**2
+    free = total - reserv
+
+    print(
+        f"[{prefix}]: alloc={alloc:.1f}MB | reserv={reserv:.1f}MB | free~={free:.1f}MB | total={total:.1f}MB"
+    )
+

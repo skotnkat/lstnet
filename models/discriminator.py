@@ -6,6 +6,7 @@ Discriminator is a component responsible for distinguishing between real and gen
 from typing import Any, Dict, Tuple, Sequence
 from torch import Tensor
 import torch.nn as nn
+import torch.utils.checkpoint as checkpoint
 
 from models.lstnet_component import LstnetComponent
 from models.extended_layers import Conv2dExtended, MaxPool2dExtended
@@ -21,13 +22,20 @@ class Discriminator(LstnetComponent):
         params: Sequence[Any],
         *,
         negative_slope=0.01,
+        use_checkpoint: bool = False,
         **kwargs
     ) -> None:
         self.dense_layer_params = dict(params[-1])
         self.leaky_relu_neg_slope = negative_slope
 
         # pass all the params apart from leaky relu and last layer
-        super().__init__(input_size, in_channels_num, params[:-1], **kwargs)
+        super().__init__(
+            input_size,
+            in_channels_num,
+            params[:-1],
+            use_checkpoint=use_checkpoint,
+            **kwargs
+        )
 
         last_output_size = self.get_last_layer_output_size()
         last_layer_out_channels = self.get_last_layer_out_channels()
@@ -51,8 +59,10 @@ class Discriminator(LstnetComponent):
         Returns:
             Tensor: Output tensor after passing through all layers.
         """
-
-        return self.layers(x)  # returns raw
+        if self.use_checkpoint and self.training:
+            return checkpoint.checkpoint(self.layers, x, use_reentrant=False)
+        else:
+            return self.layers(x)  # returns raw
 
     def _create_stand_layer(
         self,
