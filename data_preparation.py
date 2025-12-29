@@ -376,23 +376,27 @@ def load_dataset(
 
         case "SVHN":
             # Different way of getting train/test sets
-            split = "test"
+            # split = "test"
+            # if train_op:
+            #     split = "train"
+
+            if transform_steps is None:
+                transform_steps = create_transform_steps(3, resize=resize)
+
+            data = datasets.SVHN(
+                root="./data", split="extra", transform=transform_steps, download=download
+            )
+
+            train_data, test_data = split_train_val_dataset(
+                data, val_data_size=0.2, manual_seed=manual_seed
+            )  # splitting to train and test
+
             if train_op:
-                split = "train"
+                data = train_data
 
-            if transform_steps is None:
-                transform_steps = create_transform_steps(3, resize=resize)
+            else:
+                data = test_data
 
-            data = datasets.SVHN(
-                root="./data", split=split, transform=transform_steps, download=download
-            )
-
-            if transform_steps is None:
-                transform_steps = create_transform_steps(3, resize=resize)
-
-            data = datasets.SVHN(
-                root="./data", split=split, transform=transform_steps, download=download
-            )
 
         case "APPLE":  # from the a2o dataset
             data = get_a2o_dataset(
@@ -733,6 +737,7 @@ def get_train_val_loaders(
         Tuple[DataLoader[Any], DataLoader[Any]]: The training and validation data loaders.
     """
 
+    print("Skipping first domain augmnetation")
     first_train, first_val = load_augmented_dataset(
         first_domain_name,
         train_op=True,
@@ -740,7 +745,7 @@ def get_train_val_loaders(
         augment_ops=augment_ops,
         manual_seed=manual_seed,
         val_data_size=val_data_size,
-        skip_augmentation=skip_augmentation,
+        skip_augmentation=True,
         resize=resize,
         use_svhn_extra=use_svhn_extra if first_domain_name.upper() == "SVHN" else False,
     )
@@ -877,6 +882,7 @@ def get_training_loader(
             use_svhn_extra=use_svhn_extra,
         )
 
+    print(f'Skippin augmentation for first domain: {first_domain_name}')
     first_data = load_augmented_dataset(
         first_domain_name,
         train_op=True,
@@ -884,7 +890,7 @@ def get_training_loader(
         manual_seed=manual_seed,
         val_data_size=val_data_size,
         augment_ops=augment_ops,
-        skip_augmentation=skip_augmentation,
+        skip_augmentation=True,
         resize=resize,
         use_svhn_extra=use_svhn_extra if first_domain_name.upper() == "SVHN" else False,
     )
