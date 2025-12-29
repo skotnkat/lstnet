@@ -104,6 +104,12 @@ def add_train_args(parser: argparse.ArgumentParser):
         default=[20, 20, 30, 100, 100, 100, 100],
         help="List of 7 float weights",
     )
+    
+    _ = parser.add_argument(
+        "--use_scheduler",
+        action="store_true",
+        help="If set, learning rate scheduler will be used during training.",
+    )
 
     _ = parser.add_argument("--resize", type=int, nargs=2, default=None)
 
@@ -301,6 +307,7 @@ def run_training(
         lr=cmd_args.learning_rate,
         betas=tuple(cmd_args.betas),
         weight_decay=cmd_args.weight_decay,
+        use_scheduler=cmd_args.use_scheduler,
     )
 
     # Create AugmentOps object from args
@@ -328,7 +335,7 @@ def run_training(
         train_params=train_params,
         compile_model=cmd_args.compile,
         use_checkpoint=cmd_args.use_checkpoint,
-        use_svhn_extra=cmd_args.use_svhn_extra,
+        use_svhn_extra=cmd_args.use_svhn_extra
     )
 
     if return_model:
