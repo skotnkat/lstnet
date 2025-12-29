@@ -37,11 +37,13 @@ def run(
     num_workers: int = 8,
     augm_ops: Optional[AugmentOps] = None,
     resize_ops: Optional[ResizeOps] = None,
+    inplace_augmentation: bool = False,
     train_params: TrainParams = TrainParams(),
     optuna: Literal[False] = False,
     optuna_trial: Optional[optuna.Trial] = None,
     compile_model: bool = False,
     use_checkpoint: bool = False,
+    use_svhn_extra: bool = False,
 ) -> LSTNET: ...
 @overload
 def run(
@@ -61,11 +63,13 @@ def run(
     num_workers: int = 8,
     augm_ops: Optional[AugmentOps] = None,
     resize_ops: Optional[ResizeOps] = None,
+    inplace_augmentation: bool = False,
     train_params: TrainParams = TrainParams(),
     optuna: Literal[True],
     optuna_trial: Optional[optuna.Trial] = None,
     compile_model: bool = False,
     use_checkpoint: bool = False,
+    use_svhn_extra: bool = False,
 ) -> Tuple[LSTNET, Dict[str, Any]]: ...
 def run(
     first_domain_name: str,
@@ -84,8 +88,7 @@ def run(
     num_workers: int = 8,
     augm_ops: Optional[AugmentOps] = None,
     resize_ops: Optional[ResizeOps] = None,
-    skip_augmentation: bool = False,
-    resize: Optional[int] = None,
+    inplace_augmentation: bool = False,
     train_params: TrainParams = TrainParams(),
     optuna: bool = False,
     optuna_trial: Optional[optuna.Trial] = None,
@@ -134,7 +137,7 @@ def run(
             num_workers=num_workers,
             pin_memory=pin_memory,
             augment_ops=augm_ops,
-            skip_augmentation=skip_augmentation,
+            inplace_augmentation=inplace_augmentation,
             resize_ops=resize_ops,
             use_svhn_extra=use_svhn_extra,
         )
@@ -150,7 +153,7 @@ def run(
             num_workers=num_workers,
             pin_memory=pin_memory,
             augment_ops=augm_ops,
-            skip_augmentation=skip_augmentation,
+            inplace_augmentation=inplace_augmentation,
             resize_ops=resize_ops,
             use_svhn_extra=use_svhn_extra,
         )
