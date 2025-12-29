@@ -102,7 +102,7 @@ def add_train_args(parser: argparse.ArgumentParser):
     
     
     #TODO: rename to augmentation_inplace (as it is applied, but the data data is not doubled)
-    _ = parser.add_argument("--skip_augmentation", action="store_true")
+    _ = parser.add_argument("--inplace_augmentation", action="store_true")  # do not double the size of the data, just augment in place
     _ = parser.add_argument("--use_svhn_extra", action="store_true")
 
     _ = parser.add_argument(
@@ -325,7 +325,15 @@ def run_training(
     
     if cmd_args.rotation == 0 and cmd_args.zoom == 0.0 and cmd_args.shift == 0:
         augm_ops = None
+    
+    resize_ops = None
+    if cmd_args.resize_target_size is not None:
+        resize_ops = ResizeOps(
+            target_size=cmd_args.resize_target_size,
             init_size=cmd_args.resize_init_size,
+            pad_mode=cmd_args.pad_mode,
+            random_crop_resize=cmd_args.random_crop_resize,
+        )
 
     model = train.run(
         cmd_args.first_domain,
@@ -342,8 +350,8 @@ def run_training(
         logs_file_name=cmd_args.logs_file_name,
         manual_seed=cmd_args.manual_seed,
         augm_ops=augm_ops,
-        skip_augmentation=cmd_args.skip_augmentation,
         resize_ops=resize_ops,
+        inplace_augmentation=cmd_args.inplace_augmentation,
         train_params=train_params,
         compile_model=cmd_args.compile,
         use_checkpoint=cmd_args.use_checkpoint,
