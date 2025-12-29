@@ -290,26 +290,28 @@ def load_dataset(
     dataset_name: str,
     *,
     split_data: Literal[True],
-    train_op: bool = True,
+    op: str = "train",
     transform_steps: Optional[Compose] = None,
     download: bool = True,
     val_data_size: float = 0.4,
     manual_seed: int = 42,
     domain_adaptation: bool = False,
     resize: Optional[int] = None,
+    max_records: Optional[int] = None,
 ) -> DoubleDataset: ...
 @overload
 def load_dataset(
     dataset_name: str,
     *,
     split_data: Literal[False],
-    train_op: bool = True,
+    op: str = "train",
     transform_steps: Optional[Compose] = None,
     download: bool = True,
     val_data_size: float = 0.4,
     manual_seed: int = 42,
     domain_adaptation: bool = False,
     resize: Optional[int] = None,
+    max_records: Optional[int] = None,
 ) -> SingleDataset: ...
 
 
@@ -318,13 +320,14 @@ def load_dataset(
     dataset_name: str,
     *,
     split_data: bool = False,
-    train_op: bool = True,
+    op: str = "train",
     transform_steps: Optional[Compose] = None,
     download: bool = True,
     val_data_size: float = 0.4,
     manual_seed: int = 42,
     domain_adaptation: bool = False,  # switch labels for A2O
     resize: Optional[int] = None,
+    max_records: Optional[int] = None,
 ) -> Union[SingleDataset, DoubleDataset]:
     """Loads a dataset from torchvision or a local path.
 
@@ -343,12 +346,14 @@ def load_dataset(
             Applied only when split_data is True. Defaults to 0.4.
         manual_seed (int, optional): The seed for random number generation.
             Defaults to 42.
+        max_records (int, optional): Maximum number of records to use from the dataset.
+            If None, all records are used. Defaults to None.
 
     Returns:
         Union[Dataset[Any], Tuple[Dataset[Any], Dataset[Any]]]: The loaded dataset(s).
             Either whole training dataset or a tuple of (training, validation) datasets.
     """
-
+    train_op = op.lower() == "train"
     # load data from torchvision datasets
     data: Dataset[Any]
     match dataset_name.upper():
@@ -375,24 +380,25 @@ def load_dataset(
             )
 
         case "SVHN":
-            # Different way of getting train/test sets
-            split = "test"
-            if train_op:
-                split = "train"
-
             if transform_steps is None:
                 transform_steps = create_transform_steps(3, resize=resize)
 
             data = datasets.SVHN(
-                root="./data", split=split, transform=transform_steps, download=download
+                root="./data", split=op, transform=transform_steps, download=download
             )
+            
+            if op == "extra":
+                print("Loading SVHN extra dataset")
+                train_data, test_data = split_train_val_dataset(
+                    data, val_data_size=0.2, manual_seed=manual_seed
+                )  # splitting to train and test
 
-            if transform_steps is None:
-                transform_steps = create_transform_steps(3, resize=resize)
+                if train_op:
+                    data = train_data
 
-            data = datasets.SVHN(
-                root="./data", split=split, transform=transform_steps, download=download
-            )
+                else:
+                    data = test_data
+
 
         case "APPLE":  # from the a2o dataset
             data = get_a2o_dataset(
@@ -497,6 +503,13 @@ def load_dataset(
                 f"Dataset loaded, number of records: {len(data)}, shape: {data[0][0].shape}"  # type: ignore  (has len())
             )
 
+    # Limit dataset size if max_records is specified
+    if max_records is not None and len(data) > max_records:  # type: ignore  (has len())
+        from torch.utils.data import Subset
+        indices = list(range(max_records))
+        data = Subset(data, indices)
+        print(f"Dataset limited to {max_records} records")
+
     if split_data:
         return split_train_val_dataset(
             data, val_data_size=val_data_size, manual_seed=manual_seed
@@ -556,15 +569,6 @@ def get_dataset_chw(
 
     return int(sample.shape[0]), int(sample.shape[1]), int(sample.shape[2])
 
-
-def get_svhn_extra_dataset():
-    print("Loading SVHN extra dataset")
-    transform_steps = create_transform_steps(3)
-    data = datasets.SVHN(
-        root="./data", split="extra", transform=transform_steps, download=True
-    )
-    
-    return data
 
 @overload
 def load_augmented_dataset(
@@ -631,7 +635,7 @@ def load_augmented_dataset(
 
     original_data = load_dataset(
         dataset_name,
-        train_op=train_op,
+        op="train" if train_op else "test",
         split_data=split_data,
         download=download,
         manual_seed=manual_seed,
@@ -655,22 +659,22 @@ def load_augmented_dataset(
         resize=resize,
     )
 
-    if skip_augmentation:
-        return original_data
-
     augmented_data = load_dataset(
         dataset_name,
-        train_op=train_op,
+        op="train" if train_op else "test",
         download=False,
         split_data=split_data,
         transform_steps=transform_steps,
         manual_seed=manual_seed,
         val_data_size=val_data_size,
     )
+    
+    if skip_augmentation:  # more like inplace augmentation
+        return augmented_data
         
 
     if use_svhn_extra:
-        svhn_extra_data = get_svhn_extra_dataset() 
+        train_op = "extra"
         
         if dataset_name.upper() != "SVHN":
             raise ValueError("use_svhn_extra can only be True for SVHN dataset")
@@ -679,20 +683,14 @@ def load_augmented_dataset(
         assert not isinstance(original_data, tuple)
         assert not isinstance(augmented_data, tuple)
         
-        all_data = ConcatDataset([original_data, augmented_data])
-        
-        if use_svhn_extra:
-            all_data = ConcatDataset([all_data, svhn_extra_data])
+        data = ConcatDataset([original_data, augmented_data])
             
-        return all_data
+        return data
 
     orig_train, orig_val = original_data
     augm_train, _ = augmented_data
 
     train_data: Dataset[Any] = ConcatDataset([orig_train, augm_train])
-    
-    if use_svhn_extra:
-        train_data = ConcatDataset([train_data, svhn_extra_data])
     
 
     return train_data, orig_val
@@ -733,6 +731,7 @@ def get_train_val_loaders(
         Tuple[DataLoader[Any], DataLoader[Any]]: The training and validation data loaders.
     """
 
+    print("Skipping first domain augmnetation")
     first_train, first_val = load_augmented_dataset(
         first_domain_name,
         train_op=True,
@@ -740,7 +739,7 @@ def get_train_val_loaders(
         augment_ops=augment_ops,
         manual_seed=manual_seed,
         val_data_size=val_data_size,
-        skip_augmentation=skip_augmentation,
+        skip_augmentation=True,
         resize=resize,
         use_svhn_extra=use_svhn_extra if first_domain_name.upper() == "SVHN" else False,
     )
@@ -877,6 +876,7 @@ def get_training_loader(
             use_svhn_extra=use_svhn_extra,
         )
 
+    print(f'Skippin augmentation for first domain: {first_domain_name}')
     first_data = load_augmented_dataset(
         first_domain_name,
         train_op=True,
@@ -884,7 +884,7 @@ def get_training_loader(
         manual_seed=manual_seed,
         val_data_size=val_data_size,
         augment_ops=augment_ops,
-        skip_augmentation=skip_augmentation,
+        skip_augmentation=True,
         resize=resize,
         use_svhn_extra=use_svhn_extra if first_domain_name.upper() == "SVHN" else False,
     )
@@ -939,7 +939,7 @@ def get_testing_loader(
 
     data = load_dataset(
         domain_name,
-        train_op=False,
+        train_op="test",
         split_data=False,
         domain_adaptation=domain_adaptation,
     )
