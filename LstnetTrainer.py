@@ -106,6 +106,7 @@ class LstnetTrainer:
         self.disc_scheduler = None
         self.enc_gen_scheduler = None
         if self.use_scheduler:
+            print('Initializing schedulers for optimizers.')
             self.disc_scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
                 self.disc_optim,
                 mode='min',
