@@ -632,9 +632,9 @@ def load_augmented_dataset(
     download: bool = True,
     val_data_size: float = 0.4,
     manual_seed: int = 42,
-    augment_ops: AugmentOps = AugmentOps(),
     skip_augmentation: bool = False,
     resize: Optional[int] = None,
+    augment_ops: Optional[AugmentOps] = None,
     use_svhn_extra: bool = False,
 ) -> SingleDataset: ...
 @overload
@@ -646,9 +646,9 @@ def load_augmented_dataset(
     download: bool = True,
     val_data_size: float = 0.4,
     manual_seed: int = 42,
-    augment_ops: AugmentOps = AugmentOps(),
     skip_augmentation: bool = False,
     resize: Optional[int] = None,
+    augment_ops: Optional[AugmentOps] = None,
     use_svhn_extra: bool = False,
 ) -> DoubleDataset: ...
 
@@ -661,9 +661,9 @@ def load_augmented_dataset(
     download: bool = True,
     val_data_size: float = 0.4,
     manual_seed: int = 42,
-    augment_ops: AugmentOps = AugmentOps(),
     skip_augmentation: bool = False,
     resize: Optional[int] = None,
+    augment_ops: Optional[AugmentOps] = None,
     use_svhn_extra: bool = False,
 ) -> Union[SingleDataset, DoubleDataset]:
     """
@@ -767,9 +767,9 @@ def get_train_val_loaders(
     *,
     manual_seed: int = 42,
     val_data_size: float = 0.4,
-    augment_ops: AugmentOps = AugmentOps(),
     skip_augmentation: bool = False,
     resize: Optional[int] = None,
+    augment_ops: Optional[AugmentOps] = None,
     batch_size: int = 64,
     num_workers: int = 8,
     pin_memory: bool = False,
@@ -858,9 +858,9 @@ def get_training_loader(
     batch_size: int = 64,
     num_workers: int = 8,
     pin_memory: bool = False,
-    augment_ops: AugmentOps = AugmentOps(),
     skip_augmentation: bool = False,
     resize: Optional[int] = None,
+    augment_ops: Optional[AugmentOps] = None,
     use_svhn_extra: bool = False,
 ) -> SingleLoader: ...
 @overload
@@ -875,9 +875,9 @@ def get_training_loader(
     batch_size: int = 64,
     num_workers: int = 8,
     pin_memory: bool = False,
-    augment_ops: AugmentOps = AugmentOps(),
     skip_augmentation: bool = False,
     resize: Optional[int] = None,
+    augment_ops: Optional[AugmentOps] = None,
     use_svhn_extra: bool = False,
 ) -> DoubleLoader: ...
 
