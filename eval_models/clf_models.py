@@ -226,6 +226,10 @@ class ClfTrainer:
         lr: float = 1e-3,
         betas: Tuple[float, float] = (0.9, 0.999),
         weight_decay: float = 0.0,
+        use_scheduler: bool = False,
+        scheduler_factor: float = 0.1,
+        scheduler_patience: int = 5,
+        scheduler_min_lr: float = 1e-6,
         run_optuna: bool = False,
     ):
         self.clf: BaseClf = clf
@@ -240,6 +244,19 @@ class ClfTrainer:
             betas=betas,
             weight_decay=weight_decay,
         )
+
+        # Initialize learning rate scheduler
+        self.use_scheduler = use_scheduler
+        self.scheduler = None
+        if self.use_scheduler:
+            print('Initializing scheduler for classifier optimizer.')
+            self.scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
+                self.optimizer,
+                mode='max',  # Monitor accuracy (higher is better)
+                factor=scheduler_factor,
+                patience=scheduler_patience,
+                min_lr=scheduler_min_lr
+            )
 
         self.epochs = epochs
         self.patience = patience
@@ -324,6 +341,10 @@ class ClfTrainer:
             self.val_loss.append(val_loss)
             self.val_acc.append(val_acc)
 
+            # Update learning rate scheduler based on validation accuracy
+            if self.use_scheduler:
+                self.scheduler.step(val_acc)
+
             end_time = time.time()
 
             if val_acc > best_val_acc:
@@ -365,6 +386,7 @@ class ClfTrainer:
             "lr": self.lr,
             "betas": self.betas,
             "weight_decay": self.weight_decay,
+            "use_scheduler": self.use_scheduler,
             "best_acc": self.best_acc,
             "train_loss": self.train_loss,
             "train_acc": self.train_acc,
