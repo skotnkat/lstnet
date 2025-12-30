@@ -758,7 +758,9 @@ def load_augmented_dataset(
     augm_resize_ops = resize_ops
     orig_resize_ops = resize_ops
     if (resize_ops is not None) and (resize_ops.random_crop_resize is True):        
-        orig_resize_ops = resize_ops
+        # Create a copy to avoid modifying the original resize_ops
+        import copy
+        orig_resize_ops = copy.copy(resize_ops)
         orig_resize_ops.random_crop_resize = False  # Do not apply random crop to original data
     
 

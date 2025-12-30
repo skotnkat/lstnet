@@ -51,6 +51,11 @@ def parse_args() -> argparse.Namespace:
     _ = parser.add_argument("--max_resource", type=int, default=20)
     _ = parser.add_argument("--reduction_factor", type=int, default=2)
 
+    _ = parser.add_argument("--resize_target_size", type=int, default=None)
+    _ = parser.add_argument("--pad_mode", type=str, default="edge")
+    _ = parser.add_argument("--random_crop_resize", action="store_true")
+    _ = parser.add_argument("--resize_init_size", type=int, default=256)
+
     return parser.parse_args()
 
 
@@ -73,6 +78,10 @@ if __name__ == "__main__":
             rotation=args.aug_rotation,
             zoom=args.aug_zoom,
             shift=args.aug_shift,
+            resize_target_size=args.resize_target_size,
+            pad_mode=args.pad_mode,
+            random_crop_resize=args.random_crop_resize,
+            resize_init_size=args.resize_init_size
         )
         print("Data preppared.")
 
