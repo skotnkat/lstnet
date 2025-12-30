@@ -22,7 +22,8 @@ def prepare_clf_data(
     resize_target_size,
     pad_mode,
     random_crop_resize, 
-    resize_init_size
+    resize_init_size,
+    inplace_augmentation: bool = False,
 ):
     # Load Trainining and Validation Data
     if (rotation == 0) and (zoom == 0) and (shift == 0):
@@ -50,6 +51,7 @@ def prepare_clf_data(
         manual_seed=manual_seed,
         augment_ops=aug_ops,
         resize_ops=resize_ops
+        inplace_augmentation=inplace_augmentation,
     )
 
     train_loader = DataLoader(
@@ -86,12 +88,12 @@ def get_clf(
 
     # TODO: Fix for Base clfs and SVHN: should pass, however for resnet not
 
-    if clf_params is not None:
-        params = clf_params
-    else:
-        with open(f"{params_path}", "r", encoding="utf-8") as file:
-            params = json.load(file)
-
+    # if clf_params is not None:
+    #     params = clf_params
+    # else:
+    #     with open(f"{params_path}", "r", encoding="utf-8") as file:
+    #         params = json.load(file)
+    params = dict()
     clf = select_classifier(domain_name.upper(), params=params)
 
     return clf

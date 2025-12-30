@@ -55,6 +55,7 @@ def parse_args() -> argparse.Namespace:
     _ = parser.add_argument("--pad_mode", type=str, default="edge")
     _ = parser.add_argument("--random_crop_resize", action="store_true")
     _ = parser.add_argument("--resize_init_size", type=int, default=256)
+    _ = parser.add_argument("--inplace_augmentation", action="store_true")
 
     return parser.parse_args()
 
@@ -82,6 +83,7 @@ if __name__ == "__main__":
             pad_mode=args.pad_mode,
             random_crop_resize=args.random_crop_resize,
             resize_init_size=args.resize_init_size
+            inplace_augmentation=args.inplace_augmentation
         )
         print("Data preppared.")
 
