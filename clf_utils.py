@@ -91,6 +91,10 @@ def train_clf(
     lr: float,
     betas: Tuple[float, float],
     weight_decay: float,
+    use_scheduler: bool = False,
+    scheduler_factor: float = 0.1,
+    scheduler_patience: int = 5,
+    scheduler_min_lr: float = 1e-6,
     optuna_trial: Optional[optuna.Trial] = None
 ):
     trainer = ClfTrainer(
@@ -101,6 +105,10 @@ def train_clf(
         lr=lr,
         betas=betas,
         weight_decay=weight_decay,
+        use_scheduler=use_scheduler,
+        scheduler_factor=scheduler_factor,
+        scheduler_patience=scheduler_patience,
+        scheduler_min_lr=scheduler_min_lr,
         run_optuna=optuna_trial is not None,
     )
 

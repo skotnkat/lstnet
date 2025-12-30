@@ -38,6 +38,11 @@ def parse_args() -> argparse.Namespace:
     _ = parser.add_argument("--weight_decay", type=float, default=0.0)
     _ = parser.add_argument("--betas", type=float, nargs=2, default=(0.9, 0.999))
 
+    _ = parser.add_argument("--use_scheduler", action="store_true")
+    _ = parser.add_argument("--scheduler_factor", type=float, default=0.1)
+    _ = parser.add_argument("--scheduler_patience", type=int, default=5)
+    _ = parser.add_argument("--scheduler_min_lr", type=float, default=1e-6)
+
     _ = parser.add_argument("--run_optuna", action="store_true")
     _ = parser.add_argument("--study_name", type=str, default="clf_study")
     _ = parser.add_argument("--n_trials", type=int, default=50)
@@ -86,6 +91,10 @@ if __name__ == "__main__":
             lr=args.learning_rate,
             betas=args.betas,
             weight_decay=args.weight_decay,
+            use_scheduler=args.use_scheduler,
+            scheduler_factor=args.scheduler_factor,
+            scheduler_patience=args.scheduler_patience,
+            scheduler_min_lr=args.scheduler_min_lr,
         )
 
     if not os.path.exists(f"{args.output_folder}"):
