@@ -26,7 +26,13 @@ from torchvision.transforms.v2 import (
     ToDtype,
     Normalize,
     Lambda, 
-    RandomCrop
+    RandomCrop,
+    RandomResizedCrop,
+    ColorJitter,
+    RandomApply,
+    RandomHorizontalFlip,
+    InterpolationMode,
+    RandomRotation
 )
 from torch.utils.data import ConcatDataset, DataLoader, random_split, Dataset, Subset
 import torch
@@ -156,19 +162,47 @@ def create_transform_steps(
 
     if resize_ops is not None:
         first_size = resize_ops.target_size
+
         if resize_ops.random_crop_resize is True:
             first_size = resize_ops.init_size
         # Resize images to the specified size (max size) and pad the smaller dimension with 0 to create square (resize, resize)
         ops.append(
             Lambda(lambda img: resize_with_padding(img, first_size, pad_mode=resize_ops.pad_mode))
             )
+
         
         if resize_ops.random_crop_resize is True:
             ops.append(
-                RandomCrop(resize_ops.target_size)
+                RandomResizedCrop(
+                    resize_ops.target_size,
+                    scale=(0.8, 1.0),
+                    ratio=(0.9, 1.1),
+                    interpolation=InterpolationMode.BILINEAR
+                )
             )
             
             img_size = (resize_ops.target_size, resize_ops.target_size)
+
+            ops.append(
+                ColorJitter(
+                    brightness=0.3,
+                    contrast=0.3,
+                    saturation=0.3,
+                    hue=0.1
+                )
+            )
+
+            ops.append(
+                RandomApply([
+                RandomRotation(
+                    degrees=15,  # Moderate rotation
+                    interpolation=InterpolationMode.BILINEAR,
+                    fill=None  # Will use edge values
+                )
+            ], p=0.5))
+
+            ops.append(RandomHorizontalFlip(p=0.3))
+            
 
     if augment_ops is not None:
         if img_size is None:
