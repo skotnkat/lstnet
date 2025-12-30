@@ -6,7 +6,7 @@ import optuna
 from eval_models.clf_models import select_classifier, ClfTrainer, BaseClf
 import utils
 
-from data_preparation import load_augmented_dataset, AugmentOps
+from data_preparation import load_augmented_dataset, AugmentOps, ResizeOps
 
 
 def prepare_clf_data(
@@ -19,10 +19,26 @@ def prepare_clf_data(
     rotation: int,
     zoom: float,
     shift: int,
+    resize_target_size,
+    pad_mode,
+    random_crop_resize, 
+    resize_init_size
 ):
     # Load Trainining and Validation Data
-    aug_ops = AugmentOps(rotation=rotation, zoom=zoom, shift=shift)
+    if (rotation == 0) and (zoom == 0) and (shift == 0):
+        aug_ops = None
+    else:
+        aug_ops = AugmentOps(rotation=rotation, zoom=zoom, shift=shift)
 
+    resize_ops = None
+    if resize_target_size is not None:
+        resize_ops = ResizeOps(
+            target_size=resize_target_size,
+            init_size=resize_init_size,
+            pad_mode=pad_mode,
+            random_crop_resize=random_crop_resize,
+        )
+    
     ds_name: str = domain_name.upper()
     val_size: float = val_size_data
     manual_seed: int = seed
@@ -33,6 +49,7 @@ def prepare_clf_data(
         val_data_size=val_size,
         manual_seed=manual_seed,
         augment_ops=aug_ops,
+        resize_ops=resize_ops
     )
 
     train_loader = DataLoader(
@@ -61,7 +78,7 @@ def get_clf(
     domain_name: str,
     *,
     params_path: Optional[str] = None,
-    clf_params: Optional[List[Any]] = None,
+    clf_params: Optional[List[Any]] = [],
 ):
     # Load Parameters File
     # if params_path is None and clf_params is None:
