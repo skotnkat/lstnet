@@ -485,6 +485,9 @@ def load_dataset(
 
 
         case "APPLE":  # from the a2o dataset
+            if transform_steps is None:
+                transform_steps = create_transform_steps(3, resize_ops=resize_ops)
+            
             data = get_a2o_dataset(
                 "APPLE",
                 train_op=train_op,
@@ -493,6 +496,9 @@ def load_dataset(
             )
 
         case "ORANGE":  # from the a2o dataset
+            if transform_steps is None:
+                transform_steps = create_transform_steps(3, resize_ops=resize_ops)
+            
             data = get_a2o_dataset(
                 "ORANGE",
                 train_op=train_op,
@@ -501,6 +507,9 @@ def load_dataset(
             )
 
         case "A2O":  # Combined Apple and Orange for classification
+            if transform_steps is None:
+                transform_steps = create_transform_steps(3, resize_ops=resize_ops)
+            
             data = get_a2o_clf_dataset(
                 train_op=train_op, transform_steps=transform_steps
             )
