@@ -510,10 +510,10 @@ def load_dataset(
                 download_data.download_visda_dataset(train_op=train_op)
 
             subfolder = "train"  #  VISDA_SOURCE
-            if "VISDA_TARGET":
+            if name == "VISDA_TARGET":
                 subfolder = "validation"
 
-            elif "VISDA_TEST":
+            elif name =="VISDA_TEST":
                 subfolder = "test"
 
             data_folder = download_data.DATA_FOLDER + "/" + subfolder
