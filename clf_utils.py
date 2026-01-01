@@ -50,7 +50,7 @@ def prepare_clf_data(
         val_data_size=val_size,
         manual_seed=manual_seed,
         augment_ops=aug_ops,
-        resize_ops=resize_ops
+        resize_ops=resize_ops,
         inplace_augmentation=inplace_augmentation,
     )
 
