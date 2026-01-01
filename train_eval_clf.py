@@ -82,7 +82,7 @@ if __name__ == "__main__":
             resize_target_size=args.resize_target_size,
             pad_mode=args.pad_mode,
             random_crop_resize=args.random_crop_resize,
-            resize_init_size=args.resize_init_size
+            resize_init_size=args.resize_init_size,
             inplace_augmentation=args.inplace_augmentation
         )
         print("Data preppared.")
