@@ -1083,6 +1083,7 @@ def get_testing_loader(
     num_workers: int = 8,
     pin_memory: bool = False,
     domain_adaptation: bool = False,
+    resize_target_size: Optional[int] = None,
 ) -> DataLoader[Any]:
     """Get the data loader of test set for the given dataset (domain name).
 
@@ -1095,11 +1096,16 @@ def get_testing_loader(
         DataLoader[Any]: The data loader for testing phase.
     """
 
+    resize_op = None
+    if resize_target_size is not None:
+        resize_op = ResizeOps(target_size=resize_target_size)
+    
     data = load_dataset(
         domain_name,
         op="test",
         split_data=False,
         domain_adaptation=domain_adaptation,
+        resize_op=resize_op
     )
 
     # For testing, no need to shuffle the data

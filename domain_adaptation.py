@@ -44,7 +44,7 @@ def translate_to_diff_domain(
 
 
 def adapt_domain(
-    model: LSTNET, orig_domain_name: str, batch_size: int = 64, num_workers: int = 8
+    model: LSTNET, orig_domain_name: str, batch_size: int = 64, num_workers: int = 8, resize: Optional[int] = None
 ):
     """Adapt the domain of the input images using the given model.
 
@@ -57,11 +57,13 @@ def adapt_domain(
     Returns:
         TensorDataset: The adapted dataset.
     """
+    
     loader = get_testing_loader(
         orig_domain_name,
         batch_size=batch_size,
         num_workers=num_workers,
         domain_adaptation=True,
+        resize_target_size=resize,
     )
 
     _ = model.to(utils.DEVICE)

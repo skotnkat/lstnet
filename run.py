@@ -335,6 +335,7 @@ def run_training(
             random_crop_resize=cmd_args.random_crop_resize,
         )
 
+    print(f"inplace_augmentation: {cmd_args.inplace_augmentation}")
     model = train.run(
         cmd_args.first_domain,
         cmd_args.second_domain,
@@ -401,7 +402,7 @@ def run_translation(
         )
 
     translated_data = domain_adaptation.adapt_domain(
-        model, domain, batch_size=cmd_args.batch_size, num_workers=cmd_args.num_workers
+        model, domain, batch_size=cmd_args.batch_size, num_workers=cmd_args.num_workers, resize=cmd_args.resize_target_size
     )
 
     if save_trans_data:
