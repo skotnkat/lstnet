@@ -40,6 +40,8 @@ def add_common_args(parser: argparse.ArgumentParser):
         help="If a model with name 'model_name' should be loaded for data translation.",
     )
     _ = parser.add_argument("--manual_seed", type=int, default=42)
+    
+    _ = parser.add_argument("--resize_target_size", type=int, default=None)
 
 
 def add_train_args(parser: argparse.ArgumentParser):
@@ -95,7 +97,6 @@ def add_train_args(parser: argparse.ArgumentParser):
     _ = parser.add_argument("--zoom", type=float, default=0.1)
     _ = parser.add_argument("--shift", type=int, default=2)
     
-    _ = parser.add_argument("--resize_target_size", type=int, default=None)
     _ = parser.add_argument("--pad_mode", type=str, default="edge")
     _ = parser.add_argument("--random_crop_resize", action="store_true")
     _ = parser.add_argument("--resize_init_size", type=int, default=256)
