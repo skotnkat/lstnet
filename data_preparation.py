@@ -1105,7 +1105,7 @@ def get_testing_loader(
         op="test",
         split_data=False,
         domain_adaptation=domain_adaptation,
-        resize_op=resize_op
+        resize_ops=resize_op
     )
 
     # For testing, no need to shuffle the data
