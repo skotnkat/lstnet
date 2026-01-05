@@ -10,6 +10,8 @@ from typing import Optional
 import torch
 from torch.utils.data import TensorDataset
 
+# Fix for "Too many open files" error with large datasets
+torch.multiprocessing.set_sharing_strategy('file_system')
 
 import utils
 import train
