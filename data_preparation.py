@@ -523,7 +523,7 @@ def load_dataset(
                 subfolder = "validation"
 
             elif name =="VISDA_TEST":
-                subfolder = "test"
+                subfolder = "visda_test/test"
 
             data_folder = download_data.DATA_FOLDER + "/" + subfolder
 

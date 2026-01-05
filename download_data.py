@@ -91,7 +91,34 @@ def download_visda_dataset(train_op: bool = True) -> None:
                 with tarfile.open(test_tar, "r") as tar:
                     tar.extractall(test_dir)
                 os.remove(test_tar)
-                print(f"Test data extracted to visda_test and tar file removed.")
+                
+                # Merge all trunk folders into a single test directory
+                merged_test_dir = os.path.join(test_dir, "test")
+                os.makedirs(merged_test_dir, exist_ok=True)
+                
+                nested_test_dir = os.path.join(test_dir, "test", "test")
+                if os.path.exists(nested_test_dir):
+                    # First move nested test/test to test_dir level
+                    for item in os.listdir(nested_test_dir):
+                        src = os.path.join(nested_test_dir, item)
+                        dst = os.path.join(test_dir, item)
+                        shutil.move(src, dst)
+                    os.rmdir(nested_test_dir)
+                    os.rmdir(merged_test_dir)
+                    os.makedirs(merged_test_dir, exist_ok=True)
+                
+                # Merge all trunk folders
+                for item in os.listdir(test_dir):
+                    item_path = os.path.join(test_dir, item)
+                    if os.path.isdir(item_path) and item.startswith("trunk"):
+                        # Move all contents from trunk folder to merged test dir
+                        for file in os.listdir(item_path):
+                            src = os.path.join(item_path, file)
+                            dst = os.path.join(merged_test_dir, file)
+                            shutil.move(src, dst)
+                        os.rmdir(item_path)
+                
+                print(f"Test data extracted and merged to visda_test/test and tar file removed.")
             else:
                 print(f"Downloading test data to {test_tar}...")
                 _ = urllib.request.urlretrieve(TEST_INPUT_PATH, test_tar)
@@ -100,7 +127,34 @@ def download_visda_dataset(train_op: bool = True) -> None:
                 with tarfile.open(test_tar, "r") as tar:
                     tar.extractall(test_dir)
                 os.remove(test_tar)
-                print(f"Test data extracted to visda_test and tar file removed.")
+                
+                # Merge all trunk folders into a single test directory
+                merged_test_dir = os.path.join(test_dir, "test")
+                os.makedirs(merged_test_dir, exist_ok=True)
+                
+                nested_test_dir = os.path.join(test_dir, "test", "test")
+                if os.path.exists(nested_test_dir):
+                    # First move nested test/test to test_dir level
+                    for item in os.listdir(nested_test_dir):
+                        src = os.path.join(nested_test_dir, item)
+                        dst = os.path.join(test_dir, item)
+                        shutil.move(src, dst)
+                    os.rmdir(nested_test_dir)
+                    os.rmdir(merged_test_dir)
+                    os.makedirs(merged_test_dir, exist_ok=True)
+                
+                # Merge all trunk folders
+                for item in os.listdir(test_dir):
+                    item_path = os.path.join(test_dir, item)
+                    if os.path.isdir(item_path) and item.startswith("trunk"):
+                        # Move all contents from trunk folder to merged test dir
+                        for file in os.listdir(item_path):
+                            src = os.path.join(item_path, file)
+                            dst = os.path.join(merged_test_dir, file)
+                            shutil.move(src, dst)
+                        os.rmdir(item_path)
+                
+                print(f"Test data extracted and merged to visda_test/test and tar file removed.")
         else:
             print(f"Test data already exists at {test_dir}")
 
