@@ -21,4 +21,6 @@ test_files/
 analysis/
 tmp/
 img_processing/
+lstnet_experiments/
+output_base/
 
