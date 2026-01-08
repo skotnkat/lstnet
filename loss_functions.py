@@ -3,20 +3,14 @@ Module is implementing loss functions used for training of encoder-generator-dis
 To be specific, loss functions needed for training o LSTNET model.
 """
 
-from typing import List, Union, overload, Literal
+from typing import List
 from enum import IntEnum
 import torch.nn as nn
 import torch
 from torch import Tensor
 
 from models.lstnet import LSTNET
-from utils import (
-    TensorTriplet,
-    TensorQuad,
-    FloatTriplet,
-    FloatQuad,
-    convert_tensor_tuple_to_floats,
-)
+from utils import TensorTriplet, TensorQuad
 
 
 class WeightIndex(IntEnum):
@@ -96,8 +90,6 @@ def network_adversarial_loss(batch_real: Tensor, batch_gen: Tensor) -> Tensor:
     return real_loss + gen_loss
 
 
-# Overloads for type checking
-@overload
 def compute_discriminator_loss(
     model: LSTNET,
     weights: List[float],
@@ -107,44 +99,7 @@ def compute_discriminator_loss(
     second_gen_img: Tensor,
     first_latent_img: Tensor,
     second_latent_img: Tensor,
-) -> TensorTriplet: ...
-@overload
-def compute_discriminator_loss(
-    model: LSTNET,
-    weights: List[float],
-    first_real_img: Tensor,
-    second_real_img: Tensor,
-    first_gen_img: Tensor,
-    second_gen_img: Tensor,
-    first_latent_img: Tensor,
-    second_latent_img: Tensor,
-    return_grad: Literal[True],
-) -> TensorTriplet: ...
-@overload
-def compute_discriminator_loss(
-    model: LSTNET,
-    weights: List[float],
-    first_real_img: Tensor,
-    second_real_img: Tensor,
-    first_gen_img: Tensor,
-    second_gen_img: Tensor,
-    first_latent_img: Tensor,
-    second_latent_img: Tensor,
-    return_grad: Literal[False],
-) -> FloatTriplet: ...
-
-
-def compute_discriminator_loss(
-    model: LSTNET,
-    weights: List[float],
-    first_real_img: Tensor,
-    second_real_img: Tensor,
-    first_gen_img: Tensor,
-    second_gen_img: Tensor,
-    first_latent_img: Tensor,
-    second_latent_img: Tensor,
-    return_grad: bool = True,
-) -> Union[TensorTriplet, FloatTriplet]:
+) -> TensorTriplet:
     """
     Computes the discriminator loss for the given images.
     Runs the images through the respective discriminators of the model
@@ -171,7 +126,6 @@ def compute_discriminator_loss(
     Returns:
         Union[TensorTriplet, FloatTriplet]: The computed discriminator loss.
     """
-
     first_real_disc = model.first_discriminator.forward(first_real_img)
     first_gen_disc = model.first_discriminator.forward(first_gen_img)
     first_disc_loss = network_adversarial_loss(first_real_disc, first_gen_disc)
@@ -189,45 +143,10 @@ def compute_discriminator_loss(
         weights[WeightIndex.SECOND_DOMAIN] * second_disc_loss,
         weights[WeightIndex.LATENT_DOMAIN] * latent_disc_loss,
     )
-    if return_grad:
-        return res_with_grad
 
-    return convert_tensor_tuple_to_floats(res_with_grad)
+    return res_with_grad
 
 
-# Overloads for type checking
-@overload
-def compute_cc_loss(
-    weights: List[float],
-    first_real_img: Tensor,
-    second_real_img: Tensor,
-    first_cycle_img: Tensor,
-    second_cycle_img: Tensor,
-    first_full_cycle_img: Tensor,
-    second_full_cycle_img: Tensor,
-) -> TensorQuad: ...
-@overload
-def compute_cc_loss(
-    weights: List[float],
-    first_real_img: Tensor,
-    second_real_img: Tensor,
-    first_cycle_img: Tensor,
-    second_cycle_img: Tensor,
-    first_full_cycle_img: Tensor,
-    second_full_cycle_img: Tensor,
-    return_grad: Literal[True],
-) -> TensorQuad: ...
-@overload
-def compute_cc_loss(
-    weights: List[float],
-    first_real_img: Tensor,
-    second_real_img: Tensor,
-    first_cycle_img: Tensor,
-    second_cycle_img: Tensor,
-    first_full_cycle_img: Tensor,
-    second_full_cycle_img: Tensor,
-    return_grad: Literal[False],
-) -> FloatQuad: ...
 def compute_cc_loss(
     weights: List[float],
     first_real_img: Tensor,
@@ -237,7 +156,7 @@ def compute_cc_loss(
     first_full_cycle_img: Tensor,
     second_full_cycle_img: Tensor,
     return_grad: bool = True,
-) -> Union[TensorQuad, FloatQuad]:
+) -> TensorQuad:
     """
     Computes the cycle-consistency loss for the given images.
     It is computed to improve the common latent space representation.
@@ -277,42 +196,8 @@ def compute_cc_loss(
         weights[WeightIndex.CC_FULL_FIRST_DOMAIN] * cc_loss_3,
         weights[WeightIndex.CC_FULL_SECOND_DOMAIN] * cc_loss_4,
     )
-    if return_grad:
-        return res_with_grad
 
-    return convert_tensor_tuple_to_floats(res_with_grad)
-
-
-# Overloads for type checking
-@overload
-def compute_enc_gen_loss(
-    model: LSTNET,
-    weights: List[float],
-    first_gen_img: Tensor,
-    second_gen_img: Tensor,
-    first_latent_img: Tensor,
-    second_latent_img: Tensor,
-) -> TensorTriplet: ...
-@overload
-def compute_enc_gen_loss(
-    model: LSTNET,
-    weights: List[float],
-    first_gen_img: Tensor,
-    second_gen_img: Tensor,
-    first_latent_img: Tensor,
-    second_latent_img: Tensor,
-    return_grad: Literal[True],
-) -> TensorTriplet: ...
-@overload
-def compute_enc_gen_loss(
-    model: LSTNET,
-    weights: List[float],
-    first_gen_img: Tensor,
-    second_gen_img: Tensor,
-    first_latent_img: Tensor,
-    second_latent_img: Tensor,
-    return_grad: Literal[False],
-) -> FloatTriplet: ...
+    return res_with_grad
 
 
 def compute_enc_gen_loss(
@@ -322,8 +207,7 @@ def compute_enc_gen_loss(
     second_gen_img: Tensor,
     first_latent_img: Tensor,
     second_latent_img: Tensor,
-    return_grad: bool = True,
-) -> Union[TensorTriplet, FloatTriplet]:
+) -> TensorTriplet:
     """
     Computes the encoder-generator loss for the given images.
 
@@ -351,6 +235,7 @@ def compute_enc_gen_loss(
     Returns:
         Union[TensorTriplet, FloatTriplet]: _description_
     """
+
     first_gen_disc = model.first_discriminator.forward(first_gen_img)
     first_gen_loss = adversarial_loss_real(first_gen_disc)
 
@@ -359,8 +244,6 @@ def compute_enc_gen_loss(
 
     first_latent_disc = model.latent_discriminator.forward(first_latent_img)
     second_latent_disc = model.latent_discriminator.forward(second_latent_img)
-
-    # should be also only second_latent_disc?
     latent_loss = network_adversarial_loss(second_latent_disc, first_latent_disc)
 
     res_with_grad = (
@@ -368,7 +251,5 @@ def compute_enc_gen_loss(
         weights[WeightIndex.SECOND_DOMAIN] * second_gen_loss,
         weights[WeightIndex.LATENT_DOMAIN] * latent_loss,
     )
-    if return_grad:
-        return res_with_grad
 
-    return convert_tensor_tuple_to_floats(res_with_grad)
+    return res_with_grad

@@ -18,13 +18,16 @@ import optuna
 from dual_domain_dataset import DualDomainDataset
 from models.lstnet import LSTNET
 import utils
-from utils import FloatTriplet, FloatQuad
+from utils import TensorQuad, FloatTriplet, FloatQuad
 import loss_functions
+import wasserstein_loss_functions
+from wasserstein_loss_functions import WasserssteinTerm
 
 
 # Constants
 EXPECTED_WEIGHTS_COUNT = 7
-DISCRIMINATOR_UPDATE_FREQUENCY = 2  # Update discriminator every 2nd batch
+CRITIC_UPDATES_PER_GEN = 5  # standard for WGAN-GP is 5
+DISCRIMINATOR_UPDATE_FREQUENCY = 1  # update discriminator every batch
 
 
 @dataclass(slots=True)
@@ -160,6 +163,7 @@ class LstnetTrainer:
             )
 
         self.weights = weights
+        self.wasserstein = False
 
         # Adjust max_patience if not provided (None) -> set to max_epoch_num to never early stop
         self.max_patience = train_params.max_patience
@@ -178,16 +182,11 @@ class LstnetTrainer:
         self.optuna_trial = optuna_trial
         self.fin_loss = np.inf
 
-        if compile_model:
-            self.disc_forward = torch.compile(
-                self.disc_forward, mode="default", dynamic=False
-            )
-            self.enc_gen_forward = torch.compile(
-                self.enc_gen_forward, mode="default", dynamic=False
-            )
-            self.eval_forward = torch.compile(
-                self.eval_forward, mode="default", dynamic=False
-            )
+        self.loss_types = ["disc_loss", "enc_gen_loss", "cc_loss"]
+        self.loss_logs: Dict[str, Dict[str, Dict[str, List[float]]]] = dict()
+
+        if compile_model:  # TO DO
+            pass
 
     def get_trainer_info(self) -> Dict[str, Any]:
         """
@@ -211,97 +210,46 @@ class LstnetTrainer:
             "use_scheduler": self.use_scheduler,
         }
 
-    def disc_forward(
+    def get_trans_imgs(
         self, first_real_img: Tensor, second_real_img: Tensor
-    ) -> Any:  # tmp: Tuple[TensorTriplet, TensorTriplet, TensorQuad]
-        with torch.no_grad():
-            # second_gen_img are images from first domain mapped to second domain
-            second_gen_img, first_latent_img = self.model.map_first_to_second(
-                first_real_img
-            )
+    ) -> TensorQuad:
+        """Generate translated images from both domains.
 
-            # first_gen_img are images from the second domain mapped to first domain
-            first_gen_img, second_latent_img = self.model.map_second_to_first(
-                second_real_img
-            )
-            imgs_mapping = (
-                first_gen_img,
-                second_gen_img,
-                first_latent_img,
-                second_latent_img,
-            )
-
-        disc_loss_tensors = loss_functions.compute_discriminator_loss(
-            self.model,
-            self.weights,
-            first_real_img,
-            second_real_img,
-            *imgs_mapping,
-        )
-
-        # only for obtaining all the losses, no update
-        with torch.no_grad():
-            imgs_cc = self.model.get_cc_components(*imgs_mapping)
-            cc_loss_tensors = loss_functions.compute_cc_loss(
-                self.weights,
-                first_real_img,
-                second_real_img,
-                *imgs_cc,
-            )
-            enc_gen_loss_tensors = loss_functions.compute_enc_gen_loss(
-                self.model, self.weights, *imgs_mapping
-            )
-
-        return disc_loss_tensors, enc_gen_loss_tensors, cc_loss_tensors
-
-    def _update_disc(
-        self, first_real_img: Tensor, second_real_img: Tensor
-    ) -> Any:  # Tuple[FloatTriplet, FloatTriplet, FloatQuad]:
-        self.disc_optim.zero_grad()
-
-        disc_loss_tensors, enc_gen_loss_tensors, cc_loss_tensors = self.disc_forward(
-            first_real_img, second_real_img
-        )
-
-        total_disc_loss = functools.reduce(operator.add, disc_loss_tensors)
-
-        total_disc_loss.backward()
-        self.disc_optim.step()
-
-        return (
-            utils.convert_tensor_tuple_to_floats(disc_loss_tensors),
-            utils.convert_tensor_tuple_to_floats(enc_gen_loss_tensors),
-            utils.convert_tensor_tuple_to_floats(cc_loss_tensors),
-        )
-
-    def enc_gen_forward(
-        self, first_real_img: Tensor, second_real_img: Tensor
-    ) -> Any:  # tmp: Tuple[TensorTriplet, TensorTriplet, TensorQuad]
-        # Generate images from first domain to second and vice versa
+        Args:
+            first_real_img (Tensor): Real images from the first domain.
+            second_real_img (Tensor): Real images from the second domain.
+        """
         second_gen_img, first_latent_img = self.model.map_first_to_second(
             first_real_img
         )
+
+        # first_gen_img are images from the second domain mapped to first domain
         first_gen_img, second_latent_img = self.model.map_second_to_first(
             second_real_img
         )
+
         imgs_mapping = (
             first_gen_img,
             second_gen_img,
             first_latent_img,
             second_latent_img,
         )
-        imgs_cc = self.model.get_cc_components(*imgs_mapping)
 
-        cc_loss_tensors = loss_functions.compute_cc_loss(
-            self.weights, first_real_img, second_real_img, *imgs_cc
-        )
-        enc_gen_loss_tensors = loss_functions.compute_enc_gen_loss(
-            self.model, self.weights, *imgs_mapping
-        )
+        return imgs_mapping
 
-        # only for obtaining all losses, no update
-        with torch.no_grad():
-            disc_loss_tensors = loss_functions.compute_discriminator_loss(
+    def _get_disc_losses(
+        self,
+        first_real_img: Tensor,
+        second_real_img: Tensor,
+        imgs_mapping: TensorQuad,
+        compute_grad: bool = True,
+    ) -> Any:
+        loss_func = loss_functions.compute_discriminator_loss
+        if self.wasserstein:
+            loss_func = wasserstein_loss_functions.compute_discriminator_loss
+
+        if compute_grad:
+            return loss_func(
                 self.model,
                 self.weights,
                 first_real_img,
@@ -309,29 +257,129 @@ class LstnetTrainer:
                 *imgs_mapping,
             )
 
-        return disc_loss_tensors, enc_gen_loss_tensors, cc_loss_tensors
+        else:
+            imgs_mapping_detached = (img.detach() for img in imgs_mapping)
+            disc_loss_tensors = loss_func(
+                self.model,
+                self.weights,
+                first_real_img,
+                second_real_img,
+                *imgs_mapping_detached,
+            )
+
+        return disc_loss_tensors
+
+    def _get_enc_gen_losses(
+        self, imgs_mapping: TensorQuad, compute_grad: bool = True
+    ) -> Any:
+        loss_func = loss_functions.compute_enc_gen_loss
+        if self.wasserstein:
+            loss_func = wasserstein_loss_functions.compute_enc_gen_loss
+        if compute_grad:
+            return loss_func(
+                self.model,
+                self.weights,
+                *imgs_mapping,
+            )
+        else:
+            with torch.no_grad():
+                enc_gen_loss_tensors = loss_func(
+                    self.model,
+                    self.weights,
+                    *imgs_mapping,
+                )
+        return enc_gen_loss_tensors
+
+    def _get_cc_losses(
+        self,
+        first_real_img: Tensor,
+        second_real_img: Tensor,
+        imgs_mapping: TensorQuad,
+        compute_grad: bool = True,
+    ) -> Any:
+        imgs_cc = self.model.get_cc_components(*imgs_mapping)
+
+        if compute_grad:
+            return loss_functions.compute_cc_loss(
+                self.weights,
+                first_real_img,
+                second_real_img,
+                *imgs_cc,
+            )
+        else:
+            with torch.no_grad():
+                cc_loss_tensors = loss_functions.compute_cc_loss(
+                    self.weights,
+                    first_real_img,
+                    second_real_img,
+                    *imgs_cc,
+                )
+        return cc_loss_tensors
+
+    def _get_losses(
+        self, first_real_img: Tensor, second_real_img: Tensor, op: str = "eval"
+    ) -> Any:  # TBD
+        if op not in ["disc", "enc_gen", "eval"]:
+            raise ValueError(
+                f"Invalid operation '{op}'. Expected 'disc', 'enc_gen', or 'eval'."
+            )
+
+        imgs_mapping = self.get_trans_imgs(first_real_img, second_real_img)
+
+        disc_grad, enc_gen_grad, cc_grad = False, False, False  # for eval
+        if op == "disc":
+            disc_grad = True
+        elif op == "enc_gen":
+            enc_gen_grad = True
+            cc_grad = True
+
+        disc_loss = self._get_disc_losses(
+            first_real_img, second_real_img, imgs_mapping, compute_grad=disc_grad
+        )
+        enc_gen_loss = self._get_enc_gen_losses(imgs_mapping, compute_grad=enc_gen_grad)
+        cc_loss = self._get_cc_losses(
+            first_real_img, second_real_img, imgs_mapping, compute_grad=cc_grad
+        )
+
+        return disc_loss, enc_gen_loss, cc_loss
+
+    @staticmethod
+    def _convert_losses_to_floats(losses: List[Any]) -> List[Any]:
+        return [utils.convert_tensor_tuple_to_floats(loss) for loss in losses]
+
+    def _update_disc(
+        self, first_real_img: Tensor, second_real_img: Tensor
+    ) -> Any:  # Tuple[FloatTriplet, FloatTriplet, FloatQuad]:
+        self.disc_optim.zero_grad()
+
+        disc_loss, enc_gen_loss, cc_loss = self._get_losses(
+            first_real_img, second_real_img, op="disc"
+        )
+
+        total_disc_loss = functools.reduce(operator.add, disc_loss)
+        total_disc_loss.backward()
+        self.disc_optim.step()
+
+        return self._convert_losses_to_floats([disc_loss, enc_gen_loss, cc_loss])
 
     def _update_enc_gen(
         self, first_real_img: Tensor, second_real_img: Tensor
     ) -> Any:  # Tuple[FloatTriplet, FloatTriplet, FloatQuad]:
         self.enc_gen_optim.zero_grad()
 
-        disc_loss_tensors, enc_gen_loss_tensors, cc_loss_tensors = self.enc_gen_forward(
-            first_real_img, second_real_img
+        disc_loss, enc_gen_loss, cc_loss = self._get_losses(
+            first_real_img, second_real_img, op="enc_gen"
         )
 
-        total_enc_gen_loss = functools.reduce(
-            operator.add, cc_loss_tensors
-        ) + functools.reduce(operator.add, enc_gen_loss_tensors)
+        total_enc_gen_loss = functools.reduce(operator.add, cc_loss) + functools.reduce(
+            operator.add, enc_gen_loss
+        )
 
         total_enc_gen_loss.backward()
         self.enc_gen_optim.step()
 
-        return (
-            utils.convert_tensor_tuple_to_floats(disc_loss_tensors),
-            utils.convert_tensor_tuple_to_floats(enc_gen_loss_tensors),
-            utils.convert_tensor_tuple_to_floats(cc_loss_tensors),
-        )
+        return self._convert_losses_to_floats([disc_loss, enc_gen_loss, cc_loss])
+
 
     def eval_forward(
         self, first_real_img: Tensor, second_real_img: Tensor
@@ -372,16 +420,16 @@ class LstnetTrainer:
 
         return disc_loss_tuple, enc_gen_loss_tuple, cc_loss_tuple
 
-    def _run_eval_loop(
-        self, first_real_img: Tensor, second_real_img: Tensor
-    ) -> Tuple[FloatTriplet, FloatTriplet, FloatQuad]:
+
+    def _run_eval_loop(self, first_real_img: Tensor, second_real_img: Tensor) -> Any:
         self.model.eval()
+        
         with torch.no_grad():
-            disc_loss_tuple, enc_gen_loss_tuple, cc_loss_tuple = self.eval_forward(
-                first_real_img, second_real_img
+            disc_loss, enc_gen_loss, cc_loss = self._get_losses(
+                first_real_img, second_real_img, op="eval"
             )
 
-        return disc_loss_tuple, enc_gen_loss_tuple, cc_loss_tuple
+        return self._convert_losses_to_floats([disc_loss, enc_gen_loss, cc_loss])
 
     def _fit_epoch(self) -> float:
         epoch_loss = 0
@@ -401,12 +449,12 @@ class LstnetTrainer:
 
             epoch_loss += sum(disc_loss_tuple) + sum(cc_loss_tuple)
 
-            utils.log_epoch_loss(
-                disc_loss_tuple, enc_gen_loss_tuple, cc_loss_tuple, "train"
+            self.log_epoch_loss(
+                [disc_loss_tuple, enc_gen_loss_tuple, cc_loss_tuple], "train"
             )
 
         scale = len(self.train_loader)
-        utils.normalize_epoch_loss(scale, "train")
+        self.normalize_epoch_loss(scale, "train")
         epoch_loss /= scale
 
         return epoch_loss
@@ -427,12 +475,13 @@ class LstnetTrainer:
 
             epoch_loss += sum(disc_loss_tuple) + sum(cc_loss_tuple)
 
-            utils.log_epoch_loss(
-                disc_loss_tuple, enc_gen_loss_tuple, cc_loss_tuple, "val"
+            self.log_epoch_loss(
+                [disc_loss_tuple, enc_gen_loss_tuple, cc_loss_tuple],
+                "val",
             )
 
         scale = len(self.val_loader)
-        utils.normalize_epoch_loss(scale, "val")
+        self.normalize_epoch_loss(scale, "val")
         epoch_loss /= scale
 
         return epoch_loss
@@ -458,7 +507,7 @@ class LstnetTrainer:
         epoch_idx = 0  # Init outside loop scope
         for epoch_idx in range(self.max_epoch_num):
             start_time = time.time()
-            utils.init_epoch_loss(op="train")
+            self.init_epoch_loss(op="train")
             epoch_loss = self._run_epoch(val_op=False)
             self.train_loss_list.append(epoch_loss)
             
@@ -466,7 +515,7 @@ class LstnetTrainer:
             self.train_loader.dataset._shuffle_second_indices()
 
             if self.run_validation:
-                utils.init_epoch_loss(op="val")
+                self.init_epoch_loss(op="val")
                 epoch_loss = self._run_epoch(val_op=True)
                 self.val_loss_list.append(epoch_loss)
                 
@@ -501,7 +550,7 @@ class LstnetTrainer:
                     self.optuna_trial.report(epoch_loss, epoch_idx)
                     if self.optuna_trial.should_prune():
                         self.optuna_trial.set_user_attr(
-                            "train_logs", utils.LOSS_LOGS.copy()
+                            "train_logs", self.loss_logs.copy()
                         )
                         raise optuna.TrialPruned()
 
@@ -525,3 +574,230 @@ class LstnetTrainer:
         )
 
         return self.model
+
+    def init_logs(self, ops: Optional[List[str]] = None) -> None:
+        """Initialize logs for training and validation operations."""
+
+        if ops is None:
+            ops = ["train", "val"]
+
+        for op in ops:
+            self.loss_logs[op] = dict()
+            for key in self.loss_types:
+                self.loss_logs[op][key] = dict()
+                values = ["first", "second", "latent"]
+                if key == "cc_loss":
+                    values = [
+                        "first_cycle",
+                        "second_cycle",
+                        "first_full_cycle",
+                        "second_full_cycle",
+                    ]
+
+                for val in values:
+                    self.loss_logs[op][key][f"{val}_loss"] = []
+
+    def init_epoch_loss(self, op: str) -> None:
+        for loss_type in self.loss_types:
+            values = ["first", "second", "latent"]
+            if loss_type == "cc_loss":
+                values = [
+                    "first_cycle",
+                    "second_cycle",
+                    "first_full_cycle",
+                    "second_full_cycle",
+                ]
+            for val in values:
+                self.loss_logs[op][loss_type][f"{val}_loss"].append(0.0)
+
+    def log_epoch_loss(self, loss_values: List[Any], op: str):
+        """
+        Log epoch loss for a given operation.
+
+        Args:
+            disc_loss (FloatTriplet): Discriminator loss.
+                Consist of first, second and latent loss.
+            enc_gen_loss (FloatTriplet): Encoder-Generator loss.
+                Consists of first, second and latent loss.
+            cc_loss (FloatQuad): Cycle consistency loss.
+            first_cycle, second_cycle, first_full_cycle, second_full_cycle).
+                Consists of first_cycle, second_cycle, first_full_cycle, second_full_cycle.
+            op (str): Operation type.
+        """
+
+        op_logs = self.loss_logs[op]
+        cur_epoch = len(op_logs[self.loss_types[0]]["first_loss"]) - 1  # last epoch
+
+        for loss_type, loss_value in zip(self.loss_types, loss_values):
+            if loss_type != "cc_loss":
+                op_logs[loss_type]["first_loss"][cur_epoch] += loss_value[0]
+                op_logs[loss_type]["second_loss"][cur_epoch] += loss_value[1]
+                op_logs[loss_type]["latent_loss"][cur_epoch] += loss_value[2]
+
+            else:
+                op_logs[loss_type]["first_cycle_loss"][cur_epoch] += loss_value[0]
+                op_logs[loss_type]["second_cycle_loss"][cur_epoch] += loss_value[1]
+                op_logs[loss_type]["first_full_cycle_loss"][cur_epoch] += loss_value[2]
+                op_logs[loss_type]["second_full_cycle_loss"][cur_epoch] += loss_value[3]
+
+    def normalize_epoch_loss(self, scale, op) -> None:
+        """
+        Normalize epoch loss for a given operation.
+
+        Args:
+            scale (float): Scaling factor.
+            op (str): Operation type.
+        """
+
+        op_logs = self.loss_logs[op]
+        cur_epoch = len(op_logs["disc_loss"]["first_loss"]) - 1  # last epoch
+
+        for loss_type in op_logs.keys():
+            for key in op_logs[loss_type].keys():
+                op_logs[loss_type][key][cur_epoch] /= scale
+
+
+class WassersteinLstnetTrainer(LstnetTrainer):
+    def __init__(
+        self,
+        lstnet_model: LSTNET,
+        weights: List[float],
+        train_loader: DataLoader[DualDomainDataset],
+        *,
+        val_loader: Optional[DataLoader[DualDomainDataset]] = None,
+        train_params: TrainParams = TrainParams(),
+        run_optuna: bool = False,
+        optuna_trial: Optional[optuna.Trial] = None,
+        compile_model: bool = False,
+    ) -> None:
+        super().__init__(
+            lstnet_model,
+            weights,
+            train_loader,
+            val_loader=val_loader,
+            train_params=train_params,
+            run_optuna=run_optuna,
+            optuna_trial=optuna_trial,
+            compile_model=compile_model,
+        )
+
+        self.wasserstein = True
+        self.loss_types = ["disc_loss", "grad_pen", "enc_gen_loss", "cc_loss"]
+
+    @staticmethod
+    def _convert_losses_to_floats(losses: List[Any]) -> List[Any]:
+        disc_loss, enc_gen_loss, cc_loss = losses
+
+        if isinstance(disc_loss[0], WasserssteinTerm):
+            disc_losses_values = tuple(
+                loss.get_critic_loss_value() for loss in disc_loss
+            )
+            grad_penalties = tuple(loss.get_grad_penalty_value() for loss in disc_loss)
+        else:
+            disc_losses_values = utils.convert_tensor_tuple_to_floats(disc_loss)
+            grad_penalties = (0.0, 0.0, 0.0)
+
+        enc_gen_loss_values = utils.convert_tensor_tuple_to_floats(enc_gen_loss)
+        cc_loss_values = utils.convert_tensor_tuple_to_floats(cc_loss)
+
+        return disc_losses_values, grad_penalties, enc_gen_loss_values, cc_loss_values
+
+    def _update_disc(
+        self, first_real_img: Tensor, second_real_img: Tensor
+    ) -> Any:  # Tuple[FloatTriplet, FloatTriplet, FloatQuad]:
+        self.disc_optim.zero_grad()
+
+        disc_loss, enc_gen_loss, cc_loss = self._get_losses(
+            first_real_img, second_real_img, op="disc"
+        )
+        disc_losses_all = [loss.total_loss() for loss in disc_loss]
+
+        total_disc_loss = functools.reduce(operator.add, disc_losses_all)
+        total_disc_loss.backward()
+        self.disc_optim.step()
+
+        return self._convert_losses_to_floats([disc_loss, enc_gen_loss, cc_loss])
+
+    def _update_enc_gen(
+        self, first_real_img: Tensor, second_real_img: Tensor
+    ) -> Any:  # Tuple[FloatTriplet, FloatTriplet, FloatQuad]:
+        self.enc_gen_optim.zero_grad()
+
+        disc_loss, enc_gen_loss, cc_loss = self._get_losses(
+            first_real_img, second_real_img, op="enc_gen"
+        )
+
+        total_enc_gen_loss = functools.reduce(operator.add, cc_loss) + functools.reduce(
+            operator.add, enc_gen_loss
+        )
+
+        total_enc_gen_loss.backward()
+        self.enc_gen_optim.step()
+
+        return self._convert_losses_to_floats([disc_loss, enc_gen_loss, cc_loss])
+
+    def _run_eval_loop(
+        self, first_real_img: Tensor, second_real_img: Tensor
+    ) -> Tuple[FloatTriplet, FloatTriplet, FloatQuad]:
+        disc_loss, enc_gen_loss, cc_loss = self._get_losses(
+            first_real_img, second_real_img, op="eval"
+        )
+
+        return self._convert_losses_to_floats([disc_loss, enc_gen_loss, cc_loss])
+
+    def _fit_epoch(self) -> float:
+        epoch_loss = 0
+
+        for batch_idx, (first_real, _, second_real, _) in enumerate(self.train_loader):
+            first_real = first_real.to(utils.DEVICE)
+            second_real = second_real.to(utils.DEVICE)
+
+            if batch_idx % CRITIC_UPDATES_PER_GEN == 0:
+                disc_loss_tuple, grad_pen_tuple, enc_gen_loss_tuple, cc_loss_tuple = (
+                    self._update_enc_gen(first_real, second_real)
+                )
+
+            else:
+                disc_loss_tuple, grad_pen_tuple, enc_gen_loss_tuple, cc_loss_tuple = (
+                    self._update_disc(first_real, second_real)
+                )
+
+            epoch_loss += sum(disc_loss_tuple) + sum(cc_loss_tuple)
+
+            self.log_epoch_loss(
+                [disc_loss_tuple, grad_pen_tuple, enc_gen_loss_tuple, cc_loss_tuple],
+                "train",
+            )
+
+        scale = len(self.train_loader)
+        self.normalize_epoch_loss(scale, "train")
+        epoch_loss /= scale
+
+        return epoch_loss
+
+    def _run_eval_epoch(self) -> float:
+        epoch_loss = 0
+
+        # Type assertion since we validate val_loader is not None in __init__
+        assert self.val_loader is not None, "Validation loader should be available"
+
+        for _, (first_real, _, second_real, _) in enumerate(self.val_loader):
+            first_real_img = first_real.to(utils.DEVICE)
+            second_real_img = second_real.to(utils.DEVICE)
+
+            disc_loss_tuple, grad_pen_tuple, enc_gen_loss_tuple, cc_loss_tuple = (
+                self._run_eval_loop(first_real_img, second_real_img)
+            )
+
+            epoch_loss += sum(disc_loss_tuple) + sum(cc_loss_tuple)
+
+            self.log_epoch_loss(
+                [disc_loss_tuple, grad_pen_tuple, enc_gen_loss_tuple, cc_loss_tuple],
+                "val",
+            )
+
+        scale = len(self.val_loader)
+        self.normalize_epoch_loss(scale, "val")
+        epoch_loss /= scale
+
+        return epoch_loss
