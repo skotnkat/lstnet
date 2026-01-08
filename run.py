@@ -63,6 +63,13 @@ def add_train_args(parser: argparse.ArgumentParser):
         action="store_true",
         help="Run supervised domain adaptation. If not set, unsupervised domain adaptation is run.",
     )
+    
+    _ = parser.add_argument(
+        "--disc_update_freq",
+        type=int,
+        default=2,
+        help="Number of discriminator updates per encoder-generator update.",
+    )
 
     _ = parser.add_argument("--optim_name", type=str, default="Adam")
 
@@ -349,8 +356,9 @@ def run_training(
         inplace_augmentation=cmd_args.inplace_augmentation,
         train_params=train_params,
         use_checkpoint=cmd_args.use_checkpoint,
-        use_svhn_extra=cmd_args.use_svhn_extra
-        wasserstein=cmd_args.wasserstein
+        use_svhn_extra=cmd_args.use_svhn_extra,
+        wasserstein=cmd_args.wasserstein,
+        disc_update_freq=cmd_args.disc_update_freq
     )
 
     if return_model:
