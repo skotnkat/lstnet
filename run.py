@@ -23,8 +23,6 @@ from models.lstnet import LSTNET
 import lstnet_optuna
 
 
-# TODO: remove the --compile logic (makes it too complex for users -> drop last causes issue with comparability)
-
 def add_common_args(parser: argparse.ArgumentParser):
     """Add arguments common to all operations."""
     _ = parser.add_argument(
@@ -104,7 +102,6 @@ def add_train_args(parser: argparse.ArgumentParser):
     _ = parser.add_argument("--resize_init_size", type=int, default=256)
     
     
-    #TODO: rename to augmentation_inplace (as it is applied, but the data data is not doubled)
     _ = parser.add_argument("--inplace_augmentation", action="store_true")  # do not double the size of the data, just augment in place
     _ = parser.add_argument("--use_svhn_extra", action="store_true")
 
@@ -116,19 +113,8 @@ def add_train_args(parser: argparse.ArgumentParser):
         help="List of 7 float weights",
     )
     
-    _ = parser.add_argument(
-        "--use_scheduler",
-        action="store_true",
-        help="If set, learning rate scheduler will be used during training.",
-    )
 
     _ = parser.add_argument("--resize", type=int, nargs=2, default=None)
-
-    _ = parser.add_argument(
-        "--compile",
-        action="store_true",
-        help="If set, the model will be compiled before training (pytorch compile).",
-    )
     _ = parser.add_argument(
         "--use_checkpoint",
         action="store_true",
@@ -324,7 +310,6 @@ def run_training(
         lr=cmd_args.learning_rate,
         betas=tuple(cmd_args.betas),
         weight_decay=cmd_args.weight_decay,
-        use_scheduler=cmd_args.use_scheduler,
     )
 
     # Create AugmentOps object from args
@@ -363,7 +348,6 @@ def run_training(
         resize_ops=resize_ops,
         inplace_augmentation=cmd_args.inplace_augmentation,
         train_params=train_params,
-        compile_model=cmd_args.compile,
         use_checkpoint=cmd_args.use_checkpoint,
         use_svhn_extra=cmd_args.use_svhn_extra
         wasserstein=cmd_args.wasserstein
