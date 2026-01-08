@@ -42,7 +42,6 @@ def run(
     train_params: TrainParams = TrainParams(),
     optuna: Literal[False] = False,
     optuna_trial: Optional[optuna.Trial] = None,
-    compile_model: bool = False,
     use_checkpoint: bool = False,
     use_svhn_extra: bool = False,
 ) -> LSTNET: ...
@@ -68,7 +67,6 @@ def run(
     train_params: TrainParams = TrainParams(),
     optuna: Literal[True],
     optuna_trial: Optional[optuna.Trial] = None,
-    compile_model: bool = False,
     use_checkpoint: bool = False,
     use_svhn_extra: bool = False,
 ) -> Tuple[LSTNET, Dict[str, Any]]: ...
@@ -93,7 +91,6 @@ def run(
     train_params: TrainParams = TrainParams(),
     optuna: bool = False,
     optuna_trial: Optional[optuna.Trial] = None,
-    compile_model: bool = False,
     use_checkpoint: bool = False,
     use_svhn_extra: bool = False,
     wasserstein: bool = False,
@@ -188,7 +185,6 @@ def run(
             train_params=train_params,
             run_optuna=optuna,
             optuna_trial=optuna_trial,
-            compile_model=compile_model,
         )
 
     else:
@@ -200,7 +196,6 @@ def run(
             train_params=train_params,
             run_optuna=optuna,
             optuna_trial=optuna_trial,
-            compile_model=compile_model,
         )
 
     trainer.init_logs(["train", "val"])

@@ -157,7 +157,6 @@ def create_transform_steps(
     Args:
         num_channels (int, optional): The number of channels in the input images. Defaults to 1.
     """
-    # TODO: update docstring
 
     ops: List[Any] = [ToImage()]
 
@@ -338,7 +337,6 @@ def get_data_loader(
     persistent_workers: bool = False,
     pin_memory: bool = False,
     collate_fn: Optional[Callable] = None,
-    drop_last: bool = False,
 ) -> DataLoader[Any]:
     """Creates a DataLoader for the given dataset.
 
@@ -367,7 +365,6 @@ def get_data_loader(
         persistent_workers=persistent_workers,
         pin_memory=pin_memory,
         collate_fn=collate_fn,
-        drop_last=drop_last,
     )
 
 
@@ -576,9 +573,8 @@ def load_dataset(
                 subfolder = "Real World"
 
             if transform_steps is None:
-                transform_steps = create_transform_steps(3, resize_ops=resize_ops)  # TODO: add resize
+                transform_steps = create_transform_steps(3, resize_ops=resize_ops)
                 
-            # TODO: refactor to not do the same code twice
             data_folder = f"{target_path}/{subfolder}"
             data = datasets.ImageFolder(data_folder, transform=transform_steps)
 
@@ -656,56 +652,6 @@ def get_dataset_chw(
         raise ValueError("Expected square images")
 
     return int(sample.shape[0]), int(sample.shape[1]), int(sample.shape[2])
-
-
-def get_balanced_subset(
-    dataset: Dataset[Any],
-    *,
-    manual_seed: int = 42,
-) -> Dataset[Any]:
-    """
-    Create a balanced subset from a dataset with equal number of samples per class.
-    
-    Args:
-        dataset (Dataset[Any]): The source dataset to sample from.
-        samples_per_class (int): Number of samples to select from each class.
-        manual_seed (int, optional): Seed for reproducibility. Defaults to 42.
-    
-    Returns:
-        Dataset[Any]: A Subset with balanced class distribution.
-        
-    """
-
-    
-    random.seed(manual_seed)
-    
-    # Organize indices by class label
-    class_indices = defaultdict(list)
-    for idx in range(len(dataset)):  # type: ignore
-        _, label = dataset[idx]
-        class_indices[label].append(idx)
-        
-    samples_per_class = min(len(indices) for indices in class_indices.values())
-    print(f"Balancing to smallest class size: {samples_per_class} samples per class")
-    
-    # Sample equally from each class
-    selected_indices = []
-    for label, indices in sorted(class_indices.items()):
-        if len(indices) < samples_per_class:
-            raise ValueError(
-                f"Class {label} has only {len(indices)} samples, "
-                f"but {samples_per_class} requested"
-            )
-        sampled = random.sample(indices, samples_per_class)
-        selected_indices.extend(sampled)
-    
-    # Shuffle the combined indices
-    random.shuffle(selected_indices)
-    
-    print(f"Created balanced subset with {len(selected_indices)} samples "
-          f"({samples_per_class} per class, {len(class_indices)} classes)")
-    
-    return Subset(dataset, selected_indices)
 
 
 def get_augmented_datasets_based_on_splits(orig_data: Union[SingleDataset, DoubleDataset], augm_data: Union[SingleDataset, DoubleDataset], split_data: bool, inplace_augmentation: bool) -> Union[SingleDataset, DoubleDataset]:
@@ -799,7 +745,6 @@ def load_augmented_dataset(
             raise ValueError("use_svhn_extra can only be True for SVHN dataset")
         
     
-    #TODO: resolve inplace versus not inplace augmentation logic
     augm_resize_ops = resize_ops
     orig_resize_ops = resize_ops
     if (resize_ops is not None) and (resize_ops.random_crop_resize is True):        
@@ -845,14 +790,6 @@ def load_augmented_dataset(
         manual_seed=manual_seed,
         val_data_size=val_data_size
     )
-    
-    #TODO: temporary solution
-    if use_svhn_extra:
-        #TODO: fix if not split
-        train_augmented, val_augmented = augmented_data
-        train_augmented_balanced = get_balanced_subset(train_augmented, manual_seed=manual_seed)
-        print(f"After balancing, training set size: {len(train_augmented_balanced)}")
-        return train_augmented_balanced, val_augmented
     
     
     return get_augmented_datasets_based_on_splits(original_data, augmented_data, split_data, inplace_augmentation)
@@ -925,8 +862,7 @@ def get_train_val_loaders(
         num_workers=num_workers,
         shuffle=True,
         pin_memory=pin_memory,
-        collate_fn=custom_collate_fn,
-        drop_last=False
+        collate_fn=custom_collate_fn
     )
     val_loader = get_data_loader(
         val_data,
@@ -934,8 +870,7 @@ def get_train_val_loaders(
         num_workers=num_workers,
         shuffle=False,
         pin_memory=pin_memory,
-        collate_fn=custom_collate_fn,
-        drop_last=False
+        collate_fn=custom_collate_fn
     )
 
     print("Obtained Data Loader for both training and validation")
@@ -1070,8 +1005,7 @@ def get_training_loader(
         num_workers=num_workers,
         pin_memory=pin_memory,
         shuffle=True,
-        collate_fn=custom_collate_fn,
-        drop_last=True,  # To ensure consistent batch sizes during training
+        collate_fn=custom_collate_fn
     )
     print("Obtained Data Loader for training")
 
