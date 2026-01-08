@@ -169,6 +169,12 @@ def add_train_args(parser: argparse.ArgumentParser):
         ),
     )
 
+    _ = parser.add_argument(
+        "--wasserstein",
+        action="store_true",
+        help="If set, use Wasserstein critique approach instead of adversarial discriminator.",
+    )
+
 
 def add_translate_args(parser: argparse.ArgumentParser):
     """Add arguments specific for translation operation."""
@@ -360,6 +366,7 @@ def run_training(
         compile_model=cmd_args.compile,
         use_checkpoint=cmd_args.use_checkpoint,
         use_svhn_extra=cmd_args.use_svhn_extra
+        wasserstein=cmd_args.wasserstein
     )
 
     if return_model:
