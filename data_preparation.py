@@ -52,6 +52,10 @@ DoubleDataset: TypeAlias = Tuple[Dataset[Any], Dataset[Any]]
 
 
 @dataclass(slots=True)
+class ColorJitterOps:
+    """Data class for color jitter augmentation parameters."""
+    brightness: float = 0.3
+@dataclass(slots=True)
 class AugmentOps:
     """Data class for augmentation operations. Holds parameters for augmentation.
     Args:
