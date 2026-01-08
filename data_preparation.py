@@ -1,7 +1,7 @@
 """
-Module for preparing datasets for training, evaluation and testing for the LSTNET model.
+This modules implements data preparation utilities including dataset loading, augmentation, and data loader creation. 
 """
-
+import os
 from typing import (
     Literal,
     Union,
@@ -14,9 +14,7 @@ from typing import (
     List,
 )
 from dataclasses import dataclass
-import os
 from PIL import Image
-from collections import defaultdict
 
 from torchvision import datasets
 from torchvision.transforms.v2 import (
@@ -26,22 +24,20 @@ from torchvision.transforms.v2 import (
     ToDtype,
     Normalize,
     Lambda, 
-    RandomCrop,
     RandomResizedCrop,
     ColorJitter,
-    RandomApply,
     RandomHorizontalFlip,
     InterpolationMode,
     RandomRotation,
-    Resize
 )
-from torch.utils.data import ConcatDataset, DataLoader, random_split, Dataset, Subset
 import torch
+from torch import Tensor
+from torch.utils.data import ConcatDataset, DataLoader, random_split, Dataset, Subset
+import torchvision.transforms.functional as F
 from dual_domain_dataset import get_dual_domain_dataset, custom_collate_fn
 import download_data
-import random
 
-import torchvision.transforms.functional as F
+
 
 
 SingleLoader: TypeAlias = DataLoader[Any]
@@ -53,7 +49,15 @@ DoubleDataset: TypeAlias = Tuple[Dataset[Any], Dataset[Any]]
 
 @dataclass(slots=True)
 class ColorJitterOps:
-    """Data class for color jitter augmentation parameters."""
+    """
+    Data class for color jitter augmentation parameters.
+    
+    Args:
+        brightness (float): Brightness factor. Defaults to 0.3.
+        contrast (float): Contrast factor. Defaults to 0.3.
+        saturation (float): Saturation factor. Defaults to 0.3.
+        hue (float): Hue factor. Defaults to 0.1.
+    """
     brightness: float = 0.3
     contrast: float = 0.3
     saturation: float = 0.3
@@ -62,16 +66,18 @@ class ColorJitterOps:
 
 @dataclass(slots=True)
 class AugmentOps:
-    """Data class for augmentation operations. Holds parameters for augmentation.
+    """
+    Data class for augmentation operations. Holds parameters for augmentation.
+    
     Args:
         rotation (int): The maximum rotation angle in degrees. Defaults to 10.
         zoom (float): The zoom factor for weak augmentation. Defaults to 0.1.
         shift (int): The maximum shift in pixels for weak augmentation. Defaults to 2.
-        use_strong_augment (bool): Use strong augmentation instead of weak. Defaults to False.
+        use_strong_augment (bool): Use strong augmentation instead of weak. Defaults to False. 
+            Weak is composed of RandomAffine (rotation, zoom, shift), strong is ColorJitter, RandomRotation, RandomHorizontalFlip.
         horizontal_flip_prob (float): Probability of horizontal flip for strong augmentation. Defaults to 0.0.
         color_jitter (Optional[ColorJitterOps]): Color jitter parameters for strong augmentation. Defaults to None.
     """
-
     rotation: int = 10
     zoom: float = 0.1
     shift: int = 2
@@ -82,6 +88,20 @@ class AugmentOps:
 
 @dataclass(slots=True)
 class ResizeOps:
+    """
+    Data class for resize operations.
+
+    Args:
+        target_size (int): The target size to resize images to. Defaults to 224.
+        init_size (int): The initial size to resize images to before random cropping. Defaults to 256.
+        pad_mode (str): The padding mode to use when resizing. Options are 'edge', 'reflect', 'symmetric', or 'constant'. Defaults to 'edge'.
+        random_crop_resize (bool): Whether to apply random resized cropping after initial resize. Defaults to False.
+        resized_crop_scale (Tuple[float, float]): Fraction of original image area the random crop may cover (lower min → stronger zoom); defaults to (0.8, 1.0).
+        resized_crop_ratio (Tuple[float, float]): Allowed crop aspect ratio as width/height (near 1 stays square); defaults to (0.9, 1.1).
+    
+    Raises:
+        ValueError: If target_size is greater than init_size.
+    """
     target_size: int = 224
     init_size: int = 256
     pad_mode: str = 'edge'
@@ -99,9 +119,9 @@ def get_augmentation_steps(
     *,
     augment_ops: Optional[AugmentOps] = None,
     fill: Union[int, Tuple[int, ...]] = 0,
-) -> List[Any]:  # TODO: specify correct type
+) -> List[Any]:
     """
-    Creates a series of augmentation steps for image preprocessing.
+    Creates a series of weak augmentation steps for image preprocessing.
     Expecting to work with square 2D images.
 
     Args:
@@ -111,7 +131,8 @@ def get_augmentation_steps(
             Defaults to AugmentOps().
 
     Returns:
-        Compose: A composition of image transformation steps.
+        Optional[Compose]: A composition of image transformation steps. 
+            In case of no augmentation, returns an empty list.
     """
     if augment_ops is None:
         return []
@@ -130,21 +151,21 @@ def get_augmentation_steps(
 
 
 def resize_with_padding(
-    img: torch.Tensor,
+    img: Tensor,
     target_size: int,
     pad_mode: str = 'edge',
-) -> torch.Tensor:
+) -> Tensor:
     """
-    Resize image to fit within target_size while preserving aspect ratio,
-    then pad to create a square image.
+    Resize image to fit within target_size while preserving aspect ratio.
+    Then padded to create a square image.
     
     Args:
-        img: Input image tensor (C, H, W)
-        target_size: Target square size (e.g., 256 or 224)
-        pad_mode: Padding mode - 'edge', 'reflect', 'symmetric', or 'constant'
+        img (Tensor): Input image tensor (C, H, W)
+        target_size (int): Target square size (e.g., 256 or 224)
+        pad_mode (str): Padding mode - 'edge', 'reflect', 'symmetric', or 'constant'
     
     Returns:
-        Square image tensor (C, target_size, target_size)
+        Tensor: Square image tensor (C, target_size, target_size)
     """
     
     _, height, width = img.shape
@@ -172,9 +193,14 @@ def create_transform_steps(
     resize_ops: Optional[ResizeOps] = None,
 ) -> Compose:
     """
-    Create a basic transform (type+normalization) for a given channel count.
+    Create image transformation steps including resizing, augmentation, conversion to tensor, and normalization.
+    
     Args:
         num_channels (int, optional): The number of channels in the input images. Defaults to 1.
+        img_size (Optional[Tuple[int, int]]): The image size of the input images. Defaults to None.
+            Required for weak augmentation as shift is relative to image size.
+        augment_ops (Optional[AugmentOps]): The augmentation operations to apply.
+        resize_ops (Optional[ResizeOps]): The resize operations to apply.
     """
 
     ops: List[Any] = [ToImage()]
@@ -184,7 +210,7 @@ def create_transform_steps(
 
         if resize_ops.random_crop_resize is True:
             first_size = resize_ops.init_size
-        # Resize images to the specified size (max size) and pad the smaller dimension with 0 to create square (resize, resize)
+        
         ops.append(
             Lambda(lambda img: resize_with_padding(img, first_size, pad_mode=resize_ops.pad_mode))
             )
@@ -208,7 +234,6 @@ def create_transform_steps(
             raise ValueError("img_size must be provided when augment_ops is used")
 
         if augment_ops.use_strong_augment:
-            # Strong augmentation: ColorJitter, RandomRotation, RandomHorizontalFlip
             if augment_ops.color_jitter is not None:
                 ops.append(
                     ColorJitter(
@@ -231,7 +256,6 @@ def create_transform_steps(
             if augment_ops.horizontal_flip_prob > 0:
                 ops.append(RandomHorizontalFlip(p=augment_ops.horizontal_flip_prob))
         else:
-            # Weak augmentation: RandomAffine
             fill = 0
             if num_channels == 3:
                 fill = (127, 127, 127)
@@ -251,15 +275,17 @@ class ImageDataset(Dataset):
     def __init__(
         self,
         folder,
-        transform=None,
+        transform: Optional[Compose] = None,
         extensions: List[str] = [".jpg"],
         rgb: bool = True,
         dummy_class: int = 1,
     ):
         """
+        A custom dataset class for loading images directly from a folder.
+        
         Args:
-            folder: Folder path to load images from
-            transform: Optional torchvision transforms to apply
+            folder (str): Folder path to load images from
+            transform (Optional[Compose]): Optional torchvision transforms to apply
         """
         self.image_paths = []
         self.transform = transform
@@ -279,10 +305,10 @@ class ImageDataset(Dataset):
 
         self.image_paths.sort()
 
-    def __len__(self):
+    def __len__(self) -> int:
         return len(self.image_paths)
 
-    def __getitem__(self, idx):
+    def __getitem__(self, idx: int) -> Tuple[Any, int]:
         img_path = self.image_paths[idx]
 
         # Load image
@@ -305,6 +331,18 @@ def get_a2o_dataset(
     transform_steps: Optional[Compose] = None,
     domain_adaptation: bool = False,
 ) -> Dataset[Any]:
+    """
+    Loading of apple2orange dataset for either Apple or Orange images.
+
+    Args:
+        dataset (str): Name of the dataset ("APPLE" or "ORANGE")
+        train_op (bool): Whether to load the training set (True) or test set (False)
+        transform_steps (Optional[Compose]): Transformations to apply to the images. Defaults to None.
+        domain_adaptation (bool): Whether to switch labels for domain adaptation. Defaults to False.
+
+    Returns:
+        Dataset[Any]: _description_
+    """
     target_path = "data/a2o_dataset"
     download_data.download_a2o_dataset(target_path)
 
@@ -341,6 +379,16 @@ def get_a2o_clf_dataset(
     train_op: bool,
     transform_steps: Optional[Compose] = None,
 ) -> Dataset[Any]:
+    """
+    Loading of dataset for classifier and combining the domains. 
+
+    Args:
+        train_op (bool): Whether to load the training set (True) or test set (False)
+        transform_steps (Optional[Compose]): Transformations to apply to the images. Defaults to None.
+
+    Returns:
+        Dataset[Any]: _description_
+    """
     apple_data = get_a2o_dataset(
         "APPLE", train_op=train_op, transform_steps=transform_steps
     )
@@ -434,23 +482,26 @@ def load_dataset(
     domain_adaptation: bool = False,  # switch labels for A2O
     resize_ops: Optional[ResizeOps] = None,
 ) -> Union[SingleDataset, DoubleDataset]:
-    """Loads a dataset from torchvision or a local path.
+    """
+    Loads a dataset from torchvision or a local path.
 
     Args:
         dataset_name (str): The name of the dataset to load.
         split_data (bool, optional): Whether to split the data into training and validation sets.
             Defaults to False.
-        train_op (bool, optional): Whether to load the training or test split of the dataset.
+        train_op (str, optional): Mostly either 'train' or 'test', however is required to be string 
+            for cases where also other splits are present and their possible loading.
             Defaults to training split.
         transform_steps (Compose, optional): The transformation steps to apply to the dataset.
             If None, a basic transformation is applied (conversion to float and normalization).
         download (bool, optional): In case of torchvision dataset,
-            whether to download the dataset if not found locally.
-            Defaults to True.
+            whether to download the dataset if not found locally. Defaults to True.
         val_data_size (float, optional): The proportion of the dataset to use for validation.
             Applied only when split_data is True. Defaults to 0.4.
         manual_seed (int, optional): The seed for random number generation.
             Defaults to 42.
+        domain_adaptation (bool, optional): Whether to switch labels for domain adaptation in A2O dataset.
+            Rest of the datasets are unaffected. Defaults to False.
         resize_ops: Optional[ResizeOps] = None,
             Resize operations to apply during data loading.
     Returns:
@@ -678,9 +729,25 @@ def get_dataset_chw(
 
 
 def get_augmented_datasets_based_on_splits(orig_data: Union[SingleDataset, DoubleDataset], augm_data: Union[SingleDataset, DoubleDataset], split_data: bool, inplace_augmentation: bool) -> Union[SingleDataset, DoubleDataset]:
+    """Return correct datasets based on the split and augmentation type.
+    
+    Args:
+        orig_data (Union[SingleDataset, DoubleDataset]): Original unaugmented dataset, either single or split.
+        augm_data (Union[SingleDataset, DoubleDataset]): Augmented dataset, either single or split.
+        split_data (bool): Whether the datasets are split into training and validation sets.
+        inplace_augmentation (bool): Whether to use only augmented data for training.
+
+    Returns:
+        Union[SingleDataset, DoubleDataset]: The returning dataset(s) are based on the split and augmentation type.
+            `split_data=False` and `inplace_augmentation=False`: returns ConcatDataset[orig_data, augm_data]
+            `split_data=False` and `inplace_augmentation=True`: returns augm_data
+            `split_data=True` and `inplace_augmentation=False`: returns (ConcatDataset[orig_train, augm_train], orig_val)
+            `split_data=True` and `inplace_augmentation=True`: returns (augm_train, orig_val)
+            
+    """
     if split_data:
-        train_orig, val_orig = orig_data  # type: ignore
-        train_augm, _ = augm_data  # type: ignore
+        train_orig, val_orig = orig_data
+        train_augm, _ = augm_data
         
         if inplace_augmentation:
             return train_augm, val_orig
@@ -690,10 +757,10 @@ def get_augmented_datasets_based_on_splits(orig_data: Union[SingleDataset, Doubl
             return train_data, val_orig
     
     if inplace_augmentation:
-        return augm_data  # type: ignore
+        return augm_data
         
     
-    data = ConcatDataset([orig_data, augm_data])  # type: ignore
+    data = ConcatDataset([orig_data, augm_data])
     return data
         
 
@@ -746,17 +813,21 @@ def load_augmented_dataset(
 
     Args:
         dataset_name (str): The name of the dataset to load.
-        train_op (bool, optional): Whether to load the training set. Defaults to True.
-        download (bool, optional): Whether to download the dataset if not found. Defaults to True.
         split_data (bool, optional): Whether to split the data into training and validation sets.
             Defaults to False.
+        train_op (bool, optional): Whether to load the training set. Defaults to True.
+        download (bool, optional): Whether to download the dataset if not found. Defaults to True.
         val_data_size (float, optional): The proportion of the dataset to use for validation.
             Applied only when split_data is True. Defaults to 0.4.
         manual_seed (int, optional): The seed for random number generation.
             Defaults to 42.
         augment_ops (AugmentOps, optional): The augmentation operations to apply.
+        resize_ops: (ResizeOps, optional): The resize operations to apply.
+        inplace_augmentation (bool, optional): Whether to double the amount of data by applying augmentation, 
+            or whether to apply it on-the-fly without increasing the dataset size. Defaults to False.
+        use_svhn_extra (bool, optional): Whether to use SVHN extra dataset.
     Returns:
-        Union[Dataset[Any], Tuple[Dataset[Any], Dataset[Any]]]: The loaded augmented dataset(s).
+        Union[Dataset[Any], Tuple[Dataset[Any], Dataset[Any]]]: The loaded dataset(s).
     """
     print(f"Loading dataset: {dataset_name}")
     op = "train" if train_op else "test"
@@ -840,15 +911,17 @@ def get_train_val_loaders(
         first_domain_name (str): The name of the first domain dataset.
         second_domain_name (str): The name of the second domain dataset.
         supervised (bool): Whether the task is supervised or unsupervised.
-        manual_seed (int, optional): The seed for random number generation.
-            Defaults to 42.
         val_data_size (float, optional): The proportion of the dataset to use for validation.
             Defaults to 0.4.
+        manual_seed (int, optional): The seed for random number generation.
+            Defaults to 42.
         augment_ops (AugmentOps, optional): The augmentation operations to apply.
+        resize_ops (ResizeOps, optional): The resize operations to apply.
         batch_size (int, optional): The batch size for the data loaders. Defaults to 32.
         num_workers (int, optional): The number of worker processes for data loading. Defaults to 8.
         pin_memory (bool, optional): Whether to pin memory for faster data transfer to the GPU.
             Defaults to False.
+        use_svhn_extra (bool, optional): Whether to use SVHN extra dataset.
     Returns:
         Tuple[DataLoader[Any], DataLoader[Any]]: The training and validation data loaders.
     """
@@ -969,11 +1042,16 @@ def get_training_loader(
             Defaults to 42.
         val_data_size (float, optional): The proportion of the dataset to use for validation.
             Defaults to 0.4.
-        augment_ops (AugmentOps, optional): The augmentation operations to apply.
         batch_size (int, optional): The batch size for the data loaders. Defaults to 32.
         num_workers (int, optional): The number of worker processes for data loading. Defaults to 8.
         pin_memory (bool, optional): Whether to pin memory for faster data transfer to the GPU.
             Defaults to False.
+        augment_ops (AugmentOps, optional): The augmentation operations to apply.
+        resize_ops (ResizeOps, optional): The resize operations to apply.
+        inplace_augmentation (bool, optional): Whether to double the amount of data by applying augmentation, 
+            or whether to apply it on-the-fly without increasing the dataset size. Defaults to False.
+        use_svhn_extra (bool, optional): Whether to use SVHN extra dataset.
+        
 
     Returns:
         DataLoader: The training data loader(s).
@@ -1020,8 +1098,6 @@ def get_training_loader(
 
     dual_data = get_dual_domain_dataset(first_data, second_data, supervised)
 
-    # Respect the provided pin_memory value; set True at call sites if training on GPU.
-
     data_loader = get_data_loader(
         dual_data,
         batch_size=batch_size,
@@ -1050,6 +1126,12 @@ def get_testing_loader(
         domain_name (str): The name of the domain dataset.
         batch_size (int, optional): The batch size for the data loader. Defaults to 32.
         num_workers (int, optional): The number of worker processes for data loading. Defaults to 8.
+        pin_memory (bool, optional): Whether to pin memory for faster data transfer to the GPU.
+            Defaults to False.
+        domain_adaptation (bool, optional): Whether to switch labels for domain adaptation in A2O dataset.
+            Other datasets are unaffected by this argument. Defaults to False.
+        resize_target_size (Optional[int], optional): If specified, resizes images to this target size.
+            Required for domain adaptation if images were resized before training. Defaults to None.
 
     Returns:
         DataLoader[Any]: The data loader for testing phase.
