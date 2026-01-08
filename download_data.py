@@ -181,30 +181,3 @@ def download_office_31_dataset(target_path) -> None:
     cache_path = kagglehub.dataset_download(OFFICE_31_DATASET)
 
     _ = shutil.move(cache_path, target_path)
-
-
-def download_home_office_dataset(target_path) -> None:
-    OFFICE_HOME_DATASET = "karntiwari/home-office-dataset"
-
-    if os.path.exists(target_path):
-        print(f"Home Office dataset already exists at {target_path}")
-        return
-
-    cache_path = kagglehub.dataset_download(OFFICE_HOME_DATASET)
-
-    _ = shutil.move(cache_path, target_path)
-    
-    #TODO: fix, not working? check
-    # The actual data is nested in OfficeHomeDataset_10072016 subdirectory
-    nested_path = os.path.join(target_path, "OfficeHomeDataset_10072016")
-    
-    if os.path.exists(nested_path):
-        # Move all contents from nested directory to target_path
-        for item in os.listdir(nested_path):
-            src = os.path.join(nested_path, item)
-            dst = os.path.join(target_path, item)
-            shutil.move(src, dst)
-        
-        # Remove the now-empty nested directory
-        os.rmdir(nested_path)
-        print(f"Home Office dataset downloaded and extracted to {target_path}")
