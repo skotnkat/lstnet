@@ -25,6 +25,19 @@ class Discriminator(LstnetComponent):
         use_checkpoint: bool = False,
         **kwargs
     ) -> None:
+        """Initialize the Discriminator model.
+
+        Args:
+            input_size (Tuple[int, int]): Input size of the discriminator.
+            in_channels_num (int): Number of input channels.
+            params (Sequence[Any]): Parameters for convolutional and dense layers.
+                The last element should contain parameters for the final dense layer.
+            negative_slope (float, optional): Negative slope for LeakyReLU activation.
+                Defaults to 0.01.
+            use_checkpoint (bool, optional): Whether to use gradient checkpointing for
+                memory efficiency during training. Defaults to False.
+            **kwargs: Additional keyword arguments.
+        """
         self.dense_layer_params = dict(params[-1])
         self.leaky_relu_neg_slope = negative_slope
 
@@ -128,8 +141,8 @@ class Discriminator(LstnetComponent):
     def _compute_layer_output_size(
         layer: nn.Sequential, input_size: Tuple[int, int]
     ) -> Tuple[int, int]:
-        conv_output_size = layer[0].compute_output_size(input_size)  # type: ignore (why not ok?)
+        conv_output_size = layer[0].compute_output_size(input_size)
 
-        pool_output_size = layer[2].compute_output_size(conv_output_size)  # type: ignore (why not ok?)
+        pool_output_size = layer[2].compute_output_size(conv_output_size)
 
         return pool_output_size
