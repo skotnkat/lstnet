@@ -1,8 +1,18 @@
+
+
 import torch.nn as nn
 from models.extended_layers import Conv2dExtended, MaxPool2dExtended
 
 
 class BasicBlock(nn.Module):
+    """
+    Basic residual block for ResNet.
+    
+    Args:
+        in_channels (int): Number of input channels.
+        out_channels (int): Number of output channels.
+        stride (int): Stride for the first convolution. Defaults to 1.
+    """
     def __init__(self, in_channels, out_channels, stride=1):
         super(BasicBlock, self).__init__()
 
@@ -39,6 +49,14 @@ class BasicBlock(nn.Module):
             )
 
     def forward(self, x):
+        """Forward pass through the basic block.
+        
+        Args:
+            x (torch.Tensor): Input tensor.
+            
+        Returns:
+            torch.Tensor: Output tensor after residual connection.
+        """
         out = self.conv1(x)
         out = self.bn1(out)
         out = self.relu(out)
@@ -53,6 +71,12 @@ class BasicBlock(nn.Module):
 
 
 class ResNet18(nn.Module):
+    """ResNet-18 architecture for image classification.
+    
+    Args:
+        in_channels_num (int): Number of input channels. Defaults to 3 (RGB).
+        num_classes (int): Number of output classes. Defaults to 10.
+    """
     def __init__(self, in_channels_num=3, num_classes=10):
         super(ResNet18, self).__init__()
         self.in_channels = in_channels_num
@@ -75,9 +99,22 @@ class ResNet18(nn.Module):
         self.criterion = nn.CrossEntropyLoss()
 
     def forward(self, x):
+        """Forward pass through the ResNet-18 model.
+        
+        Args:
+            x (torch.Tensor): Input tensor of shape (batch_size, channels, height, width).
+            
+        Returns:
+            torch.Tensor: Output logits of shape (batch_size, num_classes).
+        """
         return self.layers(x)
 
     def _get_first_layer(self):
+        """Create the first layer of ResNet-18.
+        
+        Returns:
+            nn.Sequential: Sequential module containing initial convolution, batch norm, ReLU, and max pooling.
+        """
         conv1 = Conv2dExtended(
             in_channels=self.in_channels,
             out_channels=self.out_channels,
@@ -92,11 +129,25 @@ class ResNet18(nn.Module):
         return nn.Sequential(conv1, bn, relu, max_pool)
 
     def _get_last_layer(self):
+        """Create the last layer of ResNet-18.
+        
+        Returns:
+            nn.Sequential: Sequential module containing adaptive average pooling, flatten, and linear layer.
+        """
         return nn.Sequential(
             nn.AdaptiveAvgPool2d((1, 1)), nn.Flatten(), nn.Linear(512, self.num_classes)
         )
 
     def _get_stand_layer(self, in_channels, out_channels):
+        """Create a standard residual layer with two basic blocks.
+        
+        Args:
+            in_channels (int): Number of input channels.
+            out_channels (int): Number of output channels.
+            
+        Returns:
+            nn.Sequential: Sequential module containing two BasicBlocks.
+        """
         stride = 2
         if in_channels == out_channels:
             stride = 1
