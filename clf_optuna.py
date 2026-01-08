@@ -10,7 +10,7 @@ import clf_utils
 
 
 
-def suggest_architecture(trial: optuna.trial.Trial) -> List[Dict[Any]]:
+def suggest_architecture(trial: optuna.trial.Trial) -> List[Dict[Any, Any]]:
     """Sample parameters to suggest architecture for tuning.
 
     Args:
