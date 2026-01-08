@@ -48,6 +48,10 @@ class Conv2dExtended(nn.Conv2d):
                 Defaults to 1.
             input_size (Optional[Union[int, Tuple[int, int]]], optional): Size of the input tensor.
                 Defaults to None.
+            groups (int, optional): Number of blocked connections from input channels to output channels.
+                Defaults to 1.
+            bias (bool, optional): If True, adds a learnable bias to the output. Defaults to True.
+            padding_mode (str, optional): Padding mode to use. Defaults to "zeros".
         """
         tmp_padding, is_padding_same = utils.standardize_padding(padding)
         self.is_padding_same = is_padding_same
