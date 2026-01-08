@@ -24,6 +24,19 @@ class Generator(LstnetComponent):
         use_checkpoint: bool = False,
         **kwargs: Any,
     ):
+        """Initialize the Generator model.
+
+        Args:
+            input_size (Tuple[int, int]): Input size of the generator.
+            in_channels_num (int): Number of input channels.
+            params (Sequence[Dict[str, Any]]): Parameters for transposed convolutional layers.
+            negative_slope (float, optional): Negative slope for LeakyReLU activation.
+                Defaults to 0.01.
+            momentum (float, optional): Momentum for batch normalization. Defaults to 0.1.
+            use_checkpoint (bool, optional): Whether to use gradient checkpointing for
+                memory efficiency during training. Defaults to False.
+            **kwargs: Additional keyword arguments.
+        """
         self.leaky_relu_negative_slope = negative_slope
         self.batch_norm_momentum = momentum
 
