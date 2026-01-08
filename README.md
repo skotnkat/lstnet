@@ -15,24 +15,16 @@ The rest of the requierements are specified in `requirements.txt`.
 **Note:** The first domain should be the dataset with more data, due to the shuffling logic in creation of pairs.
 
 ```bash
-python run.py train mnist usps params/mnist_usps_params.json --output_folder output/
+python run.py train mnist usps params/mnist_usps_params.json --output_folder output
 ```
 
-Example:
-```bash
-python run.py train mnist usps params/mnist_usps_params.json --output_folder output_mnist_usps
-```
 
 ### Run Translation
 
 ```bash
-python run.py translate mnist --load_model --output_folder output/
+python run.py translate mnist --load_model --output_folder output
 ```
 
-Example:
-```bash
-python run.py translate mnist --load_model --output_folder output_base
-```
 
 Loads model from the output folder and returns the translated images there.
 
@@ -41,19 +33,14 @@ Loads model from the output folder and returns the translated images there.
 
 Evaluate first domain data with second domain classifier:
 ```bash
-python run.py eval mnist usps_clf.pth --output_folder output/ --dataset_path output/MNIST_translated_data.pt
+python run.py eval mnist usps_clf.pth --output_folder output --dataset_path output/MNIST_translated_data.pt
 ```
 
 Evaluate second domain data with first domain classifier:
 ```bash
-python run.py eval usps mnist_clf.pth --output_folder output/ --dataset_path output/USPS_translated_data.pt
+python run.py eval usps mnist_clf.pth --output_folder output --dataset_path output/USPS_translated_data.pt
 ```
 
-Example:
-```bash
-python run.py eval mnist eval_models/USPS/USPS_model.pth --output_folder output_base --dataset_path output_base/MNIST_translated_data.pt
-python run.py eval usps eval_models/MNIST/MNIST_model.pth --output_folder output_base --dataset_path output_base/USPS_translated_data.pt
-```
 
 ### Run Complete Workflow
 
@@ -101,7 +88,7 @@ python run.py train mnist usps params/mnist_usps_params.json --output_folder out
 
 Train a classifier for a domain:
 ```bash
-python train_eval_clf.py mnist --params_file eval_models/params/mnist_clf_params.json --output_folder output/
+python train_eval_clf.py mnist --params_file eval_models/params/mnist_clf_params.json --output_folder output
 ```
 
 Example:
