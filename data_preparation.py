@@ -32,7 +32,8 @@ from torchvision.transforms.v2 import (
     RandomApply,
     RandomHorizontalFlip,
     InterpolationMode,
-    RandomRotation
+    RandomRotation,
+    Resize
 )
 from torch.utils.data import ConcatDataset, DataLoader, random_split, Dataset, Subset
 import torch
@@ -171,6 +172,7 @@ def create_transform_steps(
             )
 
         
+        # TODO: make the operations passable (scale, ratio, colour jitter, rotation)
         if resize_ops.random_crop_resize is True:
             ops.append(
                 RandomResizedCrop(
@@ -195,11 +197,11 @@ def create_transform_steps(
             ops.append(
                 RandomApply([
                 RandomRotation(
-                    degrees=15,  # Moderate rotation
+                    degrees=10,  # Moderate rotation
                     interpolation=InterpolationMode.BILINEAR,
                     fill=None  # Will use edge values
                 )
-            ], p=0.5))
+            ], p=1.0))
 
             ops.append(RandomHorizontalFlip(p=0.3))
             
@@ -517,7 +519,7 @@ def load_dataset(
         case name if name.startswith("VISDA"):
             if download:
                 download_data.download_visda_dataset(train_op=train_op)
-
+            
             subfolder = "train"  #  VISDA_SOURCE
             if name == "VISDA_TARGET":
                 subfolder = "validation"
