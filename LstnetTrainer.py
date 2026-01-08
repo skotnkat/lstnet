@@ -40,7 +40,6 @@ class TrainParams:
     lr: float = 1e-3
     betas: Tuple[float, float] = (0.8, 0.999)
     weight_decay: float = 0.01
-    use_scheduler: bool = False
     scheduler_factor: float = 0.1
     scheduler_patience: int = 5
     scheduler_min_lr: float = 1e-6
@@ -59,7 +58,6 @@ class LstnetTrainer:
         train_params: TrainParams = TrainParams(),
         run_optuna: bool = False,
         optuna_trial: Optional[optuna.Trial] = None,
-        compile_model: bool = False,
     ) -> None:
         """Initialize the LSTNET trainer.
 
@@ -105,25 +103,8 @@ class LstnetTrainer:
         )
 
         # Initialize learning rate schedulers
-        self.use_scheduler = train_params.use_scheduler
         self.disc_scheduler = None
         self.enc_gen_scheduler = None
-        if self.use_scheduler:
-            print('Initializing schedulers for optimizers.')
-            self.disc_scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
-                self.disc_optim,
-                mode='min',
-                factor=train_params.scheduler_factor,
-                patience=train_params.scheduler_patience,
-                min_lr=train_params.scheduler_min_lr
-            )
-            self.enc_gen_scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
-                self.enc_gen_optim,
-                mode='min',
-                factor=train_params.scheduler_factor,
-                patience=train_params.scheduler_patience,
-                min_lr=train_params.scheduler_min_lr
-            )
 
         self.train_loader = train_loader
         self.val_loader = val_loader
@@ -185,8 +166,6 @@ class LstnetTrainer:
         self.loss_types = ["disc_loss", "enc_gen_loss", "cc_loss"]
         self.loss_logs: Dict[str, Dict[str, Dict[str, List[float]]]] = dict()
 
-        if compile_model:  # TO DO
-            pass
 
     def get_trainer_info(self) -> Dict[str, Any]:
         """
@@ -519,11 +498,6 @@ class LstnetTrainer:
                 epoch_loss = self._run_epoch(val_op=True)
                 self.val_loss_list.append(epoch_loss)
                 
-                # Update learning rate schedulers based on validation loss
-                if self.use_scheduler:
-                    self.disc_scheduler.step(epoch_loss)
-                    self.enc_gen_scheduler.step(epoch_loss)
-                
                 # ------------------------------
                 # Early stopping check
                 if epoch_loss < self.best_val_loss:
@@ -668,7 +642,6 @@ class WassersteinLstnetTrainer(LstnetTrainer):
         train_params: TrainParams = TrainParams(),
         run_optuna: bool = False,
         optuna_trial: Optional[optuna.Trial] = None,
-        compile_model: bool = False,
     ) -> None:
         super().__init__(
             lstnet_model,
@@ -678,7 +651,6 @@ class WassersteinLstnetTrainer(LstnetTrainer):
             train_params=train_params,
             run_optuna=run_optuna,
             optuna_trial=optuna_trial,
-            compile_model=compile_model,
         )
 
         self.wasserstein = True
