@@ -103,7 +103,6 @@ def get_clf(
     else:
         with open(f"{params_path}", "r", encoding="utf-8") as file:
             params = json.load(file)
-    params = dict()
     clf = select_classifier(domain_name.upper(), params=params)
 
     return clf
