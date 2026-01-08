@@ -14,7 +14,8 @@ import urllib.request
 import kagglehub
 
 
-
+# Module-level constant for VisDA dataset folder
+VISDA_DATA_FOLDER = "data/visda2017"
 
 
 def download_visda_dataset(train_op: bool = True) -> None:
@@ -26,37 +27,36 @@ def download_visda_dataset(train_op: bool = True) -> None:
                         If False, downloads test data.
     """
     VISDA_PATH = "http://csr.bu.edu/ftp/visda17/clf"
-    DATA_FOLDER = "data/visda2017"
     
-    os.makedirs(DATA_FOLDER, exist_ok=True)
+    os.makedirs(VISDA_DATA_FOLDER, exist_ok=True)
     TRAIN_INPUT_PATH = VISDA_PATH + "/train.tar"
     VALIDATION_INPUT_PATH = VISDA_PATH + "/validation.tar"
     TEST_INPUT_PATH = VISDA_PATH + "/test.tar"
 
     # Check if extracted directories exist, if not check for tar and extract, if not download and extract
     if train_op:
-        source_dir = os.path.join(DATA_FOLDER, "train")
-        target_dir = os.path.join(DATA_FOLDER, "validation")
-        source_tar = DATA_FOLDER + "/train.tar"
-        target_tar = DATA_FOLDER + "/validation.tar"
+        source_dir = os.path.join(VISDA_DATA_FOLDER, "train")
+        target_dir = os.path.join(VISDA_DATA_FOLDER, "validation")
+        source_tar = VISDA_DATA_FOLDER + "/train.tar"
+        target_tar = VISDA_DATA_FOLDER + "/validation.tar"
 
         # Handle training data
         if not os.path.exists(source_dir):
             if os.path.exists(source_tar):
                 print(
-                    f"Found existing tar file. Extracting {source_tar} to {DATA_FOLDER}..."
+                    f"Found existing tar file. Extracting {source_tar} to {VISDA_DATA_FOLDER}..."
                 )
                 with tarfile.open(source_tar, "r") as tar:
-                    tar.extractall(DATA_FOLDER)
+                    tar.extractall(VISDA_DATA_FOLDER)
                 os.remove(source_tar)
                 print(f"Training data extracted to {source_dir} and tar file removed.")
             else:
                 print(f"Downloading training data to {source_tar}...")
                 _ = urllib.request.urlretrieve(TRAIN_INPUT_PATH, source_tar)
                 print("Download complete.")
-                print(f"Extracting {source_tar} to {DATA_FOLDER}...")
+                print(f"Extracting {source_tar} to {VISDA_DATA_FOLDER}...")
                 with tarfile.open(source_tar, "r") as tar:
-                    tar.extractall(DATA_FOLDER)
+                    tar.extractall(VISDA_DATA_FOLDER)
                 os.remove(source_tar)
                 print(f"Training data extracted to {source_dir} and tar file removed.")
         else:
@@ -66,10 +66,10 @@ def download_visda_dataset(train_op: bool = True) -> None:
         if not os.path.exists(target_dir):
             if os.path.exists(target_tar):
                 print(
-                    f"Found existing tar file. Extracting {target_tar} to {DATA_FOLDER}..."
+                    f"Found existing tar file. Extracting {target_tar} to {VISDA_DATA_FOLDER}..."
                 )
                 with tarfile.open(target_tar, "r") as tar:
-                    tar.extractall(DATA_FOLDER)
+                    tar.extractall(VISDA_DATA_FOLDER)
                 os.remove(target_tar)
                 print(
                     f"Validation data extracted to {target_dir} and tar file removed."
@@ -78,9 +78,9 @@ def download_visda_dataset(train_op: bool = True) -> None:
                 print(f"Downloading validation data to {target_tar}...")
                 _ = urllib.request.urlretrieve(VALIDATION_INPUT_PATH, target_tar)
                 print("Download complete.")
-                print(f"Extracting {target_tar} to {DATA_FOLDER}...")
+                print(f"Extracting {target_tar} to {VISDA_DATA_FOLDER}...")
                 with tarfile.open(target_tar, "r") as tar:
-                    tar.extractall(DATA_FOLDER)
+                    tar.extractall(VISDA_DATA_FOLDER)
                 os.remove(target_tar)
                 print(
                     f"Validation data extracted to {target_dir} and tar file removed."
@@ -89,8 +89,8 @@ def download_visda_dataset(train_op: bool = True) -> None:
             print(f"Validation data already exists at {target_dir}")
 
     else:
-        test_dir = DATA_FOLDER + "/visda_test"
-        test_tar = DATA_FOLDER + "/test.tar"
+        test_dir = VISDA_DATA_FOLDER + "/visda_test"
+        test_tar = VISDA_DATA_FOLDER + "/test.tar"
 
         # Handle test data
         if not os.path.exists(test_dir):
