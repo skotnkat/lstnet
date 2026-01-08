@@ -1,3 +1,12 @@
+"""
+Data download module for downloading and extracting datasets.
+
+This module provides functions to download and extract various datasets including:
+- VisDA-2017 dataset from VisDA official source
+- Apple2Orange dataset from Kaggle
+- Office-31 dataset from Kaggle
+"""
+
 import os
 import shutil
 import tarfile
@@ -5,7 +14,7 @@ import urllib.request
 import kagglehub
 
 
-DATA_FOLDER = "data/visda2017"
+
 
 
 def download_visda_dataset(train_op: bool = True) -> None:
@@ -17,7 +26,8 @@ def download_visda_dataset(train_op: bool = True) -> None:
                         If False, downloads test data.
     """
     VISDA_PATH = "http://csr.bu.edu/ftp/visda17/clf"
-
+    DATA_FOLDER = "data/visda2017"
+    
     os.makedirs(DATA_FOLDER, exist_ok=True)
     TRAIN_INPUT_PATH = VISDA_PATH + "/train.tar"
     VALIDATION_INPUT_PATH = VISDA_PATH + "/validation.tar"
@@ -160,6 +170,12 @@ def download_visda_dataset(train_op: bool = True) -> None:
 
 
 def download_a2o_dataset(target_path) -> None:
+    """
+    Downloads the Apple2Orange dataset from Kaggle.
+
+    Args:
+        target_path (str): The target directory path where the dataset will be moved.
+    """
     A2O_DATASET = "balraj98/apple2orange-dataset"
 
     if os.path.exists(target_path):
@@ -172,6 +188,12 @@ def download_a2o_dataset(target_path) -> None:
 
 
 def download_office_31_dataset(target_path) -> None:
+    """
+    Download the Office-31 Dataset and move it to the target_path.
+
+    Args:
+        target_path (str): The target directory path where the dataset will be moved.
+    """
     OFFICE_31_DATASET = "eduardolawsondasilva/office-31"
 
     if os.path.exists(target_path):
