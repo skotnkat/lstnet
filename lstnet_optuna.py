@@ -1,3 +1,12 @@
+"""
+Optuna hyperparameter optimization for LSTNET model.
+
+This module implements Optuna-based hyperparameter optimization for the LSTNET
+time series forecasting model. It supports optimization of various hyperparameter
+modes including training parameters, augmentation operations, weights, and
+architecture parameters.
+"""
+
 import os
 import argparse
 import json
@@ -16,14 +25,13 @@ def objective(trial, cmd_args: argparse.Namespace) -> float:
     """Objective function for Optuna hyperparameter optimization.
 
     Args:
+        trial (optuna.Trial): Optuna trial object.
         cmd_args (argparse.Namespace): Command line arguments.
-        trial: Optuna trial object.
+        
 
     Returns:
-        float: Best validation accuracy achieved during training.
+        float: Validation accuracy achieved during tuning of model in this trial.
     """
-
-    # Suggest hyperparameters or take the values from cmd args
 
     # Architecture hyperparameters
     with open(f"{cmd_args.params_file}", "r", encoding="utf-8") as file:
@@ -117,6 +125,9 @@ def run_optuna_lstnet(cmd_args) -> LSTNET:
 
     Args:
         cmd_args (argparse.Namespace): Command line arguments.
+        
+    Returns:
+        LSTNET: The trained LSTNET model with best hyperparameters.
 
     """
 
