@@ -24,6 +24,15 @@ class LstnetComponent(ABC, nn.Module):
         use_checkpoint: bool = False,
         **kwargs: Any,
     ) -> None:
+        """Initializes a LSTNet component instances.
+
+        Args:
+            input_size (Tuple[int, int]): Size of the input tensor (height, width).
+            in_channels_num (int): Number of input channels.
+            params (Sequence[Any]): Parameters for the layers.
+            skip_last_layer (bool, optional): Whether to skip the last layer. Defaults to False.
+            use_checkpoint (bool, optional): Whether to use checkpointing for memory efficiency during training. Defaults to False.
+        """
         super().__init__()  # type: ignore
 
         self.layers: nn.Sequential = nn.Sequential()
