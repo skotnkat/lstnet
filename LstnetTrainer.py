@@ -69,7 +69,12 @@ class LstnetTrainer:
                 In case of None, no validation is performed.
             train_params (TrainParams, optional): The training hyperparameters.
             Defaults to TrainParams().
-
+            run_optuna (bool, optional): Whether to run with Optuna hyperparameter optimization.
+                Defaults to False.
+            optuna_trial (Optional[optuna.Trial], optional): The Optuna trial object.
+                Relevant only if run_optuna is True. Defaults to None.
+            disc_update_freq (int, optional): Frequency of discriminator updates. 
+                Defaults to 2, meaning that the discriminator and encoder-generator are updated in 1:1 ratio.
         Raises:
             ValueError: If the validation loader is not provided when validation is enabled.
             ValueError: If the number of weights is not equal to the expected count.
@@ -100,10 +105,6 @@ class LstnetTrainer:
             betas=self.betas,
             weight_decay=self.weight_decay,
         )
-
-        # Initialize learning rate schedulers
-        self.disc_scheduler = None
-        self.enc_gen_scheduler = None
 
         self.train_loader = train_loader
         self.val_loader = val_loader
@@ -163,6 +164,7 @@ class LstnetTrainer:
         self.optuna_trial = optuna_trial
         self.fin_loss = np.inf
 
+        # For logging purposes
         self.loss_types = ["disc_loss", "enc_gen_loss", "cc_loss"]
         self.loss_logs: Dict[str, Dict[str, Dict[str, List[float]]]] = dict()
 
@@ -186,6 +188,8 @@ class LstnetTrainer:
             "betas": self.betas,
             "weight_decay": self.weight_decay,
             "run_optuna": self.run_optuna,
+            "wasserstein": self.wasserstein,
+            "disc_update_freq": self.disc_update_freq
         }
 
     def get_trans_imgs(
@@ -222,6 +226,21 @@ class LstnetTrainer:
         imgs_mapping: TensorQuad,
         compute_grad: bool = True,
     ) -> Any:
+        """
+        Obtain all discriminator loss. 
+        Combines both gradient and non-gradient computations 
+        and selects the appropriate loss function based on the Wasserstein setting.
+        
+
+        Args:
+            first_real_img (Tensor): Real images from the first domain.
+            second_real_img (Tensor): Real images from the second domain.
+            imgs_mapping (TensorQuad): Translated images from both domains.
+            compute_grad (bool, optional): Whether to compute gradients. Defaults to True.
+
+        Returns:
+            Any: Computed discriminator loss.
+        """
         loss_func = loss_functions.compute_discriminator_loss
         if self.wasserstein:
             loss_func = wasserstein_loss_functions.compute_discriminator_loss
@@ -250,6 +269,17 @@ class LstnetTrainer:
     def _get_enc_gen_losses(
         self, imgs_mapping: TensorQuad, compute_grad: bool = True
     ) -> Any:
+        """
+        Obtain all encoder-generator loss.
+        Combines both gradient and non-gradient computations
+        and selects the appropriate loss function based on the Wasserstein setting.
+
+        Args:
+            imgs_mapping (TensorQuad): Translated images from both domains.
+            compute_grad (bool, optional): Whether to compute gradients. Defaults to True.
+        Returns:
+            Any: Computed encoder-generator loss.
+        """
         loss_func = loss_functions.compute_enc_gen_loss
         if self.wasserstein:
             loss_func = wasserstein_loss_functions.compute_enc_gen_loss
@@ -275,6 +305,18 @@ class LstnetTrainer:
         imgs_mapping: TensorQuad,
         compute_grad: bool = True,
     ) -> Any:
+        """
+        Obtain cycle-consistency losses.
+
+        Args:
+            first_real_img (Tensor): Real images from the first domain.
+            second_real_img (Tensor): Real images from the second domain.
+            imgs_mapping (TensorQuad): Translated images from both domains.
+            compute_grad (bool, optional): Whether to compute gradients. Defaults to True.
+
+        Returns:
+            Any: Computed cycle-consistency loss.
+        """
         imgs_cc = self.model.get_cc_components(*imgs_mapping)
 
         if compute_grad:
@@ -296,7 +338,23 @@ class LstnetTrainer:
 
     def _get_losses(
         self, first_real_img: Tensor, second_real_img: Tensor, op: str = "eval"
-    ) -> Any:  # TBD
+    ) -> Any:
+        """
+        Implements logic of computing loss functions for all network components, 
+        train vs. eval setting and sets `compute_grad` respectively, 
+        and adds logic for standard GAN-training vs WGAN-GP-training.
+
+        Args:
+            first_real_img (Tensor): Real images from the first domain.
+            second_real_img (Tensor): Real images from the second domain.
+            op (str, optional): Operation mode, either "disc", "enc_gen", or "eval". Defaults to "eval".
+
+        Raises:
+            ValueError: If the operation mode is invalid.
+
+        Returns:
+            Any: Computed losses for discriminator, encoder-generator, and cycle-consistency.
+        """
         if op not in ["disc", "enc_gen", "eval"]:
             raise ValueError(
                 f"Invalid operation '{op}'. Expected 'disc', 'enc_gen', or 'eval'."
@@ -327,7 +385,18 @@ class LstnetTrainer:
 
     def _update_disc(
         self, first_real_img: Tensor, second_real_img: Tensor
-    ) -> Any:  # Tuple[FloatTriplet, FloatTriplet, FloatQuad]:
+    ) -> Any: 
+        """
+        Update discriminator parameters.
+
+        Args:
+            first_real_img (Tensor): Real images from the first domain.
+            second_real_img (Tensor): Real images from the second domain.
+
+        Returns:
+            FloatTriplet: Computed losses for discriminator, encoder-generator, and cycle-consistency.
+                For logging purposes.
+        """
         self.disc_optim.zero_grad()
 
         disc_loss, enc_gen_loss, cc_loss = self._get_losses(
@@ -342,7 +411,17 @@ class LstnetTrainer:
 
     def _update_enc_gen(
         self, first_real_img: Tensor, second_real_img: Tensor
-    ) -> Any:  # Tuple[FloatTriplet, FloatTriplet, FloatQuad]:
+    ) -> Any:
+        """Update encoder-generator parameters.
+
+        Args:
+            first_real_img (Tensor): Real images from the first domain.
+            second_real_img (Tensor): Real images from the second domain.
+
+        Returns:
+            Any: Computed losses for discriminator, encoder-generator, and cycle-consistency.
+                For logging purposes.
+        """
         self.enc_gen_optim.zero_grad()
 
         disc_loss, enc_gen_loss, cc_loss = self._get_losses(
@@ -357,49 +436,19 @@ class LstnetTrainer:
         self.enc_gen_optim.step()
 
         return self._convert_losses_to_floats([disc_loss, enc_gen_loss, cc_loss])
-
-
-    def eval_forward(
-        self, first_real_img: Tensor, second_real_img: Tensor
-    ) -> Any:  # Tuple[TensorTriplet, TensorTriplet, TensorQuad]
-        # Generate images from first domain to second and vice versa
-        second_gen_img, first_latent_img = self.model.map_first_to_second(
-            first_real_img
-        )
-        first_gen_img, second_latent_img = self.model.map_second_to_first(
-            second_real_img
-        )
-        imgs_mapping = (
-            first_gen_img,
-            second_gen_img,
-            first_latent_img,
-            second_latent_img,
-        )
-        imgs_cc = self.model.get_cc_components(*imgs_mapping)
-
-        disc_loss_tuple = loss_functions.compute_discriminator_loss(
-            self.model,
-            self.weights,
-            first_real_img,
-            second_real_img,
-            *imgs_mapping,
-            return_grad=False,
-        )
-        cc_loss_tuple = loss_functions.compute_cc_loss(
-            self.weights,
-            first_real_img,
-            second_real_img,
-            *imgs_cc,
-            return_grad=False,
-        )
-        enc_gen_loss_tuple = loss_functions.compute_enc_gen_loss(
-            self.model, self.weights, *imgs_mapping, return_grad=False
-        )
-
-        return disc_loss_tuple, enc_gen_loss_tuple, cc_loss_tuple
-
+    
 
     def _run_eval_loop(self, first_real_img: Tensor, second_real_img: Tensor) -> Any:
+        """Run evaluation loop for a batch.
+
+        Args:
+            first_real_img (Tensor): Real images from the first domain.
+            second_real_img (Tensor): Real images from the second domain.
+
+        Returns:
+            Any: Computed losses for discriminator, encoder-generator, and cycle-consistency.
+                For logging purposes.
+        """
         self.model.eval()
         
         with torch.no_grad():
@@ -410,6 +459,11 @@ class LstnetTrainer:
         return self._convert_losses_to_floats([disc_loss, enc_gen_loss, cc_loss])
 
     def _fit_epoch(self) -> float:
+        """Fit the model for one epoch.
+
+        Returns:
+            float: The average loss over the epoch.
+        """
         epoch_loss = 0
 
         for batch_idx, (first_real, _, second_real, _) in enumerate(self.train_loader):
@@ -440,6 +494,13 @@ class LstnetTrainer:
         return epoch_loss
 
     def _run_eval_epoch(self) -> float:
+        """Evaluate the model on a epoch. 
+
+        Raises: 
+            Assertion Error: If validation loader is not available.
+        Returns:
+            float: The average loss over the validation epoch.
+        """
         epoch_loss = 0
 
         # Type assertion since we validate val_loader is not None in __init__
@@ -467,6 +528,17 @@ class LstnetTrainer:
         return epoch_loss
 
     def _run_epoch(self, val_op: bool = False) -> float:
+        """Run one epoch of training or evaluation.
+
+        Args:
+            val_op (bool, optional): If True, run evaluation epoch. If False, run training epoch. Defaults to False.
+
+        Raises:
+            ValueError: If validation loader is not provided when val_op is True.
+
+        Returns:
+            float: The average loss over the epoch.
+        """
         if val_op:
             if self.val_loader is None:
                 raise ValueError("No validation loader provided.")
@@ -550,8 +622,14 @@ class LstnetTrainer:
 
         return self.model
 
-    def init_logs(self, ops: Optional[List[str]] = None) -> None:
-        """Initialize logs for training and validation operations."""
+    def init_logs(self, ops: Optional[List[str]]=None) -> None:
+        """Initialize logs for training and validation operations.
+        
+        Args:
+            ops (Optional[List[str]], optional): List of operations to initialize logs for.
+                Defaults to None, which initializes logs for both "train" and "val".
+        
+        """
 
         if ops is None:
             ops = ["train", "val"]
@@ -573,6 +651,11 @@ class LstnetTrainer:
                     self.loss_logs[op][key][f"{val}_loss"] = []
 
     def init_epoch_loss(self, op: str) -> None:
+        """Initialize epoch loss for a given operation.
+
+        Args:
+            op (str): Operation type.
+        """
         for loss_type in self.loss_types:
             values = ["first", "second", "latent"]
             if loss_type == "cc_loss":
@@ -590,14 +673,7 @@ class LstnetTrainer:
         Log epoch loss for a given operation.
 
         Args:
-            disc_loss (FloatTriplet): Discriminator loss.
-                Consist of first, second and latent loss.
-            enc_gen_loss (FloatTriplet): Encoder-Generator loss.
-                Consists of first, second and latent loss.
-            cc_loss (FloatQuad): Cycle consistency loss.
-            first_cycle, second_cycle, first_full_cycle, second_full_cycle).
-                Consists of first_cycle, second_cycle, first_full_cycle, second_full_cycle.
-            op (str): Operation type.
+            loss_values (List[Any]): List of loss values to log.
         """
 
         op_logs = self.loss_logs[op]
@@ -633,6 +709,7 @@ class LstnetTrainer:
 
 
 class WassersteinLstnetTrainer(LstnetTrainer):
+    """Trainer class for LSTNET model with Wasserstein GAN with Gradient Penalty loss."""
     def __init__(
         self,
         lstnet_model: LSTNET,
@@ -645,6 +722,18 @@ class WassersteinLstnetTrainer(LstnetTrainer):
         optuna_trial: Optional[optuna.Trial] = None,
         disc_update_freq: int = 2
     ) -> None:
+        """Initialize the Wasserstein LSTNET trainer.
+
+        Args:
+            lstnet_model (LSTNET): The LSTNET model to be trained.
+            weights (List[float]): The weights for different loss components.
+            train_loader (DataLoader[DualDomainDataset]): The data loader with training data.
+            val_loader (Optional[DataLoader[DualDomainDataset]], optional): The data loader with validation data. Defaults to None.
+            train_params (TrainParams, optional): Training parameters. Defaults to TrainParams().
+            run_optuna (bool, optional): Whether to run Optuna for hyperparameter tuning. Defaults to False.
+            optuna_trial (Optional[optuna.Trial], optional): Optuna trial object. Defaults to None.
+            disc_update_freq (int, optional): Frequency of discriminator updates. Defaults to 2.
+        """
         super().__init__(
             lstnet_model,
             weights,
@@ -653,6 +742,7 @@ class WassersteinLstnetTrainer(LstnetTrainer):
             train_params=train_params,
             run_optuna=run_optuna,
             optuna_trial=optuna_trial,
+            disc_update_freq=disc_update_freq
         )
 
         self.wasserstein = True
@@ -678,7 +768,16 @@ class WassersteinLstnetTrainer(LstnetTrainer):
 
     def _update_disc(
         self, first_real_img: Tensor, second_real_img: Tensor
-    ) -> Any:  # Tuple[FloatTriplet, FloatTriplet, FloatQuad]:
+    ) -> Any:
+        """Update discriminator parameters.
+
+        Args:
+            first_real_img (Tensor): The first real image tensor.
+            second_real_img (Tensor): The second real image tensor.
+
+        Returns:
+            Any: The converted loss values.
+        """
         self.disc_optim.zero_grad()
 
         disc_loss, enc_gen_loss, cc_loss = self._get_losses(
@@ -694,7 +793,16 @@ class WassersteinLstnetTrainer(LstnetTrainer):
 
     def _update_enc_gen(
         self, first_real_img: Tensor, second_real_img: Tensor
-    ) -> Any:  # Tuple[FloatTriplet, FloatTriplet, FloatQuad]:
+    ) -> Any:
+        """Update encoder-generator parameters.
+
+        Args:
+            first_real_img (Tensor): The first real image tensor.
+            second_real_img (Tensor): The second real image tensor.
+
+        Returns:
+            Any: The converted loss values.
+        """
         self.enc_gen_optim.zero_grad()
 
         disc_loss, enc_gen_loss, cc_loss = self._get_losses(
@@ -712,7 +820,16 @@ class WassersteinLstnetTrainer(LstnetTrainer):
 
     def _run_eval_loop(
         self, first_real_img: Tensor, second_real_img: Tensor
-        ) -> Tuple[FloatTriplet, FloatTriplet, FloatQuad]:
+        ) -> Any:
+        """Evaluate the  model on a single batch.
+
+        Args:
+            first_real_img (Tensor): Images from the first domain.
+            second_real_img (Tensor): Images from the second domain.
+
+        Returns:
+            Any: The converted loss values (floats).
+        """
         disc_loss, enc_gen_loss, cc_loss = self._get_losses(
             first_real_img, second_real_img, op="eval"
         )
@@ -720,6 +837,11 @@ class WassersteinLstnetTrainer(LstnetTrainer):
         return self._convert_losses_to_floats([disc_loss, enc_gen_loss, cc_loss])
 
     def _fit_epoch(self) -> float:
+        """Fit the model for one epoch.
+
+        Returns:
+            float: The average loss for the epoch.
+        """
         epoch_loss = 0
 
         for batch_idx, (first_real, _, second_real, _) in enumerate(self.train_loader):
@@ -750,6 +872,11 @@ class WassersteinLstnetTrainer(LstnetTrainer):
         return epoch_loss
 
     def _run_eval_epoch(self) -> float:
+        """Run evaluation epoch.
+
+        Returns:
+            float: The average loss for the epoch.
+        """
         epoch_loss = 0
 
         # Type assertion since we validate val_loader is not None in __init__
