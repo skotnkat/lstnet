@@ -94,6 +94,7 @@ def run(
     use_checkpoint: bool = False,
     use_svhn_extra: bool = False,
     wasserstein: bool = False,
+    disc_update_freq: int = 2
 ) -> Union[LSTNET, Tuple[LSTNET, Dict[str, Any]]]:
     """Train the LSTNET model.
 
@@ -185,6 +186,7 @@ def run(
             train_params=train_params,
             run_optuna=optuna,
             optuna_trial=optuna_trial,
+            disc_update_freq=disc_update_freq
         )
 
     else:
@@ -196,6 +198,7 @@ def run(
             train_params=train_params,
             run_optuna=optuna,
             optuna_trial=optuna_trial,
+            disc_update_freq=disc_update_freq
         )
 
     trainer.init_logs(["train", "val"])

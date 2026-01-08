@@ -26,8 +26,6 @@ from wasserstein_loss_functions import WasserssteinTerm
 
 # Constants
 EXPECTED_WEIGHTS_COUNT = 7
-CRITIC_UPDATES_PER_GEN = 5  # standard for WGAN-GP is 5
-DISCRIMINATOR_UPDATE_FREQUENCY = 1  # update discriminator every batch
 
 
 @dataclass(slots=True)
@@ -58,6 +56,7 @@ class LstnetTrainer:
         train_params: TrainParams = TrainParams(),
         run_optuna: bool = False,
         optuna_trial: Optional[optuna.Trial] = None,
+        disc_update_freq: int = 2,  
     ) -> None:
         """Initialize the LSTNET trainer.
 
@@ -152,6 +151,7 @@ class LstnetTrainer:
             self.max_patience = train_params.max_epoch_num
 
         self.max_epoch_num = train_params.max_epoch_num
+        self.disc_update_freq = disc_update_freq
 
         self.train_loss_list: List[float] = []
         self.val_loss_list: List[float] = []
@@ -186,7 +186,6 @@ class LstnetTrainer:
             "betas": self.betas,
             "weight_decay": self.weight_decay,
             "run_optuna": self.run_optuna,
-            "use_scheduler": self.use_scheduler,
         }
 
     def get_trans_imgs(
@@ -417,14 +416,16 @@ class LstnetTrainer:
             first_real = first_real.to(utils.DEVICE)
             second_real = second_real.to(utils.DEVICE)
 
-            if batch_idx % DISCRIMINATOR_UPDATE_FREQUENCY == 0:
-                disc_loss_tuple, enc_gen_loss_tuple, cc_loss_tuple = self._update_disc(
-                    first_real, second_real
-                )
-            else:
+            if batch_idx % self.disc_update_freq == 0:
                 disc_loss_tuple, enc_gen_loss_tuple, cc_loss_tuple = (
                     self._update_enc_gen(first_real, second_real)
                 )
+
+            else:
+                disc_loss_tuple, enc_gen_loss_tuple, cc_loss_tuple = self._update_disc(
+                    first_real, second_real
+                )
+
 
             epoch_loss += sum(disc_loss_tuple) + sum(cc_loss_tuple)
 
@@ -642,6 +643,7 @@ class WassersteinLstnetTrainer(LstnetTrainer):
         train_params: TrainParams = TrainParams(),
         run_optuna: bool = False,
         optuna_trial: Optional[optuna.Trial] = None,
+        disc_update_freq: int = 2
     ) -> None:
         super().__init__(
             lstnet_model,
@@ -710,7 +712,7 @@ class WassersteinLstnetTrainer(LstnetTrainer):
 
     def _run_eval_loop(
         self, first_real_img: Tensor, second_real_img: Tensor
-    ) -> Tuple[FloatTriplet, FloatTriplet, FloatQuad]:
+        ) -> Tuple[FloatTriplet, FloatTriplet, FloatQuad]:
         disc_loss, enc_gen_loss, cc_loss = self._get_losses(
             first_real_img, second_real_img, op="eval"
         )
@@ -724,7 +726,7 @@ class WassersteinLstnetTrainer(LstnetTrainer):
             first_real = first_real.to(utils.DEVICE)
             second_real = second_real.to(utils.DEVICE)
 
-            if batch_idx % CRITIC_UPDATES_PER_GEN == 0:
+            if batch_idx % self.disc_update_freq == 0:
                 disc_loss_tuple, grad_pen_tuple, enc_gen_loss_tuple, cc_loss_tuple = (
                     self._update_enc_gen(first_real, second_real)
                 )
