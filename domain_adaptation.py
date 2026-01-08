@@ -90,6 +90,7 @@ def evaluate(
     batch_size: int = 64,
     num_workers: int = 8,
     translated_data: Optional[TensorDataset] = None,
+    resize: Optional[int] = None,
 ):
     """Evaluate the classifier on the given data.
 
@@ -101,6 +102,8 @@ def evaluate(
         num_workers (int, optional): The number of worker threads for data loading. Defaults to 8.
         translated_data (Optional[TensorDataset], optional): The translated dataset.
             Defaults to None.
+        resize (Optional[int], optional): If specified, resizes images to this target size
+            when loading data. Defaults to None.
 
     Returns:
         float: The accuracy of the classifier on the test set.
@@ -120,7 +123,7 @@ def evaluate(
         )
     else:
         loader = get_testing_loader(
-            orig_domain_name, batch_size=batch_size, num_workers=num_workers
+            orig_domain_name, batch_size=batch_size, num_workers=num_workers, resize_target_size=resize
         )
 
     clf.to(utils.DEVICE)
