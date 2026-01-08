@@ -25,12 +25,15 @@ class BaseClf(Discriminator):
         input_size (Tuple[int, int]): Input image size (height, width).
         in_channels (int): Number of input channels.
         params (Sequence[Any]): Model architecture parameters.
+        use_checkpoint (bool, optional): Whether to use gradient checkpointing for
+            memory efficiency during training. Defaults to False.
     """
     def __init__(
         self,
         input_size: Tuple[int, int],
         in_channels: int,
         params: Sequence[Any],
+        use_checkpoint: bool = False,
     ):
         self.input_size = input_size
         self.in_channels_num = in_channels
@@ -40,6 +43,7 @@ class BaseClf(Discriminator):
             self.in_channels_num,
             params[:-1],
             negative_slope=params[-1]["leaky_relu_neg_slope"],
+            use_checkpoint=use_checkpoint,
         )
 
     def _create_last_layer(self) -> nn.Sequential:
@@ -70,8 +74,10 @@ class A2OClf(BaseClf):
 
     Args:
         params: Sequence[Any]: Model architecture parameters.
+        use_checkpoint (bool, optional): Whether to use gradient checkpointing for
+            memory efficiency during training. Defaults to False.
     """
-    def __init__(self, params: Sequence[Any]):
+    def __init__(self, params: Sequence[Any], use_checkpoint: bool = False):
         self.input_size = (256, 256)
         self.in_channels_num = 3
 
@@ -79,6 +85,7 @@ class A2OClf(BaseClf):
             self.input_size,
             self.in_channels_num,
             params,
+            use_checkpoint=use_checkpoint,
         )
 
     def _create_last_layer(self) -> nn.Sequential:
@@ -110,8 +117,10 @@ class SvhnClf(Discriminator):
     Also inherits from Discriminator.
     Args:
         params: Sequence[Any]: Model architecture parameters.
+        use_checkpoint (bool, optional): Whether to use gradient checkpointing for
+            memory efficiency during training. Defaults to False.
     """
-    def __init__(self, params: Sequence[Any]):
+    def __init__(self, params: Sequence[Any], use_checkpoint: bool = False):
         self.input_size = (32, 32)
         self.in_channels_num = 3
         self.dropout_p = params[-1]["dropout_p"]
@@ -121,6 +130,7 @@ class SvhnClf(Discriminator):
             self.in_channels_num,
             params[:-1],
             negative_slope=params[-1]["leaky_relu_neg_slope"],
+            use_checkpoint=use_checkpoint,
         )
 
         self.criterion = nn.CrossEntropyLoss()
@@ -232,7 +242,7 @@ class SvhnClf(Discriminator):
         return pool_output_size
 
 
-def select_classifier(domain_name: str, params: Sequence[Any]) -> Any:
+def select_classifier(domain_name: str, params: Sequence[Any], use_checkpoint: bool = False) -> Any:
     """
     Initialize a classifier for given domain with the architecture described in params.
     For the ResNet-based classifiers, params is ignored.
@@ -240,6 +250,8 @@ def select_classifier(domain_name: str, params: Sequence[Any]) -> Any:
     Args:
         domain_name (str): Name of the dataset.
         params (Sequence[Any]): Architecture parameters.
+        use_checkpoint (bool, optional): Whether to use gradient checkpointing for
+            memory efficiency during training. Defaults to False.
 
     Raises:
         ValueError: If no classifier model is loaded.
@@ -255,6 +267,7 @@ def select_classifier(domain_name: str, params: Sequence[Any]) -> Any:
                 input_size=(28, 28),
                 in_channels=1,
                 params=params,
+                use_checkpoint=use_checkpoint,
             )
 
         case "USPS":
@@ -262,13 +275,14 @@ def select_classifier(domain_name: str, params: Sequence[Any]) -> Any:
                 input_size=(16, 16),
                 in_channels=1,
                 params=params,
+                use_checkpoint=use_checkpoint,
             )
 
         case "SVHN":
-            clf = SvhnClf(params=params)
+            clf = SvhnClf(params=params, use_checkpoint=use_checkpoint)
 
         case "A2O":
-            clf = BaseClf(input_size=(256, 256), in_channels=3, params=params)
+            clf = BaseClf(input_size=(256, 256), in_channels=3, params=params, use_checkpoint=use_checkpoint)
 
         case "VISDA_SOURCE":
             clf = ResNet18(in_channels_num=3, num_classes=12)

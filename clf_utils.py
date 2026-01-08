@@ -83,6 +83,7 @@ def get_clf(
     *,
     params_path: Optional[str] = None,
     clf_params: Optional[List[Any]] = None,
+    use_checkpoint: bool = False,
 ):
     """
     Get classifier model based on domain name and parameters.
@@ -93,6 +94,8 @@ def get_clf(
             Defaults to None.
         clf_params (Optional[List[Any]], optional): Classifier parameters. Used for hyperparameter tuning.
             Defaults to None.
+        use_checkpoint (bool, optional): Whether to use gradient checkpointing for
+            memory efficiency during training. Defaults to False.
 
     Returns:
         Classifier model instance.
@@ -103,7 +106,7 @@ def get_clf(
     else:
         with open(f"{params_path}", "r", encoding="utf-8") as file:
             params = json.load(file)
-    clf = select_classifier(domain_name.upper(), params=params)
+    clf = select_classifier(domain_name.upper(), params=params, use_checkpoint=use_checkpoint)
 
     return clf
 
