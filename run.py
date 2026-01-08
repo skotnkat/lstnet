@@ -16,7 +16,7 @@ torch.multiprocessing.set_sharing_strategy('file_system')
 import utils
 import train
 import domain_adaptation
-from data_preparation import AugmentOps, ResizeOps
+from data_preparation import AugmentOps, ResizeOps, ColorJitterOps
 from LstnetTrainer import TrainParams
 
 from models.lstnet import LSTNET
@@ -103,10 +103,21 @@ def add_train_args(parser: argparse.ArgumentParser):
     _ = parser.add_argument("--rotation", type=int, default=10)
     _ = parser.add_argument("--zoom", type=float, default=0.1)
     _ = parser.add_argument("--shift", type=int, default=2)
+    _ = parser.add_argument("--strong_augment", action="store_true")
+    
+    # Strong augmentation parameters
+    _ = parser.add_argument("--horizontal_flip_prob", type=float, default=0.3)
+    _ = parser.add_argument("--color_jitter_brightness", type=float, default=0.3)
+    _ = parser.add_argument("--color_jitter_contrast", type=float, default=0.3)
+    _ = parser.add_argument("--color_jitter_saturation", type=float, default=0.3)
+    _ = parser.add_argument("--color_jitter_hue", type=float, default=0.1)
     
     _ = parser.add_argument("--pad_mode", type=str, default="edge")
     _ = parser.add_argument("--random_crop_resize", action="store_true")
     _ = parser.add_argument("--resize_init_size", type=int, default=256)
+    _ = parser.add_argument("--resized_crop_scale_max", type=float, default=1.0)
+    _ = parser.add_argument("--resized_crop_ratio_min", type=float, default=0.9)
+    _ = parser.add_argument("--resized_crop_ratio_max", type=float, default=1.1)
     
     
     _ = parser.add_argument("--inplace_augmentation", action="store_true")  # do not double the size of the data, just augment in place
@@ -320,8 +331,22 @@ def run_training(
     )
 
     # Create AugmentOps object from args
+    if cmd_args.strong_augment:
+        color_jitter = ColorJitterOps(
+            brightness=cmd_args.color_jitter_brightness,
+            contrast=cmd_args.color_jitter_contrast,
+            saturation=cmd_args.color_jitter_saturation,
+            hue=cmd_args.color_jitter_hue
+        )
+    
     augm_ops = AugmentOps(
         rotation=cmd_args.rotation, zoom=cmd_args.zoom, shift=cmd_args.shift
+        rotation=cmd_args.rotation,
+        zoom=cmd_args.zoom,
+        shift=cmd_args.shift,
+        use_strong_augment=cmd_args.strong_augment,
+        horizontal_flip_prob=cmd_args.horizontal_flip_prob,
+        color_jitter=color_jitter
     )
     
     if cmd_args.rotation == 0 and cmd_args.zoom == 0.0 and cmd_args.shift == 0:

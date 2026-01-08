@@ -16,29 +16,10 @@ def prepare_clf_data(
     seed: int,
     batch_size: int,
     num_workers: int,
-    rotation: int,
-    zoom: float,
-    shift: int,
-    resize_target_size,
-    pad_mode,
-    random_crop_resize, 
-    resize_init_size,
+    augment_ops: Optional[AugmentOps] = None,
+    resize_ops: Optional[ResizeOps] = None,
     inplace_augmentation: bool = False,
 ):
-    # Load Trainining and Validation Data
-    if (rotation == 0) and (zoom == 0) and (shift == 0):
-        aug_ops = None
-    else:
-        aug_ops = AugmentOps(rotation=rotation, zoom=zoom, shift=shift)
-
-    resize_ops = None
-    if resize_target_size is not None:
-        resize_ops = ResizeOps(
-            target_size=resize_target_size,
-            init_size=resize_init_size,
-            pad_mode=pad_mode,
-            random_crop_resize=random_crop_resize,
-        )
     
     ds_name: str = domain_name.upper()
     val_size: float = val_size_data
@@ -49,7 +30,7 @@ def prepare_clf_data(
         train_op=True,
         val_data_size=val_size,
         manual_seed=manual_seed,
-        augment_ops=aug_ops,
+        augment_ops=augment_ops,
         resize_ops=resize_ops,
         inplace_augmentation=inplace_augmentation,
     )
@@ -83,16 +64,12 @@ def get_clf(
     clf_params: Optional[List[Any]] = [],
 ):
     # Load Parameters File
-    # if params_path is None and clf_params is None:
-    #     raise ValueError("Either params_path or clf_params must be provided.")
 
-    # TODO: Fix for Base clfs and SVHN: should pass, however for resnet not
-
-    # if clf_params is not None:
-    #     params = clf_params
-    # else:
-    #     with open(f"{params_path}", "r", encoding="utf-8") as file:
-    #         params = json.load(file)
+    if clf_params is not None:
+        params = clf_params
+    else:
+        with open(f"{params_path}", "r", encoding="utf-8") as file:
+            params = json.load(file)
     params = dict()
     clf = select_classifier(domain_name.upper(), params=params)
 
