@@ -113,8 +113,15 @@ def run(
         batch_size (int, optional): Batch size for training. Defaults to 32.
         num_workers (int, optional): Number of workers for data loading. Defaults to 8.
         augm_ops (AugmentOps, optional): Data augmentation operations. Defaults to AugmentOps().
+        resize_ops (ResizeOps, optional): Data resizing operations. Defaults to ResizeOps().
+        inplace_augmentation (bool, optional): Whether to apply augmentations in place. Defaults to False.        
         train_params (TrainParams, optional): Training hyperparameters. Defaults to TrainParams().
-        use_checkpoint (bool, optional): Enable gradient checkpointing. Defaults to False.
+        optuna (bool, optional): Whether to run hyperparameter optimization with Optuna. Defaults to False.
+        use_checkpoint (bool, optional): Enable gradient checkpointing. 
+            Helpful for larger models and images to reduce memory. Trade-offs with performance. Defaults to False.
+        use_svhn_extra (bool, optional): Whether to use SVHN extra dataset. Defaults to False.
+        disc_update_freq (int, optional): Frequency of discriminator updates in Wasserstein training. Defaults to 2.
+
 
     Returns:
         LSTNET: The trained LSTNET model.
