@@ -1,6 +1,8 @@
 """
-Module is implementing loss functions used for training of encoder-generator-discriminator network.
+Module is implementing loss functions used for training of GAN networks .
 To be specific, loss functions needed for training o LSTNET model.
+Includes loss functions for encoder-generator components, discriminators,
+and cycle-consistency loss.
 """
 
 from typing import List
@@ -113,18 +115,16 @@ def compute_discriminator_loss(
 
     Args:
         model (LSTNET): The LSTNET model.
-        weights (List[float]): The weights for each domain.
-        first_real_img (Tensor): The first real images.
-        second_real_img (Tensor): The second real images.
+        weights (List[float]): The weights for all the components of network.
+        first_real_img (Tensor): Images from the first domain.
+        second_real_img (Tensor): Images from the second domain.
         first_gen_img (Tensor): Images from second domain mapped to the first domain.
         second_gen_img (Tensor): Images from first domain mapped to the second domain.
         first_latent_img (Tensor): Images from first domain mapped to latent.
         second_latent_img (Tensor): Images from second domain mapped to latent.
-        return_grad (bool, optional): Whether to return gradients.
-        Defaults to True.
 
     Returns:
-        Union[TensorTriplet, FloatTriplet]: The computed discriminator loss.
+        TensorTriplet: The computed discriminator loss.
     """
     first_real_disc = model.first_discriminator.forward(first_real_img)
     first_gen_disc = model.first_discriminator.forward(first_gen_img)
@@ -172,19 +172,18 @@ def compute_cc_loss(
     that was translated to the second domain and then back to the first domain.
 
     Args:
-        weights (List[float]): _description_
-        first_real_img (Tensor): _description_
-        second_real_img (Tensor): _description_
-        first_cycle_img (Tensor): _description_
-        second_cycle_img (Tensor): _description_
-        first_full_cycle_img (Tensor): _description_
-        second_full_cycle_img (Tensor): _description_
-        return_grad (bool, optional): _description_. Defaults to True.
+        weights (List[float]): The weights for all the components of network.
+        first_real_img (Tensor): Images from the first domain.
+        second_real_img (Tensor): Images from the second domain.
+        first_cycle_img (Tensor): Images from first domain, mapped to latent and back to first domain.
+        second_cycle_img (Tensor): Images from second domain, mapped to latent and back to second domain.
+        first_full_cycle_img (Tensor): Images from first domain, mapped to second domain and back to first domain. 
+        second_full_cycle_img (Tensor): Images from second domain, mapped to first domain and back to second domain.
 
     Returns:
-        Union[TensorQuad, FloatQuad]: _description_
+        TensorQuad: The computed cycle-consistency loss.
     """
-    cc_loss_1 = cycle_loss(first_cycle_img, first_real_img)  # (predictions, target)
+    cc_loss_1 = cycle_loss(first_cycle_img, first_real_img)
     cc_loss_2 = cycle_loss(second_cycle_img, second_real_img)
 
     cc_loss_3 = cycle_loss(first_full_cycle_img, first_real_img)
@@ -224,16 +223,15 @@ def compute_enc_gen_loss(
     are expected to be labeled as the ones from the second domain and vice versa.
 
     Args:
-        model (LSTNET): _description_
-        weights (List[float]): _description_
-        first_gen_img (Tensor): _description_
-        second_gen_img (Tensor): _description_
-        first_latent_img (Tensor): _description_
-        second_latent_img (Tensor): _description_
-        return_grad (bool, optional): _description_. Defaults to True.
+        model (LSTNET): LSTNET model.
+        weights (List[float]): The weights for all the components of network.
+        first_gen_img (Tensor): Images generated from the first domain.
+        second_gen_img (Tensor): Images generated from the second domain.
+        first_latent_img (Tensor): Latent images from the first domain.
+        second_latent_img (Tensor): Latent images from the second domain.
 
     Returns:
-        Union[TensorTriplet, FloatTriplet]: _description_
+        TensorTriplet: The computed encoder-generator loss.
     """
 
     first_gen_disc = model.first_discriminator.forward(first_gen_img)
