@@ -82,7 +82,7 @@ def get_clf(
     domain_name: str,
     *,
     params_path: Optional[str] = None,
-    clf_params: Optional[List[Any]] = [],
+    clf_params: Optional[List[Any]] = None,
 ):
     """
     Get classifier model based on domain name and parameters.
@@ -92,7 +92,7 @@ def get_clf(
         params_path (Optional[str], optional): Path to the parameters file. 
             Defaults to None.
         clf_params (Optional[List[Any]], optional): Classifier parameters. Used for hyperparameter tuning.
-            Defaults to [].
+            Defaults to None.
 
     Returns:
         Classifier model instance.
