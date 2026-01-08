@@ -1,8 +1,9 @@
 """
-Module is implementing class to handle two corresponding datasets
- of different sizes. Corresponding datasets work
- with images in supervised and unsupervised manner.
-In supervised manner, it ensures that images with the same labels are paired together.
+    Module is implementing class to handle two corresponding datasets
+    of different sizes for image-to-image translation task. Corresponding datasets work
+    with images in supervised and unsupervised manner.
+    In supervised manner, it ensures that images with the same labels are paired together.
+    A function to force shuffling of the image pairs is implemented to provide randomness.
 """
 
 from typing import Tuple, List, Dict
@@ -25,15 +26,20 @@ class DualDomainDataset(Dataset[Tuple[Tensor, int, Tensor, int]]):
         """Initialize the dual domain dataset.
 
         Args:
-            first_data (Dataset[Tuple[Tensor, int]]): The first dataset.
-            second_data (Dataset[Tuple[Tensor, int]]): The second dataset.
+            first_data (Dataset[Tuple[Tensor, int]]): The first dataset, consisting of pairs of images and their labels.
+            second_data (Dataset[Tuple[Tensor, int]]): The second dataset, consisting of pairs of images and their labels.
+            
+            Raises:
+                ValuerError: If any of the datasets is empty.
+                ValueError: If the first dataset is smaller than the second one. Is required for correct pairing and shuffling of the datasets.
+                
         """
         self.first_data: Dataset[Tuple[Tensor, int]] = first_data
         self.second_data: Dataset[Tuple[Tensor, int]] = second_data
 
-        # Pylance gives an error here, but len() works for Dataset
-        self.first_size: int = len(self.first_data)  # type: ignore
-        self.second_size: int = len(self.second_data)  # type:ignore
+        
+        self.first_size: int = len(self.first_data)
+        self.second_size: int = len(self.second_data)
 
         if self.first_size == 0 or self.second_size == 0:
             raise ValueError("Datasets must not be empty.")
@@ -41,18 +47,17 @@ class DualDomainDataset(Dataset[Tuple[Tensor, int, Tensor, int]]):
         if self.first_size < self.second_size:
             raise ValueError("First dataset cannot be smaller than the second one.")
 
-        self.max_size: int = max(self.first_size, self.second_size)
         
         # To ensure not consistent pairing of images
         self.second_data_random_sample_idx: List[int] = []
         self._shuffle_second_indices() 
 
     def __len__(self) -> int:
-        """Return the maximum size of the two datasets."""
-        return self.max_size
+        """Return the maximum size of the two datasets, which is the first size by design."""
+        return self.first_size
     
     def _shuffle_second_indices(self) -> None:
-        """Shuffle indices for the second dataset to ensure random sampling."""
+        """Shuffle indices for the second dataset to ensure random sampling of image pairs."""
         repeat_num = self.first_size // self.second_size + 1 
         smaller_indices = torch.arange(self.second_size).repeat(repeat_num)[:self.first_size]
     
@@ -71,7 +76,7 @@ class DualDomainDataset(Dataset[Tuple[Tensor, int, Tensor, int]]):
         """
         first_idx: int = idx % self.first_size
         
-        
+        # Based on the shuffled order of the second data points, get the index for the second dataset
         second_idx: int = self.second_data_random_sample_idx[idx]
 
         first_img: Tensor
@@ -82,7 +87,7 @@ class DualDomainDataset(Dataset[Tuple[Tensor, int, Tensor, int]]):
         second_label: int
         second_img, second_label = self.second_data[second_idx]
 
-        # Temporary type check for different dataset implementations
+        # Type check for different dataset implementations
         if not isinstance(first_label, int) or not isinstance(second_label, int):
             raise TypeError("Labels must be of type int.")
 
@@ -125,8 +130,8 @@ class DualDomainDataset(Dataset[Tuple[Tensor, int, Tensor, int]]):
 
 class DualDomainSupervisedDataset(DualDomainDataset):
     """
-    Dataset class to handle two datasets of different sizes that have corresponding labels.
-    Merges them in a supervised manner (with label pairing).
+    Dataset class to handle two datasets of different sizes for supervised image-to-image translation.
+    Merges them in a a way, that pairs have corresponding labels.
     """
 
     # first dataset should be always the first one -> raise error
@@ -135,11 +140,12 @@ class DualDomainSupervisedDataset(DualDomainDataset):
         first_data: Dataset[Tuple[Tensor, int]],
         second_data: Dataset[Tuple[Tensor, int]],
     ) -> None:
-        """Initialize the dual domain supervised dataset.
+        """
+        Initialize the dual domain supervised dataset.
 
         Args:
-            first_data (Dataset[Tuple[Tensor, int]]): The first dataset.
-            second_data (Dataset[Tuple[Tensor, int]]): The second dataset.
+            first_data (Dataset[Tuple[Tensor, int]]): The first dataset, images with labels.
+            second_data (Dataset[Tuple[Tensor, int]]): The second dataset, images with labels.
 
         Raises:
             ValueError: If the first dataset is smaller than the second one.
@@ -178,10 +184,14 @@ class DualDomainSupervisedDataset(DualDomainDataset):
         self._build_pairing()
         
     def _build_pairing(self) -> None:
+        """
+        Build the pairing between the two datasets based on labels.
+        """
         unique_labels = list(self.label_indices.keys())
         label_pointers: Dict[int, int] = {label: 0 for label in unique_labels}
         rank: List[int] = []
 
+        # Build ranking for second dataset based on first dataset labels
         for label in self.first_labels:
             label = int(label.item())
             pos = label_pointers[label]
@@ -194,8 +204,11 @@ class DualDomainSupervisedDataset(DualDomainDataset):
         self.second_rank = torch.tensor(rank, dtype=torch.long)
         
 
-    def _shuffle_second_indices(self):
-        # Only shuffle if label_indices has been properly initialized
+    def _shuffle_second_indices(self) -> None:
+        """
+        Shuffle indices for the second dataset to ensure random sampling of image pairs.
+        If label indices were not created yet, do nothing. Should not happen in practice, apart from initialization.
+        """
         if not hasattr(self, 'label_indices') or not self.label_indices:
             return
             
@@ -216,7 +229,8 @@ class DualDomainSupervisedDataset(DualDomainDataset):
             idx (int): The index of the sample to retrieve.
 
         Raises:
-            AssertionError: If the labels of the two images do not match (should never happen).
+            AssertionError: If the labels of the two images do not match. Should never happen in practice.
+            TypeError: If the labels are not of type int (and are tensors instead). Again, should never happen in practice.
 
         Returns:
             Tuple[Tensor, int, Tensor, int]: A tuple containing the images and their labels.
