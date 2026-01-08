@@ -201,7 +201,7 @@ def select_classifier(domain_name, params):
         case "A2O":
             clf = BaseClf(input_size=(256, 256), in_channels=3, params=params)
 
-        case "VISDA_TARGET":
+        case "VISDA_SOURCE":
             clf = ResNet18(in_channels_num=3, num_classes=12)
 
         case name if name.startswith("OFFICE_31"):
