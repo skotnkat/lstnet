@@ -1,3 +1,5 @@
+"""Classifier models and their training."""
+
 from typing import Tuple, Sequence, Any, Optional, List, Dict
 import time
 import numpy as np
@@ -16,6 +18,14 @@ from models.resnet_18 import ResNet18
 
 
 class BaseClf(Discriminator):
+    """
+    Base classifier model. Inherits from Discriminator.
+    
+    Args:
+        input_size (Tuple[int, int]): Input image size (height, width).
+        in_channels (int): Number of input channels.
+        params (Sequence[Any]): Model architecture parameters.
+    """
     def __init__(
         self,
         input_size: Tuple[int, int],
@@ -32,7 +42,13 @@ class BaseClf(Discriminator):
             negative_slope=params[-1]["leaky_relu_neg_slope"],
         )
 
-    def _create_last_layer(self):
+    def _create_last_layer(self) -> nn.Sequential:
+        """
+        Updates the the arhictecture of the last layer of the discriminator.
+
+        Returns:
+            nn.Sequential: The last layer of the discriminator.
+        """
         last_layer = nn.Sequential(
             nn.Flatten(),
             nn.Dropout(self.dense_layer_params["dropout_p"]),
@@ -48,7 +64,14 @@ class BaseClf(Discriminator):
 
 
 class A2OClf(BaseClf):
-    def __init__(self, params):
+    """
+    Classifier for apple2orange dataset. 
+    From BaseClf, it differs in the last layer and loss function.
+
+    Args:
+        params: Sequence[Any]: Model architecture parameters.
+    """
+    def __init__(self, params: Sequence[Any]):
         self.input_size = (256, 256)
         self.in_channels_num = 3
 
@@ -58,7 +81,12 @@ class A2OClf(BaseClf):
             params,
         )
 
-    def _create_last_layer(self):
+    def _create_last_layer(self) -> nn.Sequential:
+        """Create the last layer of the classifier.
+
+        Returns:
+            nn.Sequential: The last layer of the classifier.
+        """
         last_layer = nn.Sequential(
             nn.Flatten(),
             nn.Dropout(self.dense_layer_params["dropout_p"]),
@@ -77,7 +105,13 @@ class A2OClf(BaseClf):
 
 
 class SvhnClf(Discriminator):
-    def __init__(self, params):
+    """
+    Classifier for SVHN dataset, differs from BaseClf in the way layers are created.
+    Also inherits from Discriminator.
+    Args:
+        params: Sequence[Any]: Model architecture parameters.
+    """
+    def __init__(self, params: Sequence[Any]):
         self.input_size = (32, 32)
         self.in_channels_num = 3
         self.dropout_p = params[-1]["dropout_p"]
@@ -97,6 +131,20 @@ class SvhnClf(Discriminator):
         in_channels: int,
         **kwargs: Dict[str, Any],
     ) -> nn.Sequential:
+        """
+        A standard layer of the classifiers. Each layer consists of two convolutional blocks.
+        One has the role to extract features, the other to downsample the feature maps.
+
+        Args:
+            params (Tuple[Dict[str, Any], Dict[str, Any]]): Parameters for the two convolutional blocks.
+            in_channels (int): Number of input channels.
+
+        Raises:
+            ValueError: If input_size is not provided in kwargs.
+
+        Returns:
+            nn.Sequential: The created layer.
+        """
         first_block_params, second_block_params = params
 
         conv1_params = first_block_params["conv_params"]
@@ -143,6 +191,13 @@ class SvhnClf(Discriminator):
         return layer
 
     def _create_last_layer(self) -> nn.Sequential:
+        """
+        Builds a last layer of the SVHN classifier. 
+        Responsible for mapping the extracted features to class scores.
+
+        Returns:
+            nn.Sequential: The last layer of the classifier.
+        """
 
         last_layer = nn.Sequential(
             nn.Flatten(),
@@ -177,7 +232,21 @@ class SvhnClf(Discriminator):
         return pool_output_size
 
 
-def select_classifier(domain_name, params):
+def select_classifier(domain_name: str, params: Sequence[Any]) -> Any:
+    """
+    Initialize a classifier for given domain with the architecture described in params.
+    For the ResNet-based classifiers, params is ignored.
+    
+    Args:
+        domain_name (str): Name of the dataset.
+        params (Sequence[Any]): Architecture parameters.
+
+    Raises:
+        ValueError: If no classifier model is loaded.
+
+    Returns:
+        Any: Initialized classifier model.
+    """
     clf = None
 
     match domain_name:
@@ -217,9 +286,26 @@ def select_classifier(domain_name, params):
 
 
 class ClfTrainer:
+    """
+    Trainer for classifier models.
+    
+    Args:
+        clf (Any): Classifier model to be trained.
+        optimizer (str): Optimizer type.
+        epochs (int): Number of training epochs.
+        patience (int): Patience for early stopping.
+        lr (float): Learning rate.
+        betas (Tuple[float, float]): Estimated moments for optimizers.
+        weight_decay (float): Weight decay for optimizer.
+        use_scheduler (bool): Whether to use learning rate scheduler.
+        scheduler_factor (float): Factor for ReduceLROnPlateau scheduler.
+        scheduler_patience (int): Patience for ReduceLROnPlateau scheduler.
+        scheduler_min_lr (float): Minimum learning rate for scheduler.
+        run_optuna (bool): Whether the trainer is used in an Optuna trial.
+    """
     def __init__(
         self,
-        clf: BaseClf,
+        clf: Any,
         optimizer: str = "Adam",
         epochs: int = 50,
         patience: int = 5,
@@ -232,7 +318,7 @@ class ClfTrainer:
         scheduler_min_lr: float = 1e-6,
         run_optuna: bool = False,
     ):
-        self.clf: BaseClf = clf
+        self.clf: Any = clf
         self.lr: float = lr
         self.betas: Tuple[float, float] = betas
         self.weight_decay: float = weight_decay
@@ -270,7 +356,18 @@ class ClfTrainer:
 
         self.run_optuna = run_optuna
 
-    def run_loop(self, loader: DataLoader[Any], train: bool = True):
+    def run_loop(self, loader: DataLoader[Any], train: bool = True) -> Tuple[float, float]:
+        """
+        Running loop for one epoch over the provided DataLoader.
+
+        Args:
+            loader (DataLoader[Any]): DataLoader for the dataset.
+            train (bool, optional): Whether to run in training mode (backpropagation enabled), or in evaluation. 
+                Defaults to True.
+
+        Returns:
+            Tuple[float, float]: Tuple containing the average loss and accuracy.
+        """
         loss_total = 0
         acc_total = 0
         num_samples = 0
@@ -316,7 +413,22 @@ class ClfTrainer:
         val_loader: DataLoader[Any],
         *,
         trial: Optional[optuna.Trial] = None,
-    ):
+    ) -> Any:
+        """
+        Full training of the classifier. 
+
+        Args:
+            train_loader (DataLoader[Any]): DataLoader for the training dataset.
+            val_loader (DataLoader[Any]): DataLoader for the validation dataset.
+            trial (Optional[optuna.Trial], optional): Optuna trial object for hyperparameter tuning. Defaults to None.
+
+        Raises:
+            ValueError: If run_optuna is True and trial is not provided.
+            optuna.exceptions.TrialPruned: If the trial should be pruned based on intermediate results.
+
+        Returns:
+            The trained classifier model.
+        """
         if self.run_optuna and trial is None:
             raise ValueError("If run_optuna is True, trial must be provided.")
 
@@ -379,6 +491,7 @@ class ClfTrainer:
         return self.clf
 
     def get_trainer_info(self):
+        """Log training hyperparameters and results."""
         info = {
             "optimizer": self.optimizer.__class__.__name__,
             "epochs": self.epochs,

@@ -1,11 +1,24 @@
+
+
+"""Optuna-based hyperparameter optimization for classifier architecture search."""
+
+from typing import Dict, Any, List, Tuple
 import optuna
 import time
-
-
 import clf_utils
 
 
-def suggest_architecture(trial):
+
+
+def suggest_architecture(trial: optuna.trial.Trial) -> List[Dict[Any]]:
+    """Sample parameters to suggest architecture for tuning.
+
+    Args:
+        trial (optuna.trial.Trial): Optuna trial object.
+
+    Returns:
+        _type_: _description_
+    """
     num_stages = trial.suggest_categorical("num_stages", [3, 4])
     base = trial.suggest_categorical("base_channels", [16, 32, 64])
     conv_first_kernel = trial.suggest_categorical("conv_first_kernel", [3, 5])
@@ -43,7 +56,7 @@ def suggest_architecture(trial):
     dropout_p = trial.suggest_float("dropout_prob", 0.1, 0.5)
     params.append(
         {"out_features": 10, "dropout_p": dropout_p}
-    )  # !!! Fix hardcoded out channels (can be deduced from dataset)
+    ) 
 
     leaky_relu_neg_slope = trial.suggest_float("leaky_relu_neg_slope", 0.01, 0.3)
     params.append({"leaky_relu_neg_slope": leaky_relu_neg_slope})
@@ -52,6 +65,13 @@ def suggest_architecture(trial):
 
 
 def objective(trial, cmd_args):
+    """
+    Objective function for Optuna hyperparameter optimization.
+    
+    Args:
+        trial (optuna.trial.Trial): The Optuna trial object.
+        cmd_args: Command line arguments containing configuration.
+    """
     start_time = time.time()
     params = suggest_architecture(trial)
 
@@ -141,7 +161,15 @@ def rerun_with_best_params(best_params, best_architecture_params, cmd_args):
     return trained_clf, trainer_info
 
 
-def run_optuna_clf(cmd_args):
+def run_optuna_clf(cmd_args) -> Tuple[Any, Dict[str, Any]]:
+    """Run optuna hyperparameter tuning from end-to-end.
+
+    Args:
+        cmd_args (argparse.Namespace): Command line arguments containing configuration.
+
+    Returns:
+        Tuple[Any, Dict[str, Any]]: Trained classifier and training information.
+    """
     sampler = optuna.samplers.TPESampler(
         n_startup_trials=cmd_args.optuna_sampler_start_trials,
         multivariate=True,
