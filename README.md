@@ -12,12 +12,24 @@ The rest of the requierements are specified in `requirements.txt`.
 ## Training, Image Translation and Evaluation
 ### Run Training
 
+**Note:** The first domain should be the dataset with more data, due to the shuffling logic in creation of pairs.
+
+```bash
+python run.py train mnist usps params/mnist_usps_params.json --output_folder output/
+```
+
+Example:
 ```bash
 python run.py train mnist usps params/mnist_usps_params.json --output_folder output_mnist_usps
 ```
 
 ### Run Translation
 
+```bash
+python run.py translate mnist --load_model --output_folder output/
+```
+
+Example:
 ```bash
 python run.py translate mnist --load_model --output_folder output_base
 ```
@@ -27,47 +39,98 @@ Loads model from the output folder and returns the translated images there.
 
 ### Run Evaluation
 
-Evaluate MNIST data with USPS classifier:
+Evaluate first domain data with second domain classifier:
 ```bash
-python run.py eval mnist eval_models/USPS/USPS_model.pth --output_folder output_base --dataset_path output_base/MNIST_translated_data.pt
+python run.py eval mnist usps_clf.pth --output_folder output/ --dataset_path output/MNIST_translated_data.pt
 ```
 
-Evaluate USPS data with MNIST classifier:
+Evaluate second domain data with first domain classifier:
 ```bash
+python run.py eval usps mnist_clf.pth --output_folder output/ --dataset_path output/USPS_translated_data.pt
+```
+
+Example:
+```bash
+python run.py eval mnist eval_models/USPS/USPS_model.pth --output_folder output_base --dataset_path output_base/MNIST_translated_data.pt
 python run.py eval usps eval_models/MNIST/MNIST_model.pth --output_folder output_base --dataset_path output_base/USPS_translated_data.pt
 ```
 
-### Run End-to-End (All)
+### Run Complete Workflow
 
+To perform the complete domain adaptation workflow, run the operations sequentially:
+
+1. **Train LSTNET model:**
 ```bash
-python run.py all mnist usps params/mnist_usps_params.json eval_models/USPS/USPS_model.pth eval_models/MNIST/MNIST_model.pth --output_folder output_base
+python run.py train mnist usps params/mnist_usps_params.json --output_folder output_mnist_usps --epoch_num 50
 ```
 
+2. **Translate source domain to target domain:**
+```bash
+python run.py translate mnist --load_model --model_name lstnet.pth --output_folder output_mnist_usps
+```
+
+3. **Translate target domain to source domain:**
+```bash
+python run.py translate usps --load_model --model_name lstnet.pth --output_folder output_mnist_usps
+```
+
+4. **Evaluate translated source on target classifier:**
+```bash
+python run.py eval usps usps_clf.pth --output_folder output_mnist_usps --dataset_path output_mnist_usps/MNIST_translated_data.pt
+```
+
+5. **Evaluate translated target on source classifier:**
+```bash
+python run.py eval mnist mnist_clf.pth --output_folder output_mnist_usps --dataset_path output_mnist_usps/USPS_translated_data.pt
+```
 
 ### Run Optuna Hyperparameter Optimization
 
+```bash
+python run.py train mnist usps params/mnist_usps_params.json --output_folder output_optuna/ --num_workers 48 --optuna --optuna_study_name tuning --optuna_trials 200 --optuna_sampler_start_trials 30 --optuna_pruner_sample_trials 20 --optuna_pruner_warmup_steps 30 --optuna_pruner_interval_steps 10 --percentile 90 --hyperparam_mode augm_ops train_params architecture
+```
+
+Example:
 ```bash
 python run.py train mnist usps params/mnist_usps_params.json --output_folder output_optuna_tuning --num_workers 48 --optuna --optuna_study_name tuning --optuna_trials 200 --optuna_sampler_start_trials 30 --optuna_pruner_sample_trials 20 --optuna_pruner_warmup_steps 30 --optuna_pruner_interval_steps 10 --percentile 90 --hyperparam_mode augm_ops train_params architecture
 ```
 
 ## Training Classifiers
 
-### Classifier Evaluation
+### Train Classifier
 
-Evaluate MNIST classifier:
+Train a classifier for a domain:
 ```bash
-python run.py eval mnist mnist_clf_base/MNIST_clf_model.pth --output_folder mnist_clf_base --output_results_file mnist_clf_eval
+python train_eval_clf.py mnist --params_file eval_models/params/mnist_clf_params.json --output_folder output/
 ```
 
-Evaluate Office-31 classifier with resizing:
+Example:
 ```bash
-python run.py eval office_31_webcam $webcam_clf --resize_target_size 224
+python train_eval_clf.py mnist --params_file eval_models/params/mnist_clf_params.json --output_folder eval_models/mnist/
+```
+
+### Classifier Evaluation
+
+Evaluate classifier:
+```bash
+python run.py eval mnist mnist_clf.pth --output_folder output/ --output_results_file mnist_clf_eval
+```
+
+Evaluate classifier with resizing:
+```bash
+python run.py eval office_31_webcam webcam_clf.pth --resize_target_size 224
+```
+
+Examples:
+```bash
+python run.py eval mnist mnist_clf_base/MNIST_clf_model.pth --output_folder mnist_clf_base --output_results_file mnist_clf_eval
+python run.py eval office_31_webcam eval_models/office31/webcam_clf.pth --resize_target_size 224
 ```
 
 
 ## Command Line Arguments Reference
 
-### Common Arguments (Available for all operations: train, translate, eval, all)
+### Common Arguments (Available for all operations: train, translate, eval)
 
 | Argument | Mandatory | Default | Description |
 |----------|-----------|---------|-------------|
@@ -183,18 +246,3 @@ python run.py eval office_31_webcam $webcam_clf --resize_target_size 224
 |----------|-----------|---------|-------------|
 | `--dataset_path` | No | `""` | Name of file to load the dataset from |
 | `--log_name` | No | `test_acc` | Name for the evaluation metric in the results file |
-
-### All Operation Arguments (End-to-End)
-
-This operation combines training, translation, and evaluation. It uses all train operation arguments plus:
-
-#### Additional Positional Arguments
-| Argument | Mandatory | Default | Description |
-|----------|-----------|---------|-------------|
-| `clf_first_domain` | Yes | - | Path to the trained classifier of the first domain |
-| `clf_second_domain` | Yes | - | Path to the trained classifier of the second domain |
-
-#### Additional Optional Arguments
-| Argument | Mandatory | Default | Description |
-|----------|-----------|---------|-------------|
-| `--save_trans_data` | No | `False` | If set, the translated data should be saved |
