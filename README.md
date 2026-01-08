@@ -3,16 +3,15 @@ LSTNet is deep learning model performing image-to-image translation to tackle do
 
 ## Requirements
 Python version `>=3.11` is required. 
-Based on the OS version and if GPU is available, install correct torch and torchvision packages.
-https://pytorch.org/
+Based on the OS version and if GPU is available, install correct torch and torchvision packages: https://pytorch.org/.
 
-The rest of the requierements are specified in `requirements.txt`. 
+The rest of the required packages are specified in `requirements.txt`. 
 
 
 ## Training, Image Translation and Evaluation
 ### Run Training
 
-**Note:** The first domain should be the dataset with more data, due to the shuffling logic in creation of pairs.
+**Note:** The first domain must be the dataset with more data, due to the shuffling logic implemented for creation of image pairs.
 
 ```bash
 python run.py train mnist usps params/mnist_usps_params.json --output_folder output
