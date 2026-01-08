@@ -598,7 +598,7 @@ def load_dataset(
             elif name =="VISDA_TEST":
                 subfolder = "visda_test/test"
 
-            data_folder = download_data.DATA_FOLDER + "/" + subfolder
+            data_folder = download_data.VISDA_DATA_FOLDER + "/" + subfolder
 
             if transform_steps is None:
                 transform_steps = create_transform_steps(3, resize_ops=resize_ops)
