@@ -216,31 +216,10 @@ def add_eval_args(parser: argparse.ArgumentParser):
     _ = parser.add_argument("--log_name", default="test_acc", type=str)
 
 
-def add_end_to_end_parser(parser: argparse.ArgumentParser):
-    """Combine arguments (train, translate, evaluate) for end-to-end operation."""
-    add_train_args(parser)
-
-    _ = parser.add_argument(
-        "clf_first_domain",
-        type=str,
-        help="Path to the trained classifier of the first domain",
-    )
-    _ = parser.add_argument(
-        "clf_second_domain",
-        type=str,
-        help="Path to the trained classifier of the second domain",
-    )
-    _ = parser.add_argument(
-        "--save_trans_data",
-        action="store_true",
-        help="If set, the translated data should be saved.",
-    )
-
-
 def parse_args() -> argparse.Namespace:
     """Parse command line arguments."""
     parser = argparse.ArgumentParser(
-        description="Domain adaptation: train, translate, evalute or all"
+        description="Domain adaptation: train, translate, or evaluate"
     )
 
     subparsers = parser.add_subparsers(dest="operation", required=True)
@@ -268,20 +247,12 @@ def parse_args() -> argparse.Namespace:
     add_common_args(eval_parser)
     add_eval_args(eval_parser)
 
-    # All: train->translate->evaluate
-    all_parser = subparsers.add_parser(
-        "all",
-        help="Perform the end-to-end workflow.",
-    )
-    add_common_args(all_parser)
-    add_end_to_end_parser(all_parser)
-
     cmd_args = parser.parse_args()
 
     if not os.path.exists(cmd_args.output_folder):
         os.makedirs(cmd_args.output_folder)
 
-    if cmd_args.operation in ["eval", "all"]:
+    if cmd_args.operation == "eval":
         cmd_args.clf_model = utils.check_file_ending(cmd_args.clf_model, ".pth")
 
     return cmd_args
@@ -476,60 +447,13 @@ def run_evaluation(
         batch_size=cmd_args.batch_size,
         num_workers=cmd_args.num_workers,
         translated_data=translated_data,
+        resize=cmd_args.resize_target_size,
     )
 
     results_file = f"{cmd_args.output_folder}/{domain_name}_eval_results.json"
     print(f'Results saved to "{results_file}"')
     with open(results_file, "a", encoding="utf-8") as file:
         json.dump({f"{log_name}": test_acc}, file, indent=2)
-
-
-def run_end_to_end(cmd_args: argparse.Namespace) -> None:
-    """Run end-to-end operation: train -> translate -> evaluate.
-
-    Args:
-        cmd_args (argparse.Namespace): Command line arguments.
-    """
-    if cmd_args.optuna:
-        print("Running Optuna hyperparameter optimization for LSTNET model.")
-        model = lstnet_optuna.run_optuna_lstnet(cmd_args)
-
-    else:
-        model = run_training(cmd_args, return_model=True)
-
-    # Translate first and second domains
-    first_translated_data = run_translation(
-        cmd_args,
-        cmd_args.first_domain,
-        model,
-        return_data=True,
-        save_trans_data=cmd_args.save_trans_data,
-    )
-
-    second_translated_data = run_translation(
-        cmd_args,
-        cmd_args.second_domain,
-        model,
-        return_data=True,
-        save_trans_data=cmd_args.save_trans_data,
-    )
-
-    # Always use in-memory translated data for efficiency
-    # Files are saved by run_translation when save_trans_data=True
-    run_evaluation(
-        cmd_args,
-        cmd_args.clf_second_domain,
-        cmd_args.first_domain,
-        cmd_args.log_name,
-        translated_data=first_translated_data,
-    )
-    run_evaluation(
-        cmd_args,
-        cmd_args.clf_first_domain,
-        cmd_args.second_domain,
-        cmd_args.log_name,
-        translated_data=second_translated_data,
-    )
 
 
 if __name__ == "__main__":
@@ -554,6 +478,3 @@ if __name__ == "__main__":
             args.log_name,
             args.dataset_path,
         )
-
-    else:
-        run_end_to_end(args)
