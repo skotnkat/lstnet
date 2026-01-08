@@ -9,7 +9,41 @@ https://pytorch.org/
 The rest of the requierements are specified in `requirements.txt`. 
 
 
-## Command Line Arguments
+## Training, Image Translation and Evaluation
+### Run Training
+
+`python run.py train mnist usps params/mnsit_usps_params.json --output_folder output_mnist_usps`
+
+### Run translation
+`python run.py translate mnist --load_model --output_folder output_base`
+Loads model from the output folder and returns the translated images there.
+
+
+### Run evaluation
+`python run.py eval mnist eval_models/USPS/USPS_model.pth --output_folder output_base --dataset_path output_base/MNIST_translated_data.pt`
+
+`python run.py eval usps eval_models/MNIST/MNIST_model.pth --output_folder output_base --dataset_path output_base/USPS_translated_data.pt`
+
+
+`pyhon run.py all mnis usps mnis_usps_params.json eval_models/USPS/USPS_model.pth eval_models/MNIST/MNIST_model.pth --ouput_folder output_base`
+
+
+Run Optuna
+`python run.py train mnist usps params/mnist_usps_params.json --output_folder output_optuna_tuning --num_workers 48 --optuna --optuna_study_name tuning --optuna_trials 200 --optuna_sampler_start_trials 30 --optuna_pruner_sample_trials 20 --optuna_pruner_warmup_steps 30 --optuna_pruner_interval_steps 10 --percentile 90 --hyperparam_mode augm_ops train_params architecture`
+
+## Training Classifiers
+
+### Evaluation
+`python run.py eval mnist mnist_clf_base/MNIST_clf_model.pth --output_folder mnist_clf_base --output_results_file  mnist_clf_eval`
+
+
+
+
+# CORRECT CLF Evaluation
+`python run.py eval office_31_webcam $webcam_clf --resize_target_size 224`
+
+
+## Command Line Arguments Reference
 
 ### Common Arguments (Available for all operations: train, translate, eval, all)
 
@@ -142,41 +176,3 @@ This operation combines training, translation, and evaluation. It uses all train
 | Argument | Mandatory | Default | Description |
 |----------|-----------|---------|-------------|
 | `--save_trans_data` | No | `False` | If set, the translated data should be saved |
-
-
-## Training, Image Translatoin and Evaluation
-### Run Training
-#### Mandatory arguments:
-* first domain name, it is expected that it is the dataset with more data (due to shuffling logic in creation of pairs)
-* second domain name
-* file with parameters
-
-`python run.py train mnist usps params/mnsit_usps_params.json --output_folder output_mnist_usps`
-
-### Run translation
-`python run.py translate mnist --load_model --output_folder output_base`
-Loads model from the output folder and returns the translated images there.
-
-
-### Run evaluation
-`python run.py eval mnist eval_models/USPS/USPS_model.pth --output_folder output_base --dataset_path output_base/MNIST_translated_data.pt`
-
-`python run.py eval usps eval_models/MNIST/MNIST_model.pth --output_folder output_base --dataset_path output_base/USPS_translated_data.pt`
-
-
-`pyhon run.py all mnis usps mnis_usps_params.json eval_models/USPS/USPS_model.pth eval_models/MNIST/MNIST_model.pth --ouput_folder output_base`
-
-
-Run Optuna
-`python run.py train mnist usps params/mnist_usps_params.json --output_folder output_optuna_tuning --num_workers 48 --optuna --optuna_study_name tuning --optuna_trials 200 --optuna_sampler_start_trials 30 --optuna_pruner_sample_trials 20 --optuna_pruner_warmup_steps 30 --optuna_pruner_interval_steps 10 --percentile 90 --hyperparam_mode augm_ops train_params architecture`
-
-## Training Classifiers
-
-### Evaluation
-`python run.py eval mnist mnist_clf_base/MNIST_clf_model.pth --output_folder mnist_clf_base --output_results_file  mnist_clf_eval`
-
-
-
-
-# CORRECT CLF Evaluation
-`python run.py eval office_31_webcam $webcam_clf --resize_target_size 224`
