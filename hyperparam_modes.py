@@ -1,10 +1,29 @@
+"""
+This module provides functions to suggest hyperparameters for various components
+of the LSTNet model, including loss weights, augmentation parameters, training
+parameters, and architecture parameters.
+"""
+
 import copy
 
 from data_preparation import AugmentOps
 from LstnetTrainer import TrainParams
 
+import optuna.Trial
+import argparse.Namespace
 
-def suggest_weights(trial, weights_sum):
+
+def suggest_weights(trial: optuna.Trial, weights_sum: float) -> list:
+    """Suggest loss weights with optional domain symmetry.
+    
+    Args:
+        trial (optuna.Trial): Optuna trial object for suggesting hyperparameters.
+        weights_sum: Target sum for normalized weights.
+    
+    Returns:
+        List of 7 normalized weights for domain1, domain2, latent,
+        half_cycle1, half_cycle2, full_cycle1, full_cycle2 losses.
+    """
     tied = trial.suggest_categorical("tied", [True, False])
 
     # How much of the weight is given to the cycle consistency losses
@@ -81,8 +100,19 @@ def suggest_weights(trial, weights_sum):
     return norm_weights
 
 
-def suggest_weights_reduced(trial, weights_sum):
-    # originally: 20+20+30+4*100 = 470 -> 400 / 470 = 0.851
+def suggest_weights_reduced(trial: optuna.Trial, weights_sum: float) -> list:
+    """Suggest reduced loss weights for Optuna optimization.
+
+    Args:
+        trial (optuna.Trial): Optuna trial object for suggesting hyperparameters.
+        weights_sum (float): Target sum for normalized weights.
+
+    Returns:
+        list: List of 7 normalized weights for domain1, domain2, latent,
+        half_cycle1, half_cycle2, full_cycle1, full_cycle2 losses.
+    """
+    
+    # Originally: 20+20+30+4*100 = 470 -> 400 / 470 = 0.851
     cycle_overall_share = trial.suggest_float("cycle_overall_share", 0.75, 0.95)
     rest_overall_share = 1.0 - cycle_overall_share
 
@@ -116,7 +146,15 @@ def suggest_weights_reduced(trial, weights_sum):
     return norm_weights
 
 
-def suggest_augment_params(trial):
+def suggest_augment_params(trial: optuna.Trial) -> AugmentOps: 
+    """Suggest augmentation parameters for Optuna optimization.
+
+    Args:
+        trial (Trial): Optuna trial object for suggesting hyperparameters.
+
+    Returns:
+        AugmentOps: Suggested augmentation operations.
+    """
     rotation = trial.suggest_int("rotation", 0, 30, step=5)
     zoom = trial.suggest_float("zoom", 0.0, 0.3, step=0.05)
     shift = trial.suggest_int("shift", 0, 5)
@@ -124,7 +162,16 @@ def suggest_augment_params(trial):
     return AugmentOps(rotation=rotation, zoom=zoom, shift=shift)
 
 
-def suggest_training_params(trial, cmd_args):
+def suggest_training_params(trial: optuna.Trial, cmd_args: argparse.Namespace) -> TrainParams:
+    """Suggest training parameter values of the model.
+
+    Args:
+        trial (optuna.Trial): Optuna trial object for suggesting hyperparameters.
+        cmd_args (argparse.Namespace): Command line arguments namespace.
+
+    Returns:
+        TrainParams: Suggested training parameters.
+    """
     lr = trial.suggest_float("learning_rate", 1e-5, 1e-2, log=True)
     weight_decay = trial.suggest_float("weight_decay", 1e-6, 1e-2, log=True)
     optim_name = trial.suggest_categorical("optimizer", ["Adam", "AdamW", "Lion"])
