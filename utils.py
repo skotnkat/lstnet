@@ -25,7 +25,6 @@ NETWORK_NAMES = {
 DEVICE: Optional[torch.device] = None
 
 
-# requires python >=3.11
 TensorPair: TypeAlias = Tuple[Tensor, Tensor]
 TensorTriplet: TypeAlias = Tuple[Tensor, Tensor, Tensor]
 TensorQuad: TypeAlias = Tuple[Tensor, Tensor, Tensor, Tensor]
@@ -91,7 +90,15 @@ def standardize_padding(
 
 
 def split_padding(p_total: int) -> Tuple[int, int]:
-    """Split total padding into two parts for convolutional layers."""
+    """
+    Split total padding into two parts for convolutional layers.
+    Args:
+        p_total (int): Total padding.
+        
+    Returns:
+        Tuple[int, int]: A tuple containing the two parts of the padding, each applied to different side of the input. 
+            Might results in assymetric padding if p_total is odd.
+    """
 
     p_first = p_total // 2
     p_second = p_total - p_first
@@ -101,7 +108,15 @@ def split_padding(p_total: int) -> Tuple[int, int]:
 
 # Will not be working with 2d data (tuples)?
 def compute_effective_kernel_size(kernel_size: int, dilation: int) -> int:
-    """Compute the effective kernel size for convolutional layers."""
+    """Compute the effective kernel size for convolutional layers.
+    
+    Args:
+        kernel_size (int): Size of the kernel.
+        dilation (int): Dilation rate.
+        
+    Returns:
+        int: Effective kernel size.
+    """
 
     return dilation * (kernel_size - 1) + 1
 
@@ -122,7 +137,7 @@ def init_optimizer(
     betas: Tuple[float, float],
     weight_decay: float,
 ) -> torch.optim.Optimizer:
-    """Initialize optimizer.
+    """Initialize an optimizer.
 
     Args:
         optim_name (str): Name of the optimizer.
@@ -190,21 +205,3 @@ def convert_tensor_tuple_to_floats(
     """Convert a tuple of tensors to a tuple of floats."""
 
     return tuple(t.item() for t in tuple_tensor)
-
-def print_gpu_memory(prefix: str = ""):
-    if not torch.cuda.is_available():
-        print(f"{prefix}CUDA not available.")
-        return
-
-    d = torch.device("cuda")
-    torch.cuda.synchronize(d)
-
-    alloc = torch.cuda.memory_allocated(d) / 1024**2
-    reserv = torch.cuda.memory_reserved(d) / 1024**2
-    total = torch.cuda.get_device_properties(d).total_memory / 1024**2
-    free = total - reserv
-
-    print(
-        f"[{prefix}]: alloc={alloc:.1f}MB | reserv={reserv:.1f}MB | free~={free:.1f}MB | total={total:.1f}MB"
-    )
-
