@@ -9,11 +9,11 @@ import copy
 from data_preparation import AugmentOps
 from LstnetTrainer import TrainParams
 
-import optuna.Trial
-import argparse.Namespace
+from optuna.trial import Trial
+import argparse
 
 
-def suggest_weights(trial: optuna.Trial, weights_sum: float) -> list:
+def suggest_weights(trial: Trial, weights_sum: float) -> list:
     """Suggest loss weights with optional domain symmetry.
     
     Args:
@@ -100,7 +100,7 @@ def suggest_weights(trial: optuna.Trial, weights_sum: float) -> list:
     return norm_weights
 
 
-def suggest_weights_reduced(trial: optuna.Trial, weights_sum: float) -> list:
+def suggest_weights_reduced(trial: Trial, weights_sum: float) -> list:
     """Suggest reduced loss weights for Optuna optimization.
 
     Args:
@@ -146,7 +146,7 @@ def suggest_weights_reduced(trial: optuna.Trial, weights_sum: float) -> list:
     return norm_weights
 
 
-def suggest_augment_params(trial: optuna.Trial) -> AugmentOps: 
+def suggest_augment_params(trial: Trial) -> AugmentOps: 
     """Suggest augmentation parameters for Optuna optimization.
 
     Args:
@@ -162,7 +162,7 @@ def suggest_augment_params(trial: optuna.Trial) -> AugmentOps:
     return AugmentOps(rotation=rotation, zoom=zoom, shift=shift)
 
 
-def suggest_training_params(trial: optuna.Trial, cmd_args: argparse.Namespace) -> TrainParams:
+def suggest_training_params(trial: Trial, cmd_args: argparse.Namespace) -> TrainParams:
     """Suggest training parameter values of the model.
 
     Args:
