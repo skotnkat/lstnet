@@ -110,9 +110,9 @@ def add_train_args(parser: argparse.ArgumentParser):
     _ = parser.add_argument("--pad_mode", type=str, default="edge", help="Padding mode for resize operations. Options are: constant, edge, reflect, symmetric.")
     _ = parser.add_argument("--random_crop_resize", action="store_true", help="If set, random resized crop will be applied during resizing.")
     _ = parser.add_argument("--resize_init_size", type=int, default=256, help="Initial size to which images are resized before random crop resize.")
-    _ = parser.add_argument("--resized_crop_scale", type=float, default=(0.8, 1.0), nargs=2, help="Scale range for random resized crop.")
-    _ = parser.add_argument("--resized_crop_ratio_max", type=float, default=(0.9, 1.1), nargs=2, 
-                            help="Aspect ratio of hte crop will be kept in this range percentage of data.")
+    _ = parser.add_argument("--resized_crop_scale", type=float, default=(0.8, 1.0), nargs=2, help="Scale range for random resized crop (min max).")
+    _ = parser.add_argument("--resized_crop_ratio", type=float, default=(0.9, 1.1), nargs=2, 
+                            help="Aspect ratio range for random resized crop (min max).")
     
     
     _ = parser.add_argument("--inplace_augmentation", action="store_true", 
@@ -213,7 +213,6 @@ def add_eval_args(parser: argparse.ArgumentParser):
         type=str,
         help="Name of file to load the dataset from",
     )
-    _ = parser.add_argument("--output_results_file", default="results_json", type=str)
     _ = parser.add_argument("--log_name", default="test_acc", type=str)
 
 
@@ -363,8 +362,8 @@ def run_training(
             init_size=cmd_args.resize_init_size,
             pad_mode=cmd_args.pad_mode,
             random_crop_resize=cmd_args.random_crop_resize,
-            resized_crop_scale=(cmd_args.resized_crop_scale_min, cmd_args.resized_crop_scale_max),
-            resized_crop_ratio=(cmd_args.resized_crop_ratio_min, cmd_args.resized_crop_ratio_max),
+            resized_crop_scale=tuple(cmd_args.resized_crop_scale),
+            resized_crop_ratio=tuple(cmd_args.resized_crop_ratio),
         )
 
     print(f"inplace_augmentation: {cmd_args.inplace_augmentation}")
@@ -457,7 +456,7 @@ def run_evaluation(
     """
     Run evaluation for a provided domain.
     Saves the evaluation results to a file
-    in cmd_args.output_folder with name cmd_args.output_results_file.
+    in cmd_args.output_folder.
 
     Args:
         cmd_args (argparse.Namespace): Command line arguments.
@@ -468,7 +467,7 @@ def run_evaluation(
         translated_data (Optional[torch.Tensor], optional):
             Translated data to use for evaluation. Defaults to None.
     """
-    model = torch.load(clf_name, weights_only=True, map_location=utils.DEVICE)
+    model = torch.load(clf_name, weights_only=False, map_location=utils.DEVICE)
 
     test_acc = domain_adaptation.evaluate(
         clf=model,
