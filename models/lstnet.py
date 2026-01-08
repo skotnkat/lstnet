@@ -36,13 +36,16 @@ class LSTNET(nn.Module):
         Args:
             first_domain_name (str): Name of the first domain.
             second_domain_name (str): Name of the second domain.
-            params (Dict[str, Any]): Model parameters.
+            params (Dict[str, Any]): Model parameters containing configuration for encoders,
+                generators, discriminators, and global parameters.
             first_input_size (Tuple[int, int]): Input size for the first domain.
             second_input_size (Tuple[int, int]): Input size for the second domain.
             first_in_channels_num (int, optional): Number of input channels for the first domain.
                 Defaults to 1.
             second_in_channels_num (int, optional): Number of input channels for the second domain.
                 Defaults to 1.
+            use_checkpoint (bool, optional): Whether to use gradient checkpointing for
+                memory efficiency during training. Defaults to False.
         """
         super().__init__()
 
@@ -473,5 +476,5 @@ class LSTNET(nn.Module):
         Returns:
             LSTNET: The loaded LSTNET model.
         """
-        dict_to_load = torch.load(input_path, map_location=utils.DEVICE)
+        dict_to_load = torch.load(input_path, map_location=utils.DEVICE, weights_only=True)
         return LSTNET.load_lstnet_from_state_dict(dict_to_load)
