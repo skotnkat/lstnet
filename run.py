@@ -1,7 +1,4 @@
-"""
-Main script to run training, translation and evaluation
-for img-to-img translation using LSTNET model.
-"""
+"""Main script to run training, translation and evaluation for img-to-img translation using LSTNET model."""
 
 import os
 import argparse
@@ -23,25 +20,21 @@ from models.lstnet import LSTNET
 import lstnet_optuna
 
 
+# Arguments common across multiple operations
 def add_common_args(parser: argparse.ArgumentParser):
     """Add arguments common to all operations."""
     _ = parser.add_argument(
         "--output_folder", type=str, default="output/", help="Path to the output folder"
     )
     _ = parser.add_argument(
-        "--batch_size", type=int, default=64, help="Size of batches used in training."
+        "--batch_size", type=int, default=64, help="Size of batches used in data loaders."
     )
     _ = parser.add_argument(
-        "--num_workers", type=int, default=4, help="Size of batches used in training."
+        "--num_workers", type=int, default=4, help="Number of worker threads for data loading."
     )
-    _ = parser.add_argument(
-        "--load_model",
-        action="store_true",
-        help="If a model with name 'model_name' should be loaded for data translation.",
-    )
-    _ = parser.add_argument("--manual_seed", type=int, default=42)
+    _ = parser.add_argument("--manual_seed", type=int, default=42, help="Manual seed for random number generators used in data spliting.")
     
-    _ = parser.add_argument("--resize_target_size", type=int, default=None)
+    _ = parser.add_argument("--resize_target_size", type=int, default=None, help="If set, images are resized to the provided size, preserving aspect ratio.")
 
 
 def add_train_args(parser: argparse.ArgumentParser):
@@ -71,20 +64,20 @@ def add_train_args(parser: argparse.ArgumentParser):
         help="Number of discriminator updates per encoder-generator update.",
     )
 
-    _ = parser.add_argument("--optim_name", type=str, default="Adam")
+    _ = parser.add_argument("--optim_name", type=str, default="Adam", help="Name of the optimizer to use.")
 
     _ = parser.add_argument(
         "--learning_rate",
         type=float,
         default=1e-4,
-        help="Learning rate used in Adam optimizer.",
+        help="Learning rate used in an optimizer.",
     )
     _ = parser.add_argument(
         "--betas",
         type=float,
         nargs=2,
         default=(0.8, 0.999),
-        help="Two float values for Adam optimizer decay (beta1, beta2)",
+        help="Momentum parameters for optimizer.",
     )
     _ = parser.add_argument("--weight_decay", type=float, default=1e-2)
     _ = parser.add_argument(
@@ -93,53 +86,55 @@ def add_train_args(parser: argparse.ArgumentParser):
         help="If set, the full training set will be used. No validation phase after training.",
     )
 
-    _ = parser.add_argument("--model_file_name", type=str, default="lstnet.pth")
-    _ = parser.add_argument("--logs_file_name", type=str, default="loss_logs.json")
+    _ = parser.add_argument("--model_file_name", type=str, default="lstnet.pth", help="Name of the model under which the trained LSTNET model will be saved in the `output_folder`.")
+    _ = parser.add_argument("--logs_file_name", type=str, default="loss_logs.json", help="Name of the file where training loss logs will be saved.")
 
-    _ = parser.add_argument("--epoch_num", type=int, default=50)
-    _ = parser.add_argument("--val_size", type=float, default=0.25)
-    _ = parser.add_argument("--early_stopping", action="store_true")
-    _ = parser.add_argument("--patience", type=int, default=10)
-    _ = parser.add_argument("--rotation", type=int, default=10)
-    _ = parser.add_argument("--zoom", type=float, default=0.1)
-    _ = parser.add_argument("--shift", type=int, default=2)
-    _ = parser.add_argument("--strong_augment", action="store_true")
+    _ = parser.add_argument("--epoch_num", type=int, default=50, help="Number of training epochs.")
+    _ = parser.add_argument("--val_size", type=float, default=0.25, help="Proportion of data used for validation.")
+    _ = parser.add_argument("--early_stopping", action="store_true", help="Enable early stopping during training.")
+    _ = parser.add_argument("--patience", type=int, default=10, help="Number of epochs with no improvement after which training will be stopped.")
+    _ = parser.add_argument("--rotation", type=int, default=10, help="Degree of rotation for data augmentation.")
+    _ = parser.add_argument("--zoom", type=float, default=0.1, help="Zoom factor for data augmentation.")
+    _ = parser.add_argument("--shift", type=int, default=2, help="Pixel shift for data augmentation.")
+    _ = parser.add_argument("--strong_augment", action="store_true", help="Whether to run strong or weak agumentation. \
+        Weak augmentation uses only zoom, shift and rotation. \
+        Strong augmentation techniques includes horizontal flip and color jitter.")
     
     # Strong augmentation parameters
-    _ = parser.add_argument("--horizontal_flip_prob", type=float, default=0.3)
-    _ = parser.add_argument("--color_jitter_brightness", type=float, default=0.3)
-    _ = parser.add_argument("--color_jitter_contrast", type=float, default=0.3)
-    _ = parser.add_argument("--color_jitter_saturation", type=float, default=0.3)
-    _ = parser.add_argument("--color_jitter_hue", type=float, default=0.1)
+    _ = parser.add_argument("--horizontal_flip_prob", type=float, default=0.3, help="Probability of horizontal flip for strong augmentation.")
+    _ = parser.add_argument("--color_jitter_brightness", type=float, default=0.3, help="Brightness factor for color jitter in strong augmentation.")
+    _ = parser.add_argument("--color_jitter_contrast", type=float, default=0.3, help="Contrast factor for color jitter in strong augmentation.")
+    _ = parser.add_argument("--color_jitter_saturation", type=float, default=0.3, help="Saturation factor for color jitter in strong augmentation.")
+    _ = parser.add_argument("--color_jitter_hue", type=float, default=0.1, help="Hue factor for color jitter in strong augmentation.")
     
-    _ = parser.add_argument("--pad_mode", type=str, default="edge")
-    _ = parser.add_argument("--random_crop_resize", action="store_true")
-    _ = parser.add_argument("--resize_init_size", type=int, default=256)
-    _ = parser.add_argument("--resized_crop_scale_max", type=float, default=1.0)
-    _ = parser.add_argument("--resized_crop_ratio_min", type=float, default=0.9)
-    _ = parser.add_argument("--resized_crop_ratio_max", type=float, default=1.1)
+    _ = parser.add_argument("--pad_mode", type=str, default="edge", help="Padding mode for resize operations. Options are: constant, edge, reflect, symmetric.")
+    _ = parser.add_argument("--random_crop_resize", action="store_true", help="If set, random resized crop will be applied during resizing.")
+    _ = parser.add_argument("--resize_init_size", type=int, default=256, help="Initial size to which images are resized before random crop resize.")
+    _ = parser.add_argument("--resized_crop_scale", type=float, default=(0.8, 1.0), nargs=2, help="Scale range for random resized crop.")
+    _ = parser.add_argument("--resized_crop_ratio_max", type=float, default=(0.9, 1.1), nargs=2, 
+                            help="Aspect ratio of hte crop will be kept in this range percentage of data.")
     
     
-    _ = parser.add_argument("--inplace_augmentation", action="store_true")  # do not double the size of the data, just augment in place
-    _ = parser.add_argument("--use_svhn_extra", action="store_true")
+    _ = parser.add_argument("--inplace_augmentation", action="store_true", 
+                            help="If set, data augmentation will be performed inplace to reduce memory usage.") 
+    _ = parser.add_argument("--use_svhn_extra", action="store_true", 
+                            help="If set, the extra SVHN training data will be used when SVHN is one of the domains.")
 
     _ = parser.add_argument(
         "--weights",
         type=float,
         nargs=7,
         default=[20, 20, 30, 100, 100, 100, 100],
-        help="List of 7 float weights",
+        help="List of 7 float weights for the loss components: ",
     )
     
-
-    _ = parser.add_argument("--resize", type=int, nargs=2, default=None)
     _ = parser.add_argument(
         "--use_checkpoint",
         action="store_true",
         help="If set, gradient checkpointing will be enabled to reduce GPU memory usage.",
     )
 
-    _ = parser.add_argument("--optuna", action="store_true")
+    _ = parser.add_argument("--optuna", action="store_true", help="If set, Optuna hyperparameter optimization will be performed.")
     _ = parser.add_argument("--optuna_study_name", type=str, default="lstnet_study")
     _ = parser.add_argument(
         "--optuna_trials",
@@ -147,14 +142,17 @@ def add_train_args(parser: argparse.ArgumentParser):
         default=50,
         help="Number of Optuna trials to perform if --optuna is set.",
     )
-    # _ = parser.add_argument("--optuna_max_resource", type=int, default=20)
-    # _ = parser.add_argument("--optuna_min_resource", type=int, default=5)
-    # _ = parser.add_argument("--optuna_reduction_factor", type=int, default=2)
-    _ = parser.add_argument("--optuna_sampler_start_trials", type=int, default=20)
-    _ = parser.add_argument("--optuna_pruner_sample_trials", type=int, default=50)
-    _ = parser.add_argument("--optuna_pruner_warmup_steps", type=int, default=15)
-    _ = parser.add_argument("--optuna_pruner_interval_steps", type=int, default=5)
-    _ = parser.add_argument("--percentile", type=int, default=10)
+
+    _ = parser.add_argument("--optuna_sampler_start_trials", type=int, default=20, 
+                            help="Number of initial trials used as exploratory for TPE sampler.")
+    _ = parser.add_argument("--optuna_pruner_sample_trials", type=int, default=50,
+                            help="Number of trials to consider for median pruner.")
+    _ = parser.add_argument("--optuna_pruner_warmup_steps", type=int, default=15, 
+                            help="Number of warmup steps before starting to prune unpromising trials.")
+    _ = parser.add_argument("--optuna_pruner_interval_steps", type=int, default=5, 
+                            help="Interval steps for pruning checks.")
+    _ = parser.add_argument("--percentile", type=int, default=10, 
+                            help="Percentile for pruning threshold.")
     _ = parser.add_argument(
         "--hyperparam_mode",
         type=str,
@@ -186,6 +184,12 @@ def add_translate_args(parser: argparse.ArgumentParser):
         "domain",
         type=str.upper,
         help="Name of the domain to be translated to the other domain.",
+    )
+    
+    _ = parser.add_argument(
+        "--load_model",
+        action="store_true",
+        help="If a model with name 'model_name' should be loaded for data translation.",
     )
     _ = parser.add_argument(
         "--model_name",
@@ -331,6 +335,7 @@ def run_training(
     )
 
     # Create AugmentOps object from args
+    color_jitter = None
     if cmd_args.strong_augment:
         color_jitter = ColorJitterOps(
             brightness=cmd_args.color_jitter_brightness,
@@ -340,7 +345,6 @@ def run_training(
         )
     
     augm_ops = AugmentOps(
-        rotation=cmd_args.rotation, zoom=cmd_args.zoom, shift=cmd_args.shift
         rotation=cmd_args.rotation,
         zoom=cmd_args.zoom,
         shift=cmd_args.shift,
@@ -349,7 +353,7 @@ def run_training(
         color_jitter=color_jitter
     )
     
-    if cmd_args.rotation == 0 and cmd_args.zoom == 0.0 and cmd_args.shift == 0:
+    if cmd_args.rotation == 0 and cmd_args.zoom == 0.0 and cmd_args.shift == 0 and not cmd_args.strong_augment:
         augm_ops = None
     
     resize_ops = None
@@ -359,6 +363,8 @@ def run_training(
             init_size=cmd_args.resize_init_size,
             pad_mode=cmd_args.pad_mode,
             random_crop_resize=cmd_args.random_crop_resize,
+            resized_crop_scale=(cmd_args.resized_crop_scale_min, cmd_args.resized_crop_scale_max),
+            resized_crop_ratio=(cmd_args.resized_crop_ratio_min, cmd_args.resized_crop_ratio_max),
         )
 
     print(f"inplace_augmentation: {cmd_args.inplace_augmentation}")
@@ -462,7 +468,7 @@ def run_evaluation(
         translated_data (Optional[torch.Tensor], optional):
             Translated data to use for evaluation. Defaults to None.
     """
-    model = torch.load(clf_name, weights_only=False, map_location=utils.DEVICE)
+    model = torch.load(clf_name, weights_only=True, map_location=utils.DEVICE)
 
     test_acc = domain_adaptation.evaluate(
         clf=model,
