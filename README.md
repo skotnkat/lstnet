@@ -12,35 +12,57 @@ The rest of the requierements are specified in `requirements.txt`.
 ## Training, Image Translation and Evaluation
 ### Run Training
 
-`python run.py train mnist usps params/mnsit_usps_params.json --output_folder output_mnist_usps`
+```bash
+python run.py train mnist usps params/mnist_usps_params.json --output_folder output_mnist_usps
+```
 
-### Run translation
-`python run.py translate mnist --load_model --output_folder output_base`
+### Run Translation
+
+```bash
+python run.py translate mnist --load_model --output_folder output_base
+```
+
 Loads model from the output folder and returns the translated images there.
 
 
-### Run evaluation
-`python run.py eval mnist eval_models/USPS/USPS_model.pth --output_folder output_base --dataset_path output_base/MNIST_translated_data.pt`
+### Run Evaluation
 
-`python run.py eval usps eval_models/MNIST/MNIST_model.pth --output_folder output_base --dataset_path output_base/USPS_translated_data.pt`
+Evaluate MNIST data with USPS classifier:
+```bash
+python run.py eval mnist eval_models/USPS/USPS_model.pth --output_folder output_base --dataset_path output_base/MNIST_translated_data.pt
+```
+
+Evaluate USPS data with MNIST classifier:
+```bash
+python run.py eval usps eval_models/MNIST/MNIST_model.pth --output_folder output_base --dataset_path output_base/USPS_translated_data.pt
+```
+
+### Run End-to-End (All)
+
+```bash
+python run.py all mnist usps params/mnist_usps_params.json eval_models/USPS/USPS_model.pth eval_models/MNIST/MNIST_model.pth --output_folder output_base
+```
 
 
-`pyhon run.py all mnis usps mnis_usps_params.json eval_models/USPS/USPS_model.pth eval_models/MNIST/MNIST_model.pth --ouput_folder output_base`
+### Run Optuna Hyperparameter Optimization
 
-
-Run Optuna
-`python run.py train mnist usps params/mnist_usps_params.json --output_folder output_optuna_tuning --num_workers 48 --optuna --optuna_study_name tuning --optuna_trials 200 --optuna_sampler_start_trials 30 --optuna_pruner_sample_trials 20 --optuna_pruner_warmup_steps 30 --optuna_pruner_interval_steps 10 --percentile 90 --hyperparam_mode augm_ops train_params architecture`
+```bash
+python run.py train mnist usps params/mnist_usps_params.json --output_folder output_optuna_tuning --num_workers 48 --optuna --optuna_study_name tuning --optuna_trials 200 --optuna_sampler_start_trials 30 --optuna_pruner_sample_trials 20 --optuna_pruner_warmup_steps 30 --optuna_pruner_interval_steps 10 --percentile 90 --hyperparam_mode augm_ops train_params architecture
+```
 
 ## Training Classifiers
 
-### Evaluation
-`python run.py eval mnist mnist_clf_base/MNIST_clf_model.pth --output_folder mnist_clf_base --output_results_file  mnist_clf_eval`
+### Classifier Evaluation
 
+Evaluate MNIST classifier:
+```bash
+python run.py eval mnist mnist_clf_base/MNIST_clf_model.pth --output_folder mnist_clf_base --output_results_file mnist_clf_eval
+```
 
-
-
-# CORRECT CLF Evaluation
-`python run.py eval office_31_webcam $webcam_clf --resize_target_size 224`
+Evaluate Office-31 classifier with resizing:
+```bash
+python run.py eval office_31_webcam $webcam_clf --resize_target_size 224
+```
 
 
 ## Command Line Arguments Reference
