@@ -55,18 +55,29 @@ DoubleDataset: TypeAlias = Tuple[Dataset[Any], Dataset[Any]]
 class ColorJitterOps:
     """Data class for color jitter augmentation parameters."""
     brightness: float = 0.3
+    contrast: float = 0.3
+    saturation: float = 0.3
+    hue: float = 0.1
+
+
 @dataclass(slots=True)
 class AugmentOps:
     """Data class for augmentation operations. Holds parameters for augmentation.
     Args:
         rotation (int): The maximum rotation angle in degrees. Defaults to 10.
-        zoom (float): The zoom factor. Defaults to 0.1.
-        shift (int): The maximum shift in pixels. Defaults to 2.
+        zoom (float): The zoom factor for weak augmentation. Defaults to 0.1.
+        shift (int): The maximum shift in pixels for weak augmentation. Defaults to 2.
+        use_strong_augment (bool): Use strong augmentation instead of weak. Defaults to False.
+        horizontal_flip_prob (float): Probability of horizontal flip for strong augmentation. Defaults to 0.0.
+        color_jitter (Optional[ColorJitterOps]): Color jitter parameters for strong augmentation. Defaults to None.
     """
 
     rotation: int = 10
     zoom: float = 0.1
     shift: int = 2
+    use_strong_augment: bool = False
+    horizontal_flip_prob: float = 0.0
+    color_jitter: Optional[ColorJitterOps] = None
 
 
 @dataclass(slots=True)
@@ -75,6 +86,8 @@ class ResizeOps:
     init_size: int = 256
     pad_mode: str = 'edge'
     random_crop_resize: bool = False
+    resized_crop_scale: Tuple[float, float] = (0.8, 1.0)
+    resized_crop_ratio: Tuple[float, float] = (0.9, 1.1)
     
     def __post_init__(self):
         if self.target_size > self.init_size:
@@ -100,7 +113,9 @@ def get_augmentation_steps(
     Returns:
         Compose: A composition of image transformation steps.
     """
-    print(f"augment_ops: {augment_ops}")
+    if augment_ops is None:
+        return []
+    
     dx_translation = augment_ops.shift / img_size[0]
     dy_translation = augment_ops.shift / img_size[1]
 
@@ -174,49 +189,53 @@ def create_transform_steps(
             Lambda(lambda img: resize_with_padding(img, first_size, pad_mode=resize_ops.pad_mode))
             )
 
-        
-        # TODO: make the operations passable (scale, ratio, colour jitter, rotation)
         if resize_ops.random_crop_resize is True:
             ops.append(
                 RandomResizedCrop(
                     resize_ops.target_size,
-                    scale=(0.8, 1.0),
-                    ratio=(0.9, 1.1),
+                    scale=resize_ops.resized_crop_scale,
+                    ratio=resize_ops.resized_crop_ratio,
                     interpolation=InterpolationMode.BILINEAR
                 )
             )
             
             img_size = (resize_ops.target_size, resize_ops.target_size)
-
-            ops.append(
-                ColorJitter(
-                    brightness=0.3,
-                    contrast=0.3,
-                    saturation=0.3,
-                    hue=0.1
-                )
-            )
-
-            ops.append(
-                RandomApply([
-                RandomRotation(
-                    degrees=10,  # Moderate rotation
-                    interpolation=InterpolationMode.BILINEAR,
-                    fill=None  # Will use edge values
-                )
-            ], p=1.0))
-
-            ops.append(RandomHorizontalFlip(p=0.3))
             
 
+    # Apply augmentation: either strong or weak
     if augment_ops is not None:
         if img_size is None:
             raise ValueError("img_size must be provided when augment_ops is used")
 
-        fill = 0
-        if num_channels == 3:
-            fill = (127, 127, 127)
-        ops.extend(get_augmentation_steps(img_size, augment_ops=augment_ops, fill=fill))
+        if augment_ops.use_strong_augment:
+            # Strong augmentation: ColorJitter, RandomRotation, RandomHorizontalFlip
+            if augment_ops.color_jitter is not None:
+                ops.append(
+                    ColorJitter(
+                        brightness=augment_ops.color_jitter.brightness,
+                        contrast=augment_ops.color_jitter.contrast,
+                        saturation=augment_ops.color_jitter.saturation,
+                        hue=augment_ops.color_jitter.hue
+                    )
+                )
+
+            if augment_ops.rotation > 0:
+                ops.append(
+                    RandomRotation(
+                        degrees=augment_ops.rotation,
+                        interpolation=InterpolationMode.BILINEAR,
+                        fill=None
+                    )
+                )
+
+            if augment_ops.horizontal_flip_prob > 0:
+                ops.append(RandomHorizontalFlip(p=augment_ops.horizontal_flip_prob))
+        else:
+            # Weak augmentation: RandomAffine
+            fill = 0
+            if num_channels == 3:
+                fill = (127, 127, 127)
+            ops.extend(get_augmentation_steps(img_size, augment_ops=augment_ops, fill=fill))
 
     ops.extend(
         [

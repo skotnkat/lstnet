@@ -7,6 +7,7 @@ import os
 import clf_utils
 import utils
 import clf_optuna
+from data_preparation import AugmentOps, ResizeOps, ColorJitterOps
 
 
 def parse_args() -> argparse.Namespace:
@@ -26,6 +27,14 @@ def parse_args() -> argparse.Namespace:
     _ = parser.add_argument("--aug_rotation", type=int, default=10)
     _ = parser.add_argument("--aug_zoom", type=float, default=0.1)
     _ = parser.add_argument("--aug_shift", type=int, default=2)
+    _ = parser.add_argument("--strong_augment", action="store_true")
+    
+    # Strong augmentation parameters
+    _ = parser.add_argument("--horizontal_flip_prob", type=float, default=0.3)
+    _ = parser.add_argument("--color_jitter_brightness", type=float, default=0.3)
+    _ = parser.add_argument("--color_jitter_contrast", type=float, default=0.3)
+    _ = parser.add_argument("--color_jitter_saturation", type=float, default=0.3)
+    _ = parser.add_argument("--color_jitter_hue", type=float, default=0.1)
 
     _ = parser.add_argument("--batch_size", type=int, default=64)
     _ = parser.add_argument("--num_workers", type=int, default=8)
@@ -55,6 +64,10 @@ def parse_args() -> argparse.Namespace:
     _ = parser.add_argument("--pad_mode", type=str, default="edge")
     _ = parser.add_argument("--random_crop_resize", action="store_true")
     _ = parser.add_argument("--resize_init_size", type=int, default=256)
+    _ = parser.add_argument("--resized_crop_scale_min", type=float, default=0.8)
+    _ = parser.add_argument("--resized_crop_scale_max", type=float, default=1.0)
+    _ = parser.add_argument("--resized_crop_ratio_min", type=float, default=0.9)
+    _ = parser.add_argument("--resized_crop_ratio_max", type=float, default=1.1)
     _ = parser.add_argument("--inplace_augmentation", action="store_true")
 
     return parser.parse_args()
@@ -70,19 +83,48 @@ if __name__ == "__main__":
 
     else:
         print(f"Training basic classifier on {args.domain_name}")
+        
+        # Create AugmentOps
+        color_jitter = None
+        if args.strong_augment:
+            color_jitter = ColorJitterOps(
+                brightness=args.color_jitter_brightness,
+                contrast=args.color_jitter_contrast,
+                saturation=args.color_jitter_saturation,
+                hue=args.color_jitter_hue
+            )
+        
+        augm_ops = None
+        if args.aug_rotation != 0 or args.aug_zoom != 0.0 or args.aug_shift != 0 or args.strong_augment:
+            augm_ops = AugmentOps(
+                rotation=args.aug_rotation,
+                zoom=args.aug_zoom,
+                shift=args.aug_shift,
+                use_strong_augment=args.strong_augment,
+                horizontal_flip_prob=args.horizontal_flip_prob,
+                color_jitter=color_jitter
+            )
+        
+        # Create ResizeOps
+        resize_ops = None
+        if args.resize_target_size is not None:
+            resize_ops = ResizeOps(
+                target_size=args.resize_target_size,
+                init_size=args.resize_init_size,
+                pad_mode=args.pad_mode,
+                random_crop_resize=args.random_crop_resize,
+                resized_crop_scale=(args.resized_crop_scale_min, args.resized_crop_scale_max),
+                resized_crop_ratio=(args.resized_crop_ratio_min, args.resized_crop_ratio_max),
+            )
+        
         train_loader, val_loader = clf_utils.prepare_clf_data(
             args.domain_name,
             val_size_data=args.val_size,
             seed=args.manual_seed,
             batch_size=args.batch_size,
             num_workers=args.num_workers,
-            rotation=args.aug_rotation,
-            zoom=args.aug_zoom,
-            shift=args.aug_shift,
-            resize_target_size=args.resize_target_size,
-            pad_mode=args.pad_mode,
-            random_crop_resize=args.random_crop_resize,
-            resize_init_size=args.resize_init_size,
+            augment_ops=augm_ops,
+            resize_ops=resize_ops,
             inplace_augmentation=args.inplace_augmentation
         )
         print("Data preppared.")
