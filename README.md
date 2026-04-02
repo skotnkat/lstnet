@@ -1,6 +1,15 @@
 # lstnet
 LSTNet is deep learning model performing image-to-image translation to tackle domain adaptation.
 
+The implementation is based on paper "Unsupervised Latent Space Translation Network" by Friedjungová et al.
+
+When using the code, please link to this repository and cite:
+```text
+Friedjungová, M.; Vašata, D.; Chobola, T.; Jiřina, M.
+Unsupervised Latent Space Translation Network
+In: ESANN 2020 - Proceedings. Louvain la Neuve: Ciaco - i6doc.com, 2020. p. 13-18. ISBN 978-2-87587-074-2.
+```
+
 ## Requirements
 Python version `>=3.11` is required. 
 Based on the OS version and if GPU is available, install correct torch and torchvision packages: https://pytorch.org/.
